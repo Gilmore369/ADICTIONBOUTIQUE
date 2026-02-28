@@ -1,0 +1,293 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  
+  /* Design System Tokens - Spacing Scale (8px base) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  
+  /* Design System Tokens - Border Radius */
+  --radius-standard: 8px;
+  --radius-pill: 999px;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+:root {
+  --radius: 0.5rem; /* 8px - Design System standard border radius */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* Modern dark theme with better contrast */
+  --background: oklch(0.15 0.005 240);
+  --foreground: oklch(0.98 0.002 240);
+  --card: oklch(0.18 0.008 240);
+  --card-foreground: oklch(0.98 0.002 240);
+  --popover: oklch(0.18 0.008 240);
+  --popover-foreground: oklch(0.98 0.002 240);
+  --primary: oklch(0.75 0.15 240);
+  --primary-foreground: oklch(0.98 0.002 240);
+  --secondary: oklch(0.25 0.01 240);
+  --secondary-foreground: oklch(0.98 0.002 240);
+  --muted: oklch(0.25 0.01 240);
+  --muted-foreground: oklch(0.65 0.01 240);
+  --accent: oklch(0.28 0.015 240);
+  --accent-foreground: oklch(0.98 0.002 240);
+  --destructive: oklch(0.65 0.22 25);
+  --border: oklch(0.28 0.015 240);
+  --input: oklch(0.28 0.015 240);
+  --ring: oklch(0.65 0.15 240);
+  --chart-1: oklch(0.65 0.2 260);
+  --chart-2: oklch(0.7 0.15 180);
+  --chart-3: oklch(0.75 0.18 140);
+  --chart-4: oklch(0.68 0.22 300);
+  --chart-5: oklch(0.7 0.2 40);
+  --sidebar: oklch(0.16 0.008 240);
+  --sidebar-foreground: oklch(0.95 0.002 240);
+  --sidebar-primary: oklch(0.7 0.18 240);
+  --sidebar-primary-foreground: oklch(0.98 0.002 240);
+  --sidebar-accent: oklch(0.22 0.012 240);
+  --sidebar-accent-foreground: oklch(0.95 0.002 240);
+  --sidebar-border: oklch(0.25 0.01 240);
+  --sidebar-ring: oklch(0.65 0.15 240);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ============================================================================
+   HSL SLIDER — theme-settings.tsx
+   ============================================================================ */
+
+.theme-hsl-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+.theme-hsl-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid oklch(0.85 0 0);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 0.1s, box-shadow 0.1s;
+  margin-top: -7px;
+}
+
+.theme-hsl-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.theme-hsl-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 999px;
+}
+
+/* Firefox */
+.theme-hsl-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid oklch(0.85 0 0);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.theme-hsl-slider::-moz-range-track {
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+/* Dark mode thumb */
+.dark .theme-hsl-slider::-webkit-slider-thumb {
+  background: oklch(0.92 0 0);
+  border-color: oklch(0.45 0 0);
+}
+
+.dark .theme-hsl-slider::-moz-range-thumb {
+  background: oklch(0.92 0 0);
+  border-color: oklch(0.45 0 0);
+}
+
+/* ============================================================================
+   PRINT STYLES FOR SALE RECEIPT
+   ============================================================================ */
+
+@media print {
+  /* Ocultar todo excepto el ticket */
+  body * {
+    visibility: hidden;
+  }
+  
+  .receipt-content,
+  .receipt-content * {
+    visibility: visible;
+  }
+  
+  .receipt-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    padding: 0;
+    margin: 0;
+  }
+  
+  /* Ocultar botones y elementos de UI */
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  /* Optimizar para impresión térmica */
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  
+  /* Asegurar que el texto sea legible */
+  .receipt-content {
+    font-size: 12pt;
+    line-height: 1.4;
+    color: #000;
+    background: #fff;
+  }
+  
+  /* Bordes para impresión */
+  .receipt-content .border-dashed {
+    border-style: dashed !important;
+    border-color: #000 !important;
+  }
+}
+
+/* ============================================================================
+   GOOGLE MAPS INFOWINDOW STYLES
+   ============================================================================ */
+
+/* Force white background on InfoWindow container */
+.gm-style .gm-style-iw-c {
+  background-color: white !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Remove default padding from content wrapper */
+.gm-style .gm-style-iw-d {
+  overflow: auto !important;
+  max-height: none !important;
+}
+
+/* White background for the pointer/tail */
+.gm-style .gm-style-iw-t::after {
+  background: white !important;
+  box-shadow: -2px 2px 2px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Style the close button */
+.gm-style .gm-ui-hover-effect {
+  opacity: 1 !important;
+  top: 8px !important;
+  right: 8px !important;
+}
+
+.gm-style .gm-ui-hover-effect > span {
+  background-color: #374151 !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.gm-style .gm-ui-hover-effect:hover > span {
+  background-color: #111827 !important;
+}

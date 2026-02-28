@@ -1,0 +1,1434 @@
+'use client'
+
+/**
+ * Visual Catalog — Catálogo interno tipo "tienda" v2.0
+ *
+ * Features:
+ * - Grid de tarjetas de modelos con imagen, nombre, tallas/colores y stock
+ * - Filtros colapsables: línea, categoría, marca, color, texto
+ * - Carrito colapsable con toggle
+ * - Selección de color y talla en cada tarjeta (clickable)
+ * - Botón "+" para agregar al carrito directamente desde la tarjeta
+ * - Drawer de carrito con control de cantidades e "Ir al POS"
+ * - Integración con POS via localStorage
+ * - Modal de detalle con galería de imágenes, stock real por variante, y subida de imágenes
+ * - Layout responsivo que se adapta cuando los paneles están ocultos
+ */
+
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { createBrowserClient } from '@/lib/supabase/client'
+import { formatCurrency } from '@/lib/utils/currency'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Search, X, ImageIcon, ChevronLeft, ChevronRight,
+  Package, Star, Upload, Trash2, RefreshCw,
+  ShoppingCart, Plus, Minus, ArrowRight, Check,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ITEMS_PER_PAGE = 24
+const CART_KEY = 'boutique_visual_cart'
+const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'UNICA', 'ÚNICA']
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ModelVariant {
+  product_id: string
+  barcode: string
+  size: string | null
+  color: string | null
+  stock: number
+  price: number
+  purchase_price: number
+}
+
+interface ModelCard {
+  base_code: string
+  base_name: string
+  category_id: string | null
+  category_name: string | null
+  line_id: string | null
+  line_name: string | null
+  brand_id: string | null
+  brand_name: string | null
+  sale_price: number
+  purchase_price: number
+  total_stock: number
+  variant_count: number
+  size_names: string[]      // sorted unique sizes
+  colors: string[]          // unique colors
+  primary_image_url: string | null
+  variants: ModelVariant[]  // per-variant real stock
+}
+
+interface ProductImage {
+  id: string
+  base_code: string
+  color: string | null
+  is_primary: boolean
+  public_url: string
+  storage_path: string
+}
+
+/** Matches the POS useCart CartItem format for localStorage bridge */
+export interface VisualCartItem {
+  product_id: string
+  product_name: string
+  barcode: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+  // Extra visual info (ignored by POS but useful for cart drawer)
+  image_url: string | null
+  size: string | null
+  color: string | null
+  base_name: string
+}
+
+interface FilterOption { id: string; name: string }
+
+// ─── Color Helpers ────────────────────────────────────────────────────────────
+
+const COLOR_NAME_MAP: Record<string, string> = {
+  'negro': 'bg-black', 'black': 'bg-black',
+  'blanco': 'bg-white border border-gray-300', 'white': 'bg-white border border-gray-300',
+  'rojo': 'bg-red-600', 'red': 'bg-red-600', 'roja': 'bg-red-600',
+  'azul': 'bg-blue-600', 'blue': 'bg-blue-600', 'azul marino': 'bg-blue-900',
+  'verde': 'bg-green-600', 'green': 'bg-green-600', 'verde olivo': 'bg-lime-700',
+  'amarillo': 'bg-yellow-400', 'yellow': 'bg-yellow-400',
+  'rosado': 'bg-pink-400', 'rosa': 'bg-pink-400', 'pink': 'bg-pink-400',
+  'morado': 'bg-purple-500', 'purple': 'bg-purple-500',
+  'violeta': 'bg-violet-500', 'lila': 'bg-violet-300',
+  'naranja': 'bg-orange-500', 'orange': 'bg-orange-500',
+  'gris': 'bg-gray-400', 'gray': 'bg-gray-400', 'grey': 'bg-gray-400', 'gris oscuro': 'bg-gray-600',
+  'beige': 'bg-amber-100 border border-amber-200',
+  'cafe': 'bg-amber-700', 'marrón': 'bg-amber-700', 'marron': 'bg-amber-700',
+  'celeste': 'bg-sky-400', 'turquesa': 'bg-teal-400',
+  'dorado': 'bg-yellow-500', 'plateado': 'bg-gray-300',
+  'coral': 'bg-red-400', 'salmon': 'bg-orange-300',
+  'crema': 'bg-yellow-50 border border-yellow-200',
+}
+const HEX_MAP: Record<string, string> = {
+  '#000000': 'bg-black', '#FFFFFF': 'bg-white border border-gray-300',
+  '#DC2626': 'bg-red-600', '#2563EB': 'bg-blue-600',
+  '#16A34A': 'bg-green-600', '#EAB308': 'bg-yellow-500',
+  '#EC4899': 'bg-pink-500', '#D4A574': 'bg-amber-300',
+}
+
+function colorCls(color: string): string {
+  const upper = color.toUpperCase()
+  const lower = color.toLowerCase()
+  return HEX_MAP[upper] || COLOR_NAME_MAP[lower] || 'bg-gray-400'
+}
+
+function ColorDot({
+  color,
+  size = 'sm',
+  selected = false,
+  onClick,
+}: {
+  color: string
+  size?: 'sm' | 'md' | 'lg'
+  selected?: boolean
+  onClick?: (e: React.MouseEvent) => void
+}) {
+  const sz = size === 'lg' ? 'w-5 h-5' : size === 'md' ? 'w-4 h-4' : 'w-3 h-3'
+  const cls = colorCls(color)
+  return (
+    <span
+      title={color}
+      onClick={onClick}
+      className={[
+        'inline-flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-150',
+        sz, cls,
+        onClick ? 'cursor-pointer' : '',
+        selected ? 'ring-2 ring-offset-1 ring-primary scale-125 z-10' : '',
+      ].join(' ')}
+    >
+      {selected && size !== 'sm' && <Check className="h-2 w-2 text-white drop-shadow-sm" />}
+    </span>
+  )
+}
+
+// ─── Size Sort ────────────────────────────────────────────────────────────────
+
+function sortSizes(sizes: string[]): string[] {
+  return [...sizes].sort((a, b) => {
+    const ai = SIZE_ORDER.indexOf(a.toUpperCase())
+    const bi = SIZE_ORDER.indexOf(b.toUpperCase())
+    if (ai !== -1 && bi !== -1) return ai - bi
+    if (ai !== -1) return -1
+    if (bi !== -1) return 1
+    return a.localeCompare(b, undefined, { numeric: true })
+  })
+}
+
+// ─── ModelCardItem ────────────────────────────────────────────────────────────
+
+function ModelCardItem({
+  model,
+  onOpenDetail,
+  onAddToCart,
+  isInCart,
+}: {
+  model: ModelCard
+  onOpenDetail: () => void
+  onAddToCart: (variant: ModelVariant) => void
+  isInCart: boolean
+}) {
+  const [selSize, setSelSize] = useState<string | null>(
+    model.size_names.length === 1 ? model.size_names[0] : null
+  )
+  const [selColor, setSelColor] = useState<string | null>(
+    model.colors.length === 1 ? model.colors[0] : null
+  )
+  const [justAdded, setJustAdded] = useState(false)
+
+  // Reset selections if model changes (e.g., pagination)
+  useEffect(() => {
+    setSelSize(model.size_names.length === 1 ? model.size_names[0] : null)
+    setSelColor(model.colors.length === 1 ? model.colors[0] : null)
+  }, [model.base_code, model.size_names.length, model.colors.length])
+
+  const stockBadgeColor =
+    model.total_stock === 0 ? 'text-rose-600' :
+    model.total_stock < 5   ? 'text-amber-600' :
+    'text-emerald-600'
+
+  // Find best matching variant based on current selection
+  const matchingVariant = useMemo(() => {
+    if (model.variants.length === 0) return null
+    if (model.variants.length === 1) return model.variants[0]
+    const candidates = model.variants.filter(v => {
+      const sOk = !selSize  || v.size  === selSize
+      const cOk = !selColor || v.color === selColor
+      return sOk && cOk
+    })
+    // Prefer one with stock
+    return candidates.find(v => v.stock > 0) ?? candidates[0] ?? model.variants[0]
+  }, [model.variants, selSize, selColor])
+
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!matchingVariant) {
+      toast.error('No hay variantes disponibles')
+      return
+    }
+    if (matchingVariant.stock <= 0) {
+      toast.error('Sin stock disponible')
+      return
+    }
+    onAddToCart(matchingVariant)
+    setJustAdded(true)
+    setTimeout(() => setJustAdded(false), 1500)
+  }
+
+  return (
+    <Card className="group overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 p-0 relative flex flex-col">
+      {/* ── Image ── */}
+      <div
+        className="relative aspect-[3/4] bg-muted overflow-hidden cursor-pointer flex-shrink-0"
+        onClick={onOpenDetail}
+      >
+        {model.primary_image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={model.primary_image_url}
+            alt={model.base_name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground/30">
+            <ImageIcon className="h-8 w-8" />
+            <span className="text-[9px]">Sin imagen</span>
+          </div>
+        )}
+
+        {/* Stock badge */}
+        <div className="absolute top-1.5 right-1.5">
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/90 shadow-sm ${stockBadgeColor}`}>
+            {model.total_stock > 0 ? `${model.total_stock} uds` : 'Agotado'}
+          </span>
+        </div>
+
+        {/* In-cart indicator */}
+        {isInCart && (
+          <div className="absolute top-1.5 left-1.5 bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
+            <ShoppingCart className="h-2.5 w-2.5" />
+          </div>
+        )}
+      </div>
+
+      {/* ── Card body ── */}
+      <div className="p-2 flex flex-col gap-1.5 flex-1">
+        {/* Title — click opens detail */}
+        <div onClick={onOpenDetail} className="cursor-pointer">
+          <p className="text-[9px] font-mono text-muted-foreground leading-none">{model.base_code}</p>
+          <p className="text-xs font-semibold leading-tight line-clamp-2 mt-0.5">{model.base_name}</p>
+          {model.brand_name && (
+            <p className="text-[9px] text-muted-foreground mt-0.5">{model.brand_name}</p>
+          )}
+        </div>
+
+        {/* Colors — clickable dots */}
+        {model.colors.length > 0 && (
+          <div className="flex flex-wrap gap-1 items-center">
+            {model.colors.slice(0, 7).map(c => (
+              <ColorDot
+                key={c}
+                color={c}
+                size="md"
+                selected={selColor === c}
+                onClick={e => {
+                  e.stopPropagation()
+                  setSelColor(selColor === c ? null : c)
+                }}
+              />
+            ))}
+            {model.colors.length > 7 && (
+              <span className="text-[9px] text-muted-foreground">+{model.colors.length - 7}</span>
+            )}
+          </div>
+        )}
+
+        {/* Size chips — clickable */}
+        {model.size_names.length > 0 && (
+          <div className="flex flex-wrap gap-0.5">
+            {model.size_names.slice(0, 7).map(s => {
+              const vForSize = model.variants.filter(v =>
+                v.size === s && (selColor ? v.color === selColor : true)
+              )
+              const hasStock = vForSize.length === 0 || vForSize.some(v => v.stock > 0)
+              const isSel = selSize === s
+              return (
+                <button
+                  key={s}
+                  onClick={e => { e.stopPropagation(); setSelSize(selSize === s ? null : s) }}
+                  className={[
+                    'text-[9px] px-1.5 py-0.5 rounded font-mono transition-all leading-none',
+                    isSel
+                      ? 'bg-primary text-primary-foreground font-bold'
+                      : hasStock
+                        ? 'bg-muted hover:bg-muted/70'
+                        : 'bg-muted/20 text-muted-foreground/40 line-through cursor-not-allowed',
+                  ].join(' ')}
+                >
+                  {s}
+                </button>
+              )
+            })}
+            {model.size_names.length > 7 && (
+              <span className="text-[9px] text-muted-foreground px-0.5">+{model.size_names.length - 7}</span>
+            )}
+          </div>
+        )}
+
+        {/* Price + Add button */}
+        <div className="flex items-center justify-between gap-1 mt-auto pt-1">
+          <span className="text-xs font-bold tabular-nums">{formatCurrency(model.sale_price)}</span>
+          <button
+            onClick={handleAdd}
+            title={model.total_stock === 0 ? 'Sin stock' : 'Agregar al carrito'}
+            disabled={model.total_stock === 0}
+            className={[
+              'h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-200',
+              justAdded
+                ? 'bg-emerald-500 text-white scale-110'
+                : model.total_stock === 0
+                  ? 'bg-muted text-muted-foreground/30 cursor-not-allowed'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-110 active:scale-95',
+            ].join(' ')}
+          >
+            {justAdded ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+          </button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ─── Info Row ─────────────────────────────────────────────────────────────────
+
+function InfoRow({ label, value, bold }: { label: string; value: string | null | undefined; bold?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-0.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={`text-xs text-right ${bold ? 'font-bold text-foreground' : 'text-foreground'}`}>
+        {value ?? '—'}
+      </span>
+    </div>
+  )
+}
+
+// ─── Detail Modal ─────────────────────────────────────────────────────────────
+
+function ModelDetailModal({
+  model,
+  open,
+  onClose,
+  onRefresh,
+  onAddToCart,
+}: {
+  model: ModelCard | null
+  open: boolean
+  onClose: () => void
+  onRefresh: () => void
+  onAddToCart: (variant: ModelVariant) => void
+}) {
+  const [images, setImages] = useState<ProductImage[]>([])
+  const [galleryIdx, setGalleryIdx] = useState(0)
+  const [uploading, setUploading] = useState(false)
+  const [uploadColor, setUploadColor] = useState('')
+  const [uploadAsPrimary, setUploadAsPrimary] = useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (model && open) {
+      loadImages(model)
+      setGalleryIdx(0)
+    }
+  }, [model?.base_code, open])
+
+  const loadImages = async (m: ModelCard) => {
+    const supabase = createBrowserClient()
+    try {
+      const { data } = await supabase
+        .from('product_images')
+        .select('id, base_code, color, is_primary, public_url, storage_path')
+        .eq('base_code', m.base_code)
+        .order('is_primary', { ascending: false })
+        .order('sort_order')
+      let imgs = (data || []) as ProductImage[]
+      // Fallback: if no product_images row, use products.image_url
+      if (imgs.length === 0 && m.primary_image_url) {
+        imgs = [{
+          id: '__fallback__',
+          base_code: m.base_code,
+          color: null,
+          is_primary: true,
+          public_url: m.primary_image_url,
+          storage_path: '',
+        }]
+      }
+      setImages(imgs)
+    } catch {
+      if (m.primary_image_url) {
+        setImages([{
+          id: '__fallback__',
+          base_code: m.base_code,
+          color: null,
+          is_primary: true,
+          public_url: m.primary_image_url,
+          storage_path: '',
+        }])
+      } else {
+        setImages([])
+      }
+    }
+  }
+
+  const handleUpload = async (file: File) => {
+    if (!model) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('base_code', model.base_code)
+      if (uploadColor) fd.append('color', uploadColor)
+      fd.append('is_primary', String(uploadAsPrimary))
+      const res  = await fetch('/api/upload/product-image', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Imagen subida correctamente')
+        await loadImages(model)
+        onRefresh()
+      } else {
+        toast.error(json.error || 'Error al subir imagen')
+      }
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleSetPrimary = async (imgId: string) => {
+    if (!model || imgId === '__fallback__') return
+    const supabase = createBrowserClient()
+    // @ts-ignore - product_images table types not yet generated
+    await supabase.from('product_images').update({ is_primary: false })
+      .eq('base_code', model.base_code).is('color', null)
+    // @ts-ignore - product_images table types not yet generated
+    await supabase.from('product_images').update({ is_primary: true }).eq('id', imgId)
+    await loadImages(model)
+    onRefresh()
+    toast.success('Imagen marcada como principal')
+  }
+
+  const handleDelete = async (imgId: string) => {
+    if (imgId === '__fallback__') return
+    if (!confirm('¿Eliminar esta imagen?')) return
+    const res  = await fetch(`/api/upload/product-image?id=${imgId}`, { method: 'DELETE' })
+    const json = await res.json()
+    if (json.success) {
+      toast.success('Imagen eliminada')
+      setImages(prev => prev.filter(i => i.id !== imgId))
+      setGalleryIdx(0)
+      onRefresh()
+    } else {
+      toast.error(json.error || 'Error al eliminar')
+    }
+  }
+
+  if (!model) return null
+  const currentImg = images[galleryIdx]
+  const showMultiColor = model.colors.length > 1
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-base flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-muted-foreground text-xs bg-muted px-1.5 py-0.5 rounded">{model.base_code}</span>
+            <span>{model.base_name}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* ── Gallery ── */}
+          <div className="space-y-3">
+            <div className="relative aspect-[3/4] rounded-lg bg-muted overflow-hidden">
+              {currentImg ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentImg.public_url}
+                  alt={model.base_name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30">
+                  <ImageIcon className="h-16 w-16" />
+                </div>
+              )}
+              {images.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setGalleryIdx(i => (i - 1 + images.length) % images.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center hover:bg-white transition"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setGalleryIdx(i => (i + 1) % images.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center hover:bg-white transition"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+              {currentImg?.is_primary && (
+                <div className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                  <Star className="h-2.5 w-2.5" /> Principal
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnails */}
+            {images.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {images.map((img, idx) => (
+                  <button
+                    key={img.id}
+                    onClick={() => setGalleryIdx(idx)}
+                    className={`relative w-14 h-14 rounded flex-shrink-0 overflow-hidden border-2 transition-all ${
+                      idx === galleryIdx ? 'border-primary' : 'border-transparent hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.public_url} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Image actions */}
+            {currentImg && currentImg.id !== '__fallback__' && (
+              <div className="flex gap-2">
+                <Button
+                  size="sm" variant="outline" className="flex-1 gap-1.5 text-xs"
+                  onClick={() => handleSetPrimary(currentImg.id)}
+                  disabled={currentImg.is_primary}
+                >
+                  <Star className="h-3 w-3" />
+                  {currentImg.is_primary ? 'Principal ✓' : 'Marcar principal'}
+                </Button>
+                <Button
+                  size="sm" variant="outline"
+                  className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(currentImg.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+
+            {/* Upload */}
+            <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Subir nueva imagen</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px]">Color (opcional)</Label>
+                  <Input
+                    placeholder="Ej: Rojo"
+                    value={uploadColor}
+                    onChange={e => setUploadColor(e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                    <input
+                      type="checkbox"
+                      checked={uploadAsPrimary}
+                      onChange={e => setUploadAsPrimary(e.target.checked)}
+                      className="h-3.5 w-3.5"
+                    />
+                    Principal
+                  </label>
+                </div>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f) }}
+              />
+              <Button
+                size="sm" variant="outline" className="w-full gap-1.5 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {uploading ? 'Subiendo…' : 'Elegir archivo…'}
+              </Button>
+            </div>
+          </div>
+
+          {/* ── Product Info + Variants ── */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Información del modelo</p>
+              <InfoRow label="Línea"      value={model.line_name} />
+              <InfoRow label="Categoría"  value={model.category_name} />
+              <InfoRow label="Marca"      value={model.brand_name} />
+              <InfoRow label="P. Compra"  value={formatCurrency(model.purchase_price)} />
+              <InfoRow label="P. Venta"   value={formatCurrency(model.sale_price)} bold />
+              <InfoRow label="Variantes"  value={`${model.variant_count} variante${model.variant_count !== 1 ? 's' : ''}`} />
+            </div>
+
+            {/* Variants table with real stock */}
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Tallas y stock</p>
+              <div className="rounded-lg border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Talla</th>
+                      {showMultiColor && (
+                        <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Color</th>
+                      )}
+                      <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground text-[10px] uppercase">Stock</th>
+                      <th className="px-3 py-1.5 text-center font-semibold text-muted-foreground text-[10px] uppercase">Estado</th>
+                      <th className="px-2 py-1.5 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {model.variants.length > 0 ? (
+                      model.variants.map((v, i) => (
+                        <tr key={v.product_id} className={i % 2 === 0 ? '' : 'bg-muted/20'}>
+                          <td className="px-3 py-1.5 font-mono font-semibold">{v.size || '—'}</td>
+                          {showMultiColor && (
+                            <td className="px-3 py-1.5">
+                              {v.color ? (
+                                <div className="flex items-center gap-1.5">
+                                  <ColorDot color={v.color} size="sm" />
+                                  <span className="text-[10px] text-muted-foreground">{v.color}</span>
+                                </div>
+                              ) : '—'}
+                            </td>
+                          )}
+                          <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{v.stock}</td>
+                          <td className="px-3 py-1.5 text-center">
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+                              v.stock === 0 ? 'bg-rose-100 text-rose-700' :
+                              v.stock < 5  ? 'bg-amber-100 text-amber-700' :
+                              'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {v.stock === 0 ? 'Agotado' : v.stock < 5 ? 'Poco' : 'Ok'}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <button
+                              onClick={() => {
+                                if (v.stock > 0) {
+                                  onAddToCart(v)
+                                  toast.success('Agregado al carrito', { duration: 1500 })
+                                }
+                              }}
+                              disabled={v.stock === 0}
+                              title={v.stock > 0 ? 'Agregar al carrito' : 'Sin stock'}
+                              className={`h-5 w-5 rounded-full flex items-center justify-center transition-all mx-auto ${
+                                v.stock > 0
+                                  ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-110'
+                                  : 'bg-muted text-muted-foreground/30 cursor-not-allowed'
+                              }`}
+                            >
+                              <Plus className="h-2.5 w-2.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={showMultiColor ? 5 : 4} className="px-3 py-3 text-center text-muted-foreground text-xs">
+                          Sin variantes registradas
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/50 border-t-2 border-border">
+                      <td
+                        className="px-3 py-1.5 font-semibold text-[10px] uppercase text-muted-foreground"
+                        colSpan={showMultiColor ? 2 : 1}
+                      >
+                        Total
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-bold tabular-nums">{model.total_stock}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Colors summary */}
+            {model.colors.length > 0 && (
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Colores disponibles</p>
+                <div className="flex flex-wrap gap-2">
+                  {model.colors.map(c => (
+                    <div key={c} className="flex items-center gap-1.5">
+                      <ColorDot color={c} size="md" />
+                      <span className="text-xs text-muted-foreground">{c}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Cart Drawer ──────────────────────────────────────────────────────────────
+
+function CartDrawer({
+  items,
+  open,
+  onClose,
+  onUpdateQty,
+  onRemove,
+  onClear,
+  onGoToPOS,
+}: {
+  items: VisualCartItem[]
+  open: boolean
+  onClose: () => void
+  onUpdateQty: (product_id: string, qty: number) => void
+  onRemove: (product_id: string) => void
+  onClear: () => void
+  onGoToPOS: () => void
+}) {
+  const total    = items.reduce((s, i) => s + i.subtotal, 0)
+  const totalQty = items.reduce((s, i) => s + i.quantity, 0)
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Drawer panel */}
+      <div
+        className={`fixed top-0 right-0 h-full w-80 bg-background border-l shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${
+          open ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4 text-foreground" />
+            <span className="font-semibold text-sm">Carrito</span>
+            {totalQty > 0 && (
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px] tabular-nums">
+                {totalQty}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {items.length > 0 && (
+              <Button
+                size="sm" variant="ghost"
+                onClick={onClear}
+                className="h-7 text-xs text-muted-foreground gap-1 hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3" /> Vaciar
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={onClose} className="h-7 w-7 p-0">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Items list */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/40">
+              <ShoppingCart className="h-10 w-10 mb-2" />
+              <p className="text-xs">Carrito vacío</p>
+              <p className="text-[10px] mt-1">Agrega productos desde el catálogo</p>
+            </div>
+          ) : (
+            items.map(item => (
+              <div key={item.product_id} className="flex gap-2 p-2 rounded-lg border bg-card">
+                {/* Thumbnail */}
+                <div className="w-11 h-11 rounded overflow-hidden flex-shrink-0 bg-muted">
+                  {item.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.image_url} alt={item.base_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground/30" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0 py-0.5">
+                  <p className="text-[11px] font-semibold leading-tight truncate">{item.base_name}</p>
+                  <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                    {item.size && (
+                      <span className="text-[9px] bg-muted px-1 py-0.5 rounded font-mono leading-none">{item.size}</span>
+                    )}
+                    {item.color && (
+                      <div className="flex items-center gap-0.5">
+                        <ColorDot color={item.color} size="sm" />
+                        <span className="text-[9px] text-muted-foreground">{item.color}</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{formatCurrency(item.unit_price)} c/u</p>
+                </div>
+
+                {/* Controls */}
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => onRemove(item.product_id)}
+                    className="text-muted-foreground/30 hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onUpdateQty(item.product_id, item.quantity - 1)}
+                      className="h-5 w-5 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center transition-colors"
+                    >
+                      <Minus className="h-2.5 w-2.5" />
+                    </button>
+                    <span className="text-xs font-bold w-5 text-center tabular-nums">{item.quantity}</span>
+                    <button
+                      onClick={() => onUpdateQty(item.product_id, item.quantity + 1)}
+                      className="h-5 w-5 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center transition-colors"
+                    >
+                      <Plus className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs font-bold tabular-nums">{formatCurrency(item.subtotal)}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t p-4 flex-shrink-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              {totalQty} producto{totalQty !== 1 ? 's' : ''}
+            </span>
+            <span className="text-lg font-bold tabular-nums">{formatCurrency(total)}</span>
+          </div>
+          {items.length > 0 ? (
+            <Button onClick={onGoToPOS} className="w-full gap-2 h-10 font-semibold">
+              <ArrowRight className="h-4 w-4" />
+              Ir al POS
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={onClose} className="w-full h-10">
+              Seguir viendo
+            </Button>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export function VisualCatalog() {
+  const router = useRouter()
+
+  // ── Data ───────────────────────────────────────────────────────────────────
+  const [models,     setModels]     = useState<ModelCard[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [lines,      setLines]      = useState<FilterOption[]>([])
+  const [categories, setCategories] = useState<FilterOption[]>([])
+  const [brands,     setBrands]     = useState<FilterOption[]>([])
+
+  // ── Filters ────────────────────────────────────────────────────────────────
+  const [search,          setSearch]          = useState('')
+  const [filterLine,      setFilterLine]      = useState('all')
+  const [filterCategory,  setFilterCategory]  = useState('all')
+  const [filterBrand,     setFilterBrand]     = useState('all')
+  const [filterColor,     setFilterColor]     = useState('')
+  const [page,            setPage]            = useState(1)
+
+  // ── UI state ───────────────────────────────────────────────────────────────
+  const [selected,  setSelected]  = useState<ModelCard | null>(null)
+  const [cartOpen,  setCartOpen]  = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true) // Nuevo: controlar sidebar
+
+  // ── Cart ───────────────────────────────────────────────────────────────────
+  const [cartItems, setCartItems] = useState<VisualCartItem[]>([])
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CART_KEY)
+      if (saved) setCartItems(JSON.parse(saved))
+    } catch { /* ignore parse errors */ }
+  }, [])
+
+  // Persist cart to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(cartItems))
+    } catch { /* ignore write errors */ }
+  }, [cartItems])
+
+  const addToCart = useCallback((model: ModelCard, variant: ModelVariant) => {
+    setCartItems(prev => {
+      const idx = prev.findIndex(i => i.product_id === variant.product_id)
+      if (idx >= 0) {
+        const updated = [...prev]
+        const existing = updated[idx]
+        updated[idx] = {
+          ...existing,
+          quantity: existing.quantity + 1,
+          subtotal: (existing.quantity + 1) * existing.unit_price,
+        }
+        return updated
+      }
+      return [...prev, {
+        product_id:   variant.product_id,
+        product_name: variant.size ? `${model.base_name} - ${variant.size}` : model.base_name,
+        barcode:      variant.barcode,
+        quantity:     1,
+        unit_price:   variant.price,
+        subtotal:     variant.price,
+        image_url:    model.primary_image_url,
+        size:         variant.size,
+        color:        variant.color,
+        base_name:    model.base_name,
+      }]
+    })
+  }, [])
+
+  const removeFromCart = useCallback((product_id: string) => {
+    setCartItems(prev => prev.filter(i => i.product_id !== product_id))
+  }, [])
+
+  const updateCartQty = useCallback((product_id: string, qty: number) => {
+    if (qty <= 0) { removeFromCart(product_id); return }
+    setCartItems(prev => prev.map(i =>
+      i.product_id === product_id
+        ? { ...i, quantity: qty, subtotal: qty * i.unit_price }
+        : i
+    ))
+  }, [removeFromCart])
+
+  const clearCart = useCallback(() => {
+    setCartItems([])
+    try { localStorage.removeItem(CART_KEY) } catch { /* ignore */ }
+  }, [])
+
+  const goToPOS = useCallback(() => {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(cartItems)) } catch { /* ignore */ }
+    router.push('/pos')
+  }, [cartItems, router])
+
+  // ── Load data ──────────────────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    const supabase = createBrowserClient()
+
+    const [linesRes, catsRes, brandsRes] = await Promise.all([
+      supabase.from('lines').select('id, name').eq('active', true).order('name'),
+      supabase.from('categories').select('id, name').eq('active', true).order('name'),
+      supabase.from('brands').select('id, name').eq('active', true).order('name'),
+    ])
+    setLines(linesRes.data || [])
+    setCategories(catsRes.data || [])
+    setBrands(brandsRes.data || [])
+
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select(`
+        id, barcode, name, size, color,
+        purchase_price, price, category_id, brand_id, line_id,
+        image_url,
+        categories ( id, name, line_id, lines ( id, name ) ),
+        brands ( id, name ),
+        stock ( quantity )
+      `)
+      .eq('active', true)
+      .order('barcode')
+      .limit(2000)
+
+    if (productsError) {
+      console.error('[VisualCatalog] Products error:', productsError)
+      setLoading(false)
+      return
+    }
+
+    // ── Group by derived base_code from barcode ──────────────────────────
+    // Barcode format: "{baseCode}-{sizeName}" e.g. "CHA-L" → group "CHA"
+    const grouped: Record<string, ModelCard> = {}
+
+    for (const p of products || []) {
+      const pAny = p as any
+
+      // Derive group key: strip last -SEGMENT from barcode
+      const groupKey: string = pAny.barcode
+        ? (pAny.barcode as string).replace(/-[^-]+$/, '')
+        : pAny.id
+
+      // Derive display name: strip " - SIZE" suffix
+      const displayName: string = pAny.name
+        ? (pAny.name as string).replace(/ - [^-\s][^-]*$/, '').trim()
+        : '(sin nombre)'
+
+      const cat   = pAny.categories as any
+      const brand = pAny.brands     as any
+      const line  = cat?.lines      as any
+
+      // Compute this variant's stock
+      const stockArr: any[] = Array.isArray(pAny.stock)
+        ? pAny.stock
+        : (pAny.stock ? [pAny.stock] : [])
+      const variantStock = stockArr.reduce((s: number, st: any) => s + (Number(st.quantity) || 0), 0)
+
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = {
+          base_code:      groupKey,
+          base_name:      displayName,
+          category_id:    pAny.category_id  ?? null,
+          category_name:  cat?.name         ?? null,
+          line_id:        pAny.line_id ?? cat?.line_id ?? null,
+          line_name:      line?.name         ?? null,
+          brand_id:       pAny.brand_id     ?? null,
+          brand_name:     brand?.name        ?? null,
+          sale_price:     Number(pAny.price         ?? 0),
+          purchase_price: Number(pAny.purchase_price ?? 0),
+          total_stock:    0,
+          variant_count:  0,
+          size_names:     [],
+          colors:         [],
+          primary_image_url: pAny.image_url ?? null,
+          variants:       [],
+        }
+      }
+
+      const g = grouped[groupKey]
+      g.total_stock   += variantStock
+      g.variant_count += 1
+
+      // Use the first non-null image_url found in the group
+      if (pAny.image_url && !g.primary_image_url) {
+        g.primary_image_url = pAny.image_url as string
+      }
+
+      const sizeText: string | null = pAny.size ?? null
+      const colorText: string | null = pAny.color ?? null
+
+      if (sizeText  && !g.size_names.includes(sizeText))  g.size_names.push(sizeText)
+      if (colorText && !g.colors.includes(colorText))     g.colors.push(colorText)
+
+      g.variants.push({
+        product_id:     pAny.id as string,
+        barcode:        (pAny.barcode as string) || groupKey,
+        size:           sizeText,
+        color:          colorText,
+        stock:          variantStock,
+        price:          Number(pAny.price         ?? 0),
+        purchase_price: Number(pAny.purchase_price ?? 0),
+      })
+    }
+
+    // ── Override primary images from product_images table ────────────────
+    const baseCodes = Object.keys(grouped)
+    if (baseCodes.length > 0) {
+      try {
+        const { data: imgs, error: imgErr } = await supabase
+          .from('product_images')
+          .select('base_code, public_url, is_primary, color')
+          .in('base_code', baseCodes)
+          .eq('is_primary', true as any)
+        
+        console.log('[VisualCatalog] Imágenes cargadas:', imgs?.length || 0, imgs)
+        
+        if (!imgErr && imgs) {
+          for (const img of imgs) {
+            const imgAny = img as any
+            if (grouped[imgAny.base_code] && imgAny.public_url) {
+              console.log(`[VisualCatalog] Asignando imagen a ${imgAny.base_code}:`, imgAny.public_url)
+              grouped[imgAny.base_code].primary_image_url = imgAny.public_url as string
+            }
+          }
+        } else if (imgErr) {
+          console.error('[VisualCatalog] Error cargando imágenes:', imgErr)
+        }
+      } catch (err) {
+        console.error('[VisualCatalog] Excepción cargando imágenes:', err)
+      }
+    }
+
+    // ── Sort sizes and variants ──────────────────────────────────────────
+    const result = Object.values(grouped)
+    result.forEach(m => {
+      m.size_names = sortSizes(m.size_names)
+      m.variants.sort((a, b) => {
+        const ai = SIZE_ORDER.indexOf((a.size ?? '').toUpperCase())
+        const bi = SIZE_ORDER.indexOf((b.size ?? '').toUpperCase())
+        if (ai !== -1 && bi !== -1) return ai - bi
+        if (ai !== -1) return -1
+        if (bi !== -1) return 1
+        return (a.size ?? '').localeCompare(b.size ?? '', undefined, { numeric: true })
+      })
+    })
+
+    setModels(result)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  // ── Filtering ──────────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let out = models
+    if (filterLine     !== 'all') out = out.filter(m => m.line_id     === filterLine)
+    if (filterCategory !== 'all') out = out.filter(m => m.category_id === filterCategory)
+    if (filterBrand    !== 'all') out = out.filter(m => m.brand_id    === filterBrand)
+    if (filterColor)              out = out.filter(m => m.colors.some(c => c.toLowerCase().includes(filterColor.toLowerCase())))
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      out = out.filter(m =>
+        m.base_code.toLowerCase().includes(q)     ||
+        m.base_name.toLowerCase().includes(q)     ||
+        (m.brand_name?.toLowerCase().includes(q)  ?? false) ||
+        (m.category_name?.toLowerCase().includes(q) ?? false)
+      )
+    }
+    return out
+  }, [models, filterLine, filterCategory, filterBrand, filterColor, search])
+
+  const totalPages      = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+  const paginated       = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+  const cartCount       = cartItems.reduce((s, i) => s + i.quantity, 0)
+  const cartProductIds  = useMemo(() => new Set(cartItems.map(i => i.product_id)), [cartItems])
+  const hasFilters      = search || filterLine !== 'all' || filterCategory !== 'all' || filterBrand !== 'all' || filterColor
+
+  const resetFilters = () => {
+    setSearch(''); setFilterLine('all'); setFilterCategory('all')
+    setFilterBrand('all'); setFilterColor(''); setPage(1)
+  }
+
+  // Debug log
+  console.log('[VisualCatalog] Render - sidebarOpen:', sidebarOpen, 'cartOpen:', cartOpen, 'models:', models.length)
+
+  return (
+    <div className="flex h-full relative bg-background">
+      {/* Sidebar izquierdo - colapsable */}
+      <div
+        className={`transition-all duration-300 ease-in-out border-r ${
+          sidebarOpen ? 'w-64' : 'w-0'
+        } overflow-hidden flex-shrink-0`}
+      >
+        <div className="w-64 h-full bg-muted/30 p-4 space-y-4">
+          <h3 className="font-semibold text-sm">Filtros</h3>
+          
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs mb-1.5">Línea</Label>
+              <Select value={filterLine} onValueChange={v => { setFilterLine(v); setPage(1) }}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Todas las líneas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las líneas</SelectItem>
+                  {lines.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1.5">Categoría</Label>
+              <Select value={filterCategory} onValueChange={v => { setFilterCategory(v); setPage(1) }}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1.5">Marca</Label>
+              <Select value={filterBrand} onValueChange={v => { setFilterBrand(v); setPage(1) }}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-1.5">Color</Label>
+              <Input
+                placeholder="Buscar color..."
+                value={filterColor}
+                onChange={e => { setFilterColor(e.target.value); setPage(1) }}
+                className="h-8 text-xs"
+              />
+            </div>
+
+            {hasFilters && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={resetFilters} 
+                className="w-full h-8 gap-1.5 text-xs"
+              >
+                <X className="h-3 w-3" /> Limpiar filtros
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido principal */}
+      <div className="flex-1 overflow-auto relative">
+        <div className="space-y-4 p-4">
+          {/* Barra superior con búsqueda y controles */}
+          <div className="flex items-center gap-2">
+            {/* Botón toggle sidebar */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="h-8 px-2 flex-shrink-0"
+              title={sidebarOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
+            >
+              {sidebarOpen ? (
+                <ChevronLeft className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </Button>
+
+            {/* Búsqueda */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre, código, marca..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+
+            {/* Controles derecha */}
+            <div className="flex items-center gap-2 ml-auto">
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={loadData} 
+                className="h-8 gap-1.5 text-xs"
+              >
+                <RefreshCw className="h-3 w-3" /> Actualizar
+              </Button>
+              
+              <Badge variant="secondary" className="h-8 px-3 text-xs tabular-nums">
+                {filtered.length} modelo{filtered.length !== 1 ? 's' : ''}
+              </Badge>
+
+              {/* Botón carrito */}
+              <button
+                onClick={() => setCartOpen(!cartOpen)}
+                className="relative h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                title={cartOpen ? 'Ocultar carrito' : 'Mostrar carrito'}
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+                <span>{cartOpen ? 'Ocultar' : 'Carrito'}</span>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center tabular-nums">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Grid ───────────────────────────────────────────────────────────── */}
+          {loading ? (
+            <div className={`grid gap-3 ${
+              sidebarOpen && cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' :
+              sidebarOpen || cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' :
+              'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
+            }`}>
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="rounded-xl border overflow-hidden animate-pulse">
+                  <div className="aspect-[3/4] bg-muted" />
+                  <div className="p-2.5 space-y-1.5">
+                    <div className="h-2 bg-muted rounded w-16" />
+                    <div className="h-3 bg-muted rounded w-full" />
+                    <div className="h-2 bg-muted rounded w-12" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
+              <Package className="h-12 w-12 mb-3" />
+              <p className="text-sm">
+                {hasFilters ? 'Sin resultados para los filtros aplicados' : 'No hay productos en el catálogo'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className={`grid gap-3 ${
+                sidebarOpen && cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' :
+                sidebarOpen || cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' :
+                'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
+              }`}>
+                {paginated.map(m => (
+                  <ModelCardItem
+                    key={m.base_code}
+                    model={m}
+                    onOpenDetail={() => setSelected(m)}
+                    onAddToCart={variant => {
+                      addToCart(m, variant)
+                      toast.success(
+                        `${m.base_name}${variant.size ? ` - ${variant.size}` : ''} agregado al carrito`,
+                        { duration: 1500 }
+                      )
+                    }}
+                isInCart={m.variants.some(v => cartProductIds.has(v.product_id))}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Pág {page} / {totalPages}
+              </span>
+              <Button
+                size="sm" variant="outline"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+        </div>
+      </div>
+
+      {/* ── Detail Modal ────────────────────────────────────────────────────── */}
+      <ModelDetailModal
+        model={selected}
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        onRefresh={loadData}
+        onAddToCart={variant => {
+          if (selected) {
+            addToCart(selected, variant)
+            toast.success(
+              `${selected.base_name}${variant.size ? ` - ${variant.size}` : ''} agregado`,
+              { duration: 1500 }
+            )
+          }
+        }}
+      />
+
+      {/* ── Cart Drawer ─────────────────────────────────────────────────────── */}
+      <CartDrawer
+        items={cartItems}
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        onUpdateQty={updateCartQty}
+        onRemove={removeFromCart}
+        onClear={clearCart}
+        onGoToPOS={goToPOS}
+      />
+    </div>
+  )
+}

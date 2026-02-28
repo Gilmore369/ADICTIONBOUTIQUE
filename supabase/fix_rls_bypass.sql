@@ -1,0 +1,29 @@
+-- SOLUCIÓN TEMPORAL: DESHABILITAR RLS PARA TESTING
+-- Ejecuta esto si necesitas acceso inmediato mientras debuggeas
+
+-- OPCIÓN 1: Deshabilitar RLS completamente (NO RECOMENDADO EN PRODUCCIÓN)
+ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE stock DISABLE ROW LEVEL SECURITY;
+ALTER TABLE lines DISABLE ROW LEVEL SECURITY;
+ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE brands DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sizes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE suppliers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE clients DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sale_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE credit_plans DISABLE ROW LEVEL SECURITY;
+ALTER TABLE installments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE payments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE collection_actions DISABLE ROW LEVEL SECURITY;
+
+-- Verificar
+SELECT tablename, 
+       CASE WHEN rowsecurity THEN '🔒 PROTEGIDO' ELSE '🔓 ABIERTO' END as estado
+FROM pg_tables
+WHERE schemaname = 'public'
+AND tablename IN ('products', 'stock', 'lines', 'categories', 'brands')
+ORDER BY tablename;
+
+-- NOTA: Después de verificar que funciona, vuelve a habilitar RLS con:
+-- ALTER TABLE [tabla] ENABLE ROW LEVEL SECURITY;
