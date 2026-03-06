@@ -122,7 +122,10 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
         description={selectedSupplier ? 'Modifica los datos del proveedor' : 'Crea un nuevo proveedor'}
         onSubmit={handleSubmit}
       >
-        <SupplierForm defaultValues={selectedSupplier || undefined} />
+        <SupplierForm 
+          defaultValues={selectedSupplier || undefined} 
+          isEditing={!!selectedSupplier}
+        />
       </CatalogFormDialog>
 
       <DeleteConfirmationDialog

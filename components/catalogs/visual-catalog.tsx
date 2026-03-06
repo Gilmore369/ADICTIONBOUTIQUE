@@ -18,6 +18,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { useStore } from '@/contexts/store-context'
 import { formatCurrency } from '@/lib/utils/currency'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -1015,6 +1016,7 @@ function CartDrawer({
 
 export function VisualCatalog() {
   const router = useRouter()
+  const { selectedStore, storeId } = useStore()
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const [models,     setModels]     = useState<ModelCard[]>([])
@@ -1134,20 +1136,77 @@ export function VisualCatalog() {
   }, [cartItems, router])
 
   // ── Load data ──────────────────────────────────────────────────────────────
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (activeStoreId: string | null) => {
     setLoading(true)
     const supabase = createBrowserClient()
 
+    // 1. Get user's stores (TEXT array like ['MUJERES', 'HOMBRES'])
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('stores')
+      .eq('id', user.id)
+      .single()
+
+    const userStores = userProfile?.stores || []
+
+    // 2. Get store UUIDs from store codes
+    let storeIds: string[] = []
+    if (userStores.length > 0) {
+      const { data: stores } = await supabase
+        .from('stores')
+        .select('id')
+        .in('code', userStores)
+
+      storeIds = (stores || []).map(s => s.id)
+    }
+
+    // 2b. If a specific store is selected globally, restrict to that store only
+    if (activeStoreId) {
+      storeIds = storeIds.includes(activeStoreId)
+        ? [activeStoreId]   // user has access to that store
+        : [activeStoreId]   // respect global selection regardless
+    }
+
+    // 3. Get lines available for these stores (via line_stores)
+    let availableLineIds: string[] = []
+    if (storeIds.length > 0) {
+      const { data: lineStores } = await supabase
+        .from('line_stores')
+        .select('line_id')
+        .in('store_id', storeIds)
+
+      availableLineIds = (lineStores || []).map(ls => ls.line_id)
+    }
+
+    // 4. Load lines filtered by stores
+    const linesQuery = supabase
+      .from('lines')
+      .select('id, name')
+      .eq('active', true)
+      .order('name')
+
+    if (availableLineIds.length > 0) {
+      linesQuery.in('id', availableLineIds)
+    }
+
     const [linesRes, catsRes, brandsRes] = await Promise.all([
-      supabase.from('lines').select('id, name').eq('active', true).order('name'),
+      linesQuery,
       supabase.from('categories').select('id, name').eq('active', true).order('name'),
       supabase.from('brands').select('id, name').eq('active', true).order('name'),
     ])
+    
     setLines(linesRes.data || [])
     setCategories(catsRes.data || [])
     setBrands(brandsRes.data || [])
 
-    const { data: products, error: productsError } = await supabase
+    // 5. Load products filtered by available lines
+    const productsQuery = supabase
       .from('products')
       .select(`
         id, barcode, name, size, color, base_code, base_name,
@@ -1160,6 +1219,13 @@ export function VisualCatalog() {
       .eq('active', true)
       .order('base_code', { nullsFirst: false })
       .limit(2000)
+
+    // Filter by available lines if user has stores
+    if (availableLineIds.length > 0) {
+      productsQuery.in('line_id', availableLineIds)
+    }
+
+    const { data: products, error: productsError } = await productsQuery
 
     if (productsError) {
       console.error('[VisualCatalog] Products error:', productsError)
@@ -1287,7 +1353,13 @@ export function VisualCatalog() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { loadData() }, [loadData])
+  // Recargar cuando cambie la tienda seleccionada globalmente
+  useEffect(() => {
+    loadData(storeId)
+    setFilterLine('all')
+    setFilterCategory('all')
+    setPage(1)
+  }, [loadData, storeId])
 
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {

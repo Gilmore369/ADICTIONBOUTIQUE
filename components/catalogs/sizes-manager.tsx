@@ -4,9 +4,10 @@
  * Sizes Manager Component
  * 
  * Complete CRUD interface for sizes with filters
+ * Filters sizes by selected store (through categories and lines)
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
@@ -15,6 +16,7 @@ import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
 import { SizeForm } from './size-form'
 import { createSize, updateSize, deleteSize } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
+import { useStore } from '@/contexts/store-context'
 
 interface Size {
   id: string
@@ -42,8 +44,11 @@ interface SizesManagerProps {
   lines: Line[]
 }
 
-export function SizesManager({ initialSizes, categories, lines }: SizesManagerProps) {
+export function SizesManager({ initialSizes, categories: initialCategories, lines: initialLines }: SizesManagerProps) {
+  const { storeId, selectedStore } = useStore()
   const [sizes, setSizes] = useState(initialSizes)
+  const [categories, setCategories] = useState(initialCategories)
+  const [lines, setLines] = useState(initialLines)
   const [formOpen, setFormOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedSize, setSelectedSize] = useState<Size | null>(null)
@@ -51,6 +56,42 @@ export function SizesManager({ initialSizes, categories, lines }: SizesManagerPr
   // Filters
   const [lineFilter, setLineFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+
+  // Filter by store when store changes
+  useEffect(() => {
+    const filterByStore = async () => {
+      if (selectedStore === 'ALL') {
+        setLines(initialLines)
+        setCategories(initialCategories)
+        setSizes(initialSizes)
+      } else if (storeId) {
+        try {
+          // Fetch filtered lines
+          const linesRes = await fetch(`/api/catalogs/lines?store_id=${storeId}`)
+          const filteredLines = await linesRes.json()
+          setLines(filteredLines)
+
+          // Filter categories that belong to filtered lines
+          const lineIds = filteredLines.map((l: Line) => l.id)
+          const filteredCategories = initialCategories.filter(cat => 
+            cat.line_id && lineIds.includes(cat.line_id)
+          )
+          setCategories(filteredCategories)
+
+          // Filter sizes that belong to filtered categories
+          const categoryIds = filteredCategories.map(c => c.id)
+          const filteredSizes = initialSizes.filter(size => 
+            categoryIds.includes(size.category_id)
+          )
+          setSizes(filteredSizes)
+        } catch (err) {
+          console.error('Error filtering by store:', err)
+        }
+      }
+    }
+
+    filterByStore()
+  }, [storeId, selectedStore, initialLines, initialCategories, initialSizes])
 
   // Filter sizes - INDEPENDIENTES
   const filteredSizes = useMemo(() => {
@@ -177,7 +218,11 @@ export function SizesManager({ initialSizes, categories, lines }: SizesManagerPr
         description={selectedSize ? 'Modifica los datos de la talla' : 'Crea una nueva talla'}
         onSubmit={handleSubmit}
       >
-        <SizeForm categories={categories} defaultValues={selectedSize || undefined} />
+        <SizeForm 
+          categories={categories} 
+          defaultValues={selectedSize || undefined} 
+          isEditing={!!selectedSize}
+        />
       </CatalogFormDialog>
 
       <DeleteConfirmationDialog

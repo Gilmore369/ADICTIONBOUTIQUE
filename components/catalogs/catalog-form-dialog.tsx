@@ -50,11 +50,16 @@ export function CatalogFormDialog({
 
     try {
       const formData = new FormData(e.currentTarget)
+      
       const result = await onSubmit(formData)
 
       if (result.success) {
         toast.success('Operación exitosa')
         onOpenChange(false)
+        // Reload page after successful operation to show updated data
+        setTimeout(() => {
+          window.location.reload()
+        }, 100)
       } else {
         if (typeof result.error === 'string') {
           toast.error(result.error)

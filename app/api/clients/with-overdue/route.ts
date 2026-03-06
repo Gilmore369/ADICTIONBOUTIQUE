@@ -13,6 +13,13 @@ import { createServerClient } from '@/lib/supabase/server'
 export async function GET() {
   try {
     const supabase = await createServerClient()
+
+    // Verificar autenticación
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const todayDate = new Date()
     const today = todayDate.toISOString().split('T')[0]
 
@@ -35,7 +42,8 @@ export async function GET() {
             lat,
             lng,
             credit_used,
-            credit_limit
+            credit_limit,
+            client_photo_url
           )
         )
       `)

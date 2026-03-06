@@ -18,6 +18,7 @@ async function BrandsData() {
         *,
         supplier_brands(supplier_id, suppliers(id, name))
       `)
+      .eq('active', true)
       .order('name'),
     supabase
       .from('suppliers')

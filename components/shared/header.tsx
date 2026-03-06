@@ -3,7 +3,7 @@
 /**
  * Header Component
  * 
- * Top header bar with user profile dropdown.
+ * Top header bar with store selector, theme settings, and user profile dropdown.
  * 
  * Design Tokens Used:
  * - Spacing: 16px (padding), 8px (gaps)
@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { User, LogOut, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeSettings } from './theme-settings'
+import { StoreSelector } from '@/components/layout/store-selector'
 
 interface HeaderProps {
   user?: {
@@ -43,8 +44,11 @@ export function Header({ user }: HeaderProps) {
         {/* Left side - could add breadcrumbs or page title here */}
         <div className="flex-1" />
 
-        {/* Right side - Theme Settings + User profile */}
+        {/* Right side - Store Selector + Theme Settings + User profile */}
         <div className="flex items-center gap-2">
+          {/* Store Selector */}
+          <StoreSelector />
+          
           {/* Theme Settings */}
           <ThemeSettings />
           

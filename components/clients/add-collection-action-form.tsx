@@ -92,8 +92,10 @@ export function AddCollectionActionForm({ clientId }: AddCollectionActionFormPro
 
       toast.success('Acción de cobranza registrada exitosamente')
       form.reset()
-      // Refresh the page to show updated data
-      window.location.reload()
+      // Trigger a soft refresh without changing tabs
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('client-data-updated'))
+      }
     } catch (error) {
       console.error('Error creating collection action:', error)
       toast.error('Error al registrar la acción de cobranza')

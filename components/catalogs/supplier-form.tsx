@@ -9,6 +9,7 @@
 
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface SupplierFormProps {
   defaultValues?: {
@@ -18,10 +19,12 @@ interface SupplierFormProps {
     email?: string
     address?: string
     notes?: string
+    active?: boolean
   }
+  isEditing?: boolean
 }
 
-export function SupplierForm({ defaultValues }: SupplierFormProps) {
+export function SupplierForm({ defaultValues, isEditing = false }: SupplierFormProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -86,6 +89,18 @@ export function SupplierForm({ defaultValues }: SupplierFormProps) {
           placeholder="Notas adicionales"
         />
       </div>
+      {isEditing && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="active"
+            name="active"
+            defaultChecked={defaultValues?.active !== false}
+          />
+          <Label htmlFor="active" className="text-sm font-normal cursor-pointer">
+            Activo (visible en selectores)
+          </Label>
+        </div>
+      )}
     </div>
   )
 }

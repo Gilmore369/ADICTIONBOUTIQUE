@@ -14,6 +14,7 @@ async function LinesData() {
   const { data: lines, error } = await supabase
     .from('lines')
     .select('*')
+    .eq('active', true)
     .order('name')
   
   if (error) {

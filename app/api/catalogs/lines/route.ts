@@ -1,32 +1,34 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
 
-/**
- * GET /api/catalogs/lines
- * 
- * Fetches all active lines for catalog selection
- */
-export async function GET() {
-  try {
-    const supabase = await createServerClient()
-    
-    const { data, error } = await supabase
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
+  const storeId = searchParams.get('store_id')
+
+  const supabase = await createServerClient()
+  
+  let query = supabase
+    .from('lines')
+    .select('*')
+    .eq('active', true)
+  
+  // Si hay filtro de tienda, aplicar JOIN con line_stores
+  if (storeId) {
+    query = supabase
       .from('lines')
-      .select('id, name')
+      .select(`
+        *,
+        line_stores!inner(store_id)
+      `)
       .eq('active', true)
-      .order('name')
-      .limit(30)
-    
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-    
-    return NextResponse.json({ data })
-  } catch (error) {
-    console.error('Error fetching lines:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+      .eq('line_stores.store_id', storeId)
   }
+  
+  const { data, error } = await query.order('name')
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json(data || [])
 }

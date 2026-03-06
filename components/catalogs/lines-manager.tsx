@@ -5,9 +5,10 @@
  * 
  * Complete CRUD interface for product lines
  * Integrates table, form dialog, and delete confirmation
+ * Filters lines by selected store
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
@@ -17,6 +18,7 @@ import { LineForm } from './line-form'
 import { SearchFilter } from './search-filter'
 import { createLine, updateLine, deleteLine } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
+import { useStore } from '@/contexts/store-context'
 
 interface Line {
   id: string
@@ -31,11 +33,33 @@ interface LinesManagerProps {
 }
 
 export function LinesManager({ initialLines }: LinesManagerProps) {
+  const { storeId, selectedStore } = useStore()
   const [lines, setLines] = useState(initialLines)
   const [formOpen, setFormOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedLine, setSelectedLine] = useState<Line | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Filter lines by store when store changes
+  useEffect(() => {
+    const filterLinesByStore = async () => {
+      if (selectedStore === 'ALL') {
+        setLines(initialLines)
+      } else if (storeId) {
+        // Filter lines that belong to the selected store
+        try {
+          const response = await fetch(`/api/catalogs/lines?store_id=${storeId}`)
+          const data = await response.json()
+          setLines(data || [])
+        } catch (err) {
+          console.error('Error filtering lines:', err)
+          setLines(initialLines)
+        }
+      }
+    }
+
+    filterLinesByStore()
+  }, [storeId, selectedStore, initialLines])
 
   const columns: CatalogTableColumn<Line>[] = [
     { key: 'name', label: 'Nombre' },
@@ -115,7 +139,10 @@ export function LinesManager({ initialLines }: LinesManagerProps) {
         description={selectedLine ? 'Modifica los datos de la línea' : 'Crea una nueva línea de producto'}
         onSubmit={handleSubmit}
       >
-        <LineForm defaultValues={selectedLine || undefined} />
+        <LineForm 
+          defaultValues={selectedLine || undefined} 
+          isEditing={!!selectedLine}
+        />
       </CatalogFormDialog>
 
       <DeleteConfirmationDialog

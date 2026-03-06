@@ -7,8 +7,10 @@
  * Requires line selection
  */
 
+import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -23,10 +25,14 @@ interface CategoryFormProps {
     name?: string
     line_id?: string
     description?: string
+    active?: boolean
   }
+  isEditing?: boolean
 }
 
-export function CategoryForm({ lines, defaultValues }: CategoryFormProps) {
+export function CategoryForm({ lines, defaultValues, isEditing = false }: CategoryFormProps) {
+  const [lineId, setLineId] = useState(defaultValues?.line_id || '')
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -46,7 +52,7 @@ export function CategoryForm({ lines, defaultValues }: CategoryFormProps) {
         <Label htmlFor="line_id">
           Línea <span className="text-destructive">*</span>
         </Label>
-        <Select name="line_id" defaultValue={defaultValues?.line_id} required>
+        <Select value={lineId} onValueChange={setLineId}>
           <SelectTrigger>
             <SelectValue placeholder="Seleccionar línea" />
           </SelectTrigger>
@@ -58,6 +64,8 @@ export function CategoryForm({ lines, defaultValues }: CategoryFormProps) {
             ))}
           </SelectContent>
         </Select>
+        {/* Hidden input to submit the selected line_id with the form */}
+        {lineId && <input type="hidden" name="line_id" value={lineId} />}
       </div>
       <div className="space-y-2">
         <Label htmlFor="description">Descripción</Label>
@@ -68,6 +76,18 @@ export function CategoryForm({ lines, defaultValues }: CategoryFormProps) {
           placeholder="Descripción opcional"
         />
       </div>
+      {isEditing && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="active"
+            name="active"
+            defaultChecked={defaultValues?.active !== false}
+          />
+          <Label htmlFor="active" className="text-sm font-normal cursor-pointer">
+            Activo (visible en selectores)
+          </Label>
+        </div>
+      )}
     </div>
   )
 }

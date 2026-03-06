@@ -21,14 +21,16 @@ interface BrandFormProps {
   defaultValues?: {
     name?: string
     description?: string
+    active?: boolean
     supplier_brands?: Array<{
       supplier_id: string
       suppliers: { id: string; name: string } | null
     }>
   }
+  isEditing?: boolean
 }
 
-export function BrandForm({ suppliers, defaultValues }: BrandFormProps) {
+export function BrandForm({ suppliers, defaultValues, isEditing = false }: BrandFormProps) {
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>(
     defaultValues?.supplier_brands?.map(sb => sb.supplier_id) || []
   )
@@ -115,6 +117,19 @@ export function BrandForm({ suppliers, defaultValues }: BrandFormProps) {
           value={supplierId}
         />
       ))}
+
+      {isEditing && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="active"
+            name="active"
+            defaultChecked={defaultValues?.active !== false}
+          />
+          <Label htmlFor="active" className="text-sm font-normal cursor-pointer">
+            Activo (visible en selectores)
+          </Label>
+        </div>
+      )}
     </div>
   )
 }

@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
+import { StoreProvider } from '@/contexts/store-context'
 
 const SIDEBAR_KEY = 'sidebar_collapsed'
 
@@ -36,18 +37,20 @@ export function AppShell({ children, user }: AppShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Sidebar collapsed={collapsed} onToggleCollapse={handleToggle} />
+    <StoreProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <Sidebar collapsed={collapsed} onToggleCollapse={handleToggle} />
 
-      {/* Main area shifts left/right with sidebar */}
-      <div
-        className={`transition-[padding-left] duration-300 ease-in-out ${
-          collapsed ? 'md:pl-16' : 'md:pl-64'
-        }`}
-      >
-        <Header user={user} />
-        <main className="p-4 md:p-6">{children}</main>
+        {/* Main area shifts left/right with sidebar */}
+        <div
+          className={`transition-[padding-left] duration-300 ease-in-out ${
+            collapsed ? 'md:pl-16' : 'md:pl-64'
+          }`}
+        >
+          <Header user={user} />
+          <main className="p-4 md:p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </StoreProvider>
   )
 }

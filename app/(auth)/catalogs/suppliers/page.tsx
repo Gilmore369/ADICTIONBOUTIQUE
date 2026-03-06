@@ -14,6 +14,7 @@ async function SuppliersData() {
   const { data: suppliers, error } = await supabase
     .from('suppliers')
     .select('*')
+    .eq('active', true)
     .order('name')
   
   if (error) {

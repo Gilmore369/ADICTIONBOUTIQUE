@@ -12,7 +12,7 @@ async function SizesData() {
   const supabase = await createServerClient()
   
   const [sizesResult, categoriesResult, linesResult] = await Promise.all([
-    supabase.from('sizes').select('*, categories(name, line_id)').order('name'),
+    supabase.from('sizes').select('*, categories(name, line_id)').eq('active', true).order('name'),
     supabase.from('categories').select('id, name, line_id').eq('active', true).order('name'),
     supabase.from('lines').select('id, name').eq('active', true).order('name')
   ])

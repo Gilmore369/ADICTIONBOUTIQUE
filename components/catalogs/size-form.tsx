@@ -7,8 +7,10 @@
  * Requires category selection
  */
 
+import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -22,10 +24,14 @@ interface SizeFormProps {
   defaultValues?: {
     name?: string
     category_id?: string
+    active?: boolean
   }
+  isEditing?: boolean
 }
 
-export function SizeForm({ categories, defaultValues }: SizeFormProps) {
+export function SizeForm({ categories, defaultValues, isEditing = false }: SizeFormProps) {
+  const [categoryId, setCategoryId] = useState(defaultValues?.category_id || '')
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -45,7 +51,7 @@ export function SizeForm({ categories, defaultValues }: SizeFormProps) {
         <Label htmlFor="category_id">
           Categoría <span className="text-destructive">*</span>
         </Label>
-        <Select name="category_id" defaultValue={defaultValues?.category_id} required>
+        <Select value={categoryId} onValueChange={setCategoryId}>
           <SelectTrigger>
             <SelectValue placeholder="Seleccionar categoría" />
           </SelectTrigger>
@@ -57,7 +63,20 @@ export function SizeForm({ categories, defaultValues }: SizeFormProps) {
             ))}
           </SelectContent>
         </Select>
+        <input type="hidden" name="category_id" value={categoryId} />
       </div>
+      {isEditing && (
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="active"
+            name="active"
+            defaultChecked={defaultValues?.active !== false}
+          />
+          <Label htmlFor="active" className="text-sm font-normal cursor-pointer">
+            Activo (visible en selectores)
+          </Label>
+        </div>
+      )}
     </div>
   )
 }

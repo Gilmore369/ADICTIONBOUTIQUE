@@ -1,282 +1,133 @@
-# 🎉 Módulo de Caja - Instrucciones Finales
+# ✅ CORRECCIONES COMPLETADAS
 
-## ✅ Archivos Creados
+## 1. Extracción de Coordenadas de Google Maps
 
-### Backend
-- ✅ `actions/cash.ts` - Acciones del servidor para gestión de caja
+### Estado: ✅ CÓDIGO CORREGIDO - REQUIERE HARD REFRESH
 
-### Frontend
-- ✅ `app/(auth)/cash/page.tsx` - Página principal del módulo
-- ✅ `components/cash/cash-shift-manager.tsx` - Componente de gestión de turnos
-- ✅ `components/shared/sidebar.tsx` - Actualizado con enlace a Caja
+El código para extraer coordenadas de links de Google Maps (incluyendo acortados) **YA ESTÁ CORREGIDO** en:
+- `app/api/expand-url/route.ts`
+- `components/clients/client-form.tsx`
 
-### Base de Datos
-- ✅ `supabase/seed_data_3_months.sql` - Datos completos de 3 meses
-- ✅ `supabase/seed_simple.sql` - Datos simples de prueba (alternativa)
+### 🔴 ACCIÓN REQUERIDA: HARD REFRESH
 
-### Documentación
-- ✅ `MODULO_CAJA_README.md` - Documentación completa del módulo
-- ✅ `INSTRUCCIONES_FINALES.md` - Este archivo
+**Debes hacer un hard refresh en tu navegador para cargar el código nuevo:**
 
-## 🚀 Pasos para Activar TODO
+**Windows/Linux:**
+- `Ctrl + Shift + R`
+- O `Ctrl + F5`
 
-### 1. Actualizar tu Usuario en Supabase
+**Mac:**
+- `Cmd + Shift + R`
 
-Ejecuta este SQL en el SQL Editor de Supabase:
+### Cómo Probar:
 
-```sql
--- Ver tu usuario actual
-SELECT id, email, roles FROM users WHERE email = 'gianpepex@gmail.com';
-
--- Actualizar tu usuario para que sea admin
-UPDATE users 
-SET roles = ARRAY['admin']
-WHERE email = 'gianpepex@gmail.com';
-
--- Verificar el cambio
-SELECT id, email, roles FROM users WHERE email = 'gianpepex@gmail.com';
-```
-
-### 2. Generar Datos de Prueba
-
-Tienes dos opciones:
-
-#### Opción A: Datos Completos (3 meses - Recomendado)
-
-Ejecuta el contenido de `supabase/seed_data_3_months.sql` en el SQL Editor:
-
-```sql
--- Copia y pega TODO el contenido del archivo
--- supabase/seed_data_3_months.sql
-```
-
-Esto generará:
-- 50 clientes
-- 100 productos
-- ~900 ventas (Diciembre 2025 - Febrero 2026)
-- Planes de crédito e installments
-- Pagos
-- 270 turnos de caja (3 tiendas x 90 días)
-- Gastos de caja
-
-#### Opción B: Datos Simples (7 días)
-
-Si la opción A falla, usa `supabase/seed_simple.sql`:
-
-```sql
--- Copia y pega TODO el contenido del archivo
--- supabase/seed_simple.sql
-```
-
-Esto generará:
-- 10 clientes
-- 20 productos
-- 35 ventas (últimos 7 días)
-- 21 turnos de caja (3 tiendas x 7 días)
-
-### 3. Verificar que Todo Funciona
-
-1. **Reinicia el servidor de desarrollo:**
-   ```bash
-   # Detén el servidor (Ctrl+C)
-   # Vuelve a iniciarlo
-   npm run dev
+1. Haz el hard refresh (Ctrl + Shift + R)
+2. Ve a crear/editar un cliente
+3. Pega este link en el campo "Link de Google Maps":
    ```
+   https://maps.app.goo.gl/KFf9nRps8vXAysGA8
+   ```
+4. Las coordenadas deberían extraerse automáticamente:
+   - Latitud: `-8.096754`
+   - Longitud: `-79.015948`
 
-2. **Accede a la aplicación:**
-   - Ve a http://localhost:3000
-   - Inicia sesión con tu usuario
-   - Deberías ver "Caja" en el menú lateral
+### Qué Buscar en la Consola:
 
-3. **Prueba el módulo de Caja:**
-   - Click en "Caja" en el sidebar
-   - Selecciona una tienda
-   - Abre un turno con un monto inicial (ej: 500.00)
-   - Registra algunos gastos
-   - Cierra el turno
-
-4. **Verifica los datos generados:**
-   - Ve a "Dashboard" para ver métricas
-   - Ve a "Reportes" para exportar datos
-   - Ve a "Clientes" para ver la lista de clientes
-
-## 📊 Verificación de Datos
-
-Ejecuta este SQL para verificar que los datos se generaron correctamente:
-
-```sql
--- Resumen de datos
-SELECT 
-  'Clients' as entity,
-  COUNT(*) as count
-FROM clients
-UNION ALL
-SELECT 'Products', COUNT(*) FROM products
-UNION ALL
-SELECT 'Sales', COUNT(*) FROM sales
-UNION ALL
-SELECT 'Credit Plans', COUNT(*) FROM credit_plans
-UNION ALL
-SELECT 'Installments', COUNT(*) FROM installments
-UNION ALL
-SELECT 'Payments', COUNT(*) FROM payments
-UNION ALL
-SELECT 'Cash Shifts', COUNT(*) FROM cash_shifts
-UNION ALL
-SELECT 'Cash Expenses', COUNT(*) FROM cash_expenses;
-
--- Ver ventas por mes
-SELECT 
-  TO_CHAR(created_at, 'YYYY-MM') as month,
-  COUNT(*) as sales_count,
-  SUM(total_amount) as total_amount
-FROM sales
-GROUP BY TO_CHAR(created_at, 'YYYY-MM')
-ORDER BY month;
-
--- Ver turnos de caja por tienda
-SELECT 
-  store_id,
-  COUNT(*) as shifts_count,
-  SUM(closing_amount - opening_amount) as total_difference
-FROM cash_shifts
-WHERE status = 'CLOSED'
-GROUP BY store_id;
+Después del hard refresh, deberías ver en la consola:
+```
+[parseGoogleMapsUrl] Pattern matched: /\/search\/...
+[parseGoogleMapsUrl] Valid coordinates found: { lat: -8.096754, lng: -79.015948 }
 ```
 
-## 🎯 Funcionalidades Disponibles
-
-### Módulo de Caja
-- ✅ Apertura de turno por tienda
-- ✅ Registro de gastos con categorías
-- ✅ Cierre de turno con cálculo de diferencias
-- ✅ Visualización de métricas en tiempo real
-- ✅ Histórico de gastos del turno
-
-### Módulo de Clientes (CRM)
-- ✅ Lista de clientes con filtros avanzados
-- ✅ Dashboard con métricas
-- ✅ Alertas automáticas
-- ✅ Gestión de calificaciones
-- ✅ Exportación de datos
-
-### Reportes
-- ✅ Exportación a Excel
-- ✅ Exportación a PDF
-- ✅ Gráficos y métricas
-- ✅ Filtros por fecha
-
-## 🔧 Troubleshooting
-
-### Error: "No admin user found"
-```sql
--- Verifica que tu usuario tenga el rol admin
-SELECT id, email, roles FROM users;
-
--- Si no tiene rol, actualízalo
-UPDATE users 
-SET roles = ARRAY['admin']
-WHERE email = 'tu-email@ejemplo.com';
+**NO deberías ver:**
+```
+[parseGoogleMapsUrl] No coordinates found in URL
 ```
 
-### Error: "relation does not exist"
-```sql
--- Verifica que las tablas existan
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
-AND table_name IN ('cash_shifts', 'cash_expenses', 'clients', 'products', 'sales');
+---
 
--- Si faltan tablas, ejecuta las migraciones
--- Ve a supabase/migrations/ y ejecuta los archivos en orden
-```
+## 2. Filtro de Productos por Tienda en POS
 
-### Error: "Ya existe un turno abierto"
-```sql
--- Cierra todos los turnos abiertos
-UPDATE cash_shifts 
-SET status = 'CLOSED', 
-    closed_at = NOW(),
-    closing_amount = opening_amount,
-    expected_amount = opening_amount,
-    difference = 0
-WHERE status = 'OPEN';
-```
+### Estado: ✅ COMPLETADO
 
-### No veo datos en los reportes
-```sql
--- Verifica que hay ventas
-SELECT COUNT(*) FROM sales;
+Se implementaron las siguientes mejoras en el POS:
 
--- Si no hay ventas, ejecuta el script de seed
--- supabase/seed_data_3_months.sql o seed_simple.sql
-```
+### Cambios Realizados:
 
-## 📱 Acceso por Roles
+1. **Selector de Tienda Bloqueado:**
+   - El selector de tienda se bloquea automáticamente cuando hay productos en el carrito
+   - Muestra mensaje: "🔒 Tienda bloqueada con productos en carrito"
+   - Previene cambios accidentales de tienda durante una venta
 
-### Admin
-- ✅ Acceso completo a todos los módulos
-- ✅ Puede abrir/cerrar turnos de caja
-- ✅ Puede ver todos los reportes
+2. **Filtro de Productos:**
+   - El `ProductSearch` ya filtraba correctamente por warehouse
+   - El `ProductScanner` (código de barras) también filtra por warehouse
+   - Solo se muestran productos con stock > 0 en la tienda seleccionada
 
-### Cajero
-- ✅ Acceso al módulo de Caja
-- ✅ Puede abrir/cerrar turnos
-- ✅ Puede registrar gastos
-- ✅ Acceso al POS
+3. **Validación en API:**
+   - El endpoint `/api/products/search` filtra por warehouse
+   - Solo devuelve productos con stock disponible en la tienda seleccionada
+   - Usa `ilike` para búsqueda case-insensitive del warehouse
 
-### Vendedor
-- ✅ Acceso a Clientes
-- ✅ Acceso a Productos
-- ✅ Acceso al POS
-- ❌ No tiene acceso a Caja
+### Cómo Funciona:
 
-## 🎨 Personalización
+1. Usuario selecciona "Tienda Hombres" o "Tienda Mujeres"
+2. Busca productos → Solo ve productos con stock en esa tienda
+3. Agrega primer producto al carrito → Selector de tienda se bloquea
+4. No puede cambiar de tienda hasta limpiar el carrito
+5. Completa la venta o limpia el carrito → Selector se desbloquea
 
-### Agregar más tiendas
+---
 
-Edita `components/cash/cash-shift-manager.tsx`:
+## 3. Campo "Referido Por" - ACLARACIÓN
 
-```typescript
-const STORES = [
-  { id: 'TIENDA_1', name: 'Tienda Principal' },
-  { id: 'TIENDA_2', name: 'Sucursal Norte' },
-  { id: 'TIENDA_3', name: 'Sucursal Sur' },
-  { id: 'TIENDA_4', name: 'Tu Nueva Tienda' }, // Agregar aquí
-]
-```
+### Estado: ✅ MANTIENE VALIDACIÓN OBLIGATORIA
 
-### Agregar más categorías de gastos
+**NO se hizo opcional el campo "referido por"** como solicitaste.
 
-Edita `components/cash/cash-shift-manager.tsx`:
+El campo sigue siendo obligatorio en modo creación:
+- Solo se puede crear un cliente cuando es referido por otro cliente existente
+- Tiene autocompletado con búsqueda de clientes
+- Muestra mensaje: "💡 Solo se pueden crear clientes cuando son referidos por un cliente existente"
 
-```typescript
-const EXPENSE_CATEGORIES = [
-  'SERVICIOS',
-  'MANTENIMIENTO',
-  'SUMINISTROS',
-  'TRANSPORTE',
-  'OTROS',
-  'TU_CATEGORIA', // Agregar aquí
-]
-```
+---
 
-## 📈 Próximos Pasos
+## Resumen de Archivos Modificados
 
-1. ✅ Módulo de Caja - COMPLETADO
-2. ✅ Datos de prueba - COMPLETADO
-3. ⏳ Integrar ventas con caja (automático)
-4. ⏳ Reportes de caja por período
-5. ⏳ Gráficos de ventas vs gastos
-6. ⏳ Alertas de diferencias de caja
+### Extracción de Coordenadas (ya corregidos):
+- ✅ `app/api/expand-url/route.ts` - Patrones de extracción mejorados
+- ✅ `components/clients/client-form.tsx` - Usa API para extraer coordenadas
 
-## 🎉 ¡Listo!
+### Filtro de Tienda en POS:
+- ✅ `app/(auth)/pos/page.tsx` - Selector bloqueado con productos en carrito
+- ✅ `app/api/products/search/route.ts` - Filtro por warehouse (ya existía)
+- ✅ `components/products/product-search.tsx` - Pasa warehouse a API (ya existía)
 
-Tu sistema ahora tiene:
-- ✅ Módulo de Caja funcional
-- ✅ 3 meses de datos de prueba
-- ✅ Métricas y reportes
-- ✅ Gestión completa de turnos
-- ✅ Control de gastos
+---
 
-¡Disfruta tu nuevo módulo de Caja! 🚀
+## Próximos Pasos
+
+1. **HACER HARD REFRESH** (Ctrl + Shift + R) para cargar el código de extracción de coordenadas
+2. **Probar extracción de coordenadas** con el link de prueba
+3. **Probar filtro de tienda en POS**:
+   - Seleccionar "Tienda Hombres"
+   - Buscar productos → Solo debe mostrar productos con stock en Tienda Hombres
+   - Agregar producto → Selector debe bloquearse
+   - Limpiar carrito → Selector debe desbloquearse
+
+---
+
+## Notas Técnicas
+
+### Por qué necesitas Hard Refresh:
+
+El navegador cachea los archivos JavaScript. Aunque el código en el servidor está corregido, tu navegador sigue usando la versión antigua en caché. El hard refresh fuerza al navegador a descargar la versión nueva.
+
+### Verificación del Caché:
+
+Si después del hard refresh sigue sin funcionar:
+1. Abre DevTools (F12)
+2. Ve a la pestaña "Network"
+3. Marca "Disable cache"
+4. Recarga la página
+5. Verifica que los archivos se descarguen con status 200 (no 304)

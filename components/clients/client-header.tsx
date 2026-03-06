@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { User, Phone, MapPin, Mail, Calendar, UserX } from 'lucide-react'
 import { DeactivateClientDialog } from './deactivate-client-dialog'
+import { EditClientDialog } from './edit-client-dialog'
 
 interface ClientHeaderProps {
   client: any
@@ -25,6 +26,7 @@ interface ClientHeaderProps {
 
 export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
   
   // Get rating color based on category
   const getRatingColor = (category: string) => {
@@ -53,8 +55,17 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
             {/* Client Info */}
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-6 w-6 text-primary" />
+                {/* Client Photo */}
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border-2 border-primary/20">
+                  {client.client_photo_url ? (
+                    <img 
+                      src={client.client_photo_url} 
+                      alt={client.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-8 w-8 text-primary" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <h1 className="text-2xl font-bold">{client.name}</h1>
@@ -63,18 +74,33 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
                   </p>
                 </div>
                 
-                {/* Deactivation Button - Admin Only */}
-                {canDeactivate && (
+                {/* Action Buttons */}
+                <div className="flex gap-2">
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     size="sm"
-                    onClick={() => setDeactivateDialogOpen(true)}
+                    onClick={() => setEditDialogOpen(true)}
                     className="gap-2"
                   >
-                    <UserX className="h-4 w-4" />
-                    Dar de Baja
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Editar
                   </Button>
-                )}
+                  
+                  {canDeactivate && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeactivateDialogOpen(true)}
+                      className="gap-2"
+                    >
+                      <UserX className="h-4 w-4" />
+                      Dar de Baja
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Contact Details */}
@@ -111,7 +137,67 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
                     </span>
                   </div>
                 )}
+                {(client.lat && client.lng) && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <a 
+                      href={`https://www.google.com/maps?q=${client.lat},${client.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      Ver en mapa
+                    </a>
+                  </div>
+                )}
               </div>
+
+              {/* Photos Section */}
+              {(client.dni_photo_url || client.client_photo_url) && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm font-medium mb-2">Documentos</p>
+                  <div className="flex gap-3">
+                    {client.dni_photo_url && (
+                      <a 
+                        href={client.dni_photo_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        <div className="relative w-24 h-16 rounded border overflow-hidden hover:opacity-80 transition-opacity">
+                          <img 
+                            src={client.dni_photo_url} 
+                            alt="DNI"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5">
+                            DNI
+                          </div>
+                        </div>
+                      </a>
+                    )}
+                    {client.client_photo_url && (
+                      <a 
+                        href={client.client_photo_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        <div className="relative w-24 h-16 rounded border overflow-hidden hover:opacity-80 transition-opacity">
+                          <img 
+                            src={client.client_photo_url} 
+                            alt="Foto del cliente"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5">
+                            Foto
+                          </div>
+                        </div>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Rating Badge */}
@@ -133,6 +219,15 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      {editDialogOpen && (
+        <EditClientDialog
+          client={client}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+        />
+      )}
 
       {/* Deactivation Dialog */}
       <DeactivateClientDialog

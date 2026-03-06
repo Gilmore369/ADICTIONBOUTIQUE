@@ -168,7 +168,11 @@ export function BrandsManager({ initialBrands, suppliers }: BrandsManagerProps) 
         description={selectedBrand ? 'Modifica los datos de la marca' : 'Crea una nueva marca'}
         onSubmit={handleSubmit}
       >
-        <BrandForm suppliers={suppliers} defaultValues={selectedBrand || undefined} />
+        <BrandForm 
+          suppliers={suppliers} 
+          defaultValues={selectedBrand || undefined} 
+          isEditing={!!selectedBrand}
+        />
       </CatalogFormDialog>
 
       <DeleteConfirmationDialog

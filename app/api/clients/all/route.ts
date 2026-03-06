@@ -14,9 +14,15 @@ export async function GET() {
   try {
     const supabase = await createServerClient()
 
+    // Verificar autenticación
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const { data, error } = await supabase
       .from('clients')
-      .select('id, name, phone, address, lat, lng, credit_used, credit_limit, rating')
+      .select('id, name, phone, address, lat, lng, credit_used, credit_limit, rating, client_photo_url')
       .eq('active', true)
       .not('lat', 'is', null)
       .not('lng', 'is', null)

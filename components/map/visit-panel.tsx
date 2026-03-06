@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils/currency'
-import { X, Navigation, Trash2, CheckCircle2, Clock, MapPin } from 'lucide-react'
+import { X, Navigation, Trash2, CheckCircle2, Clock, MapPin, FileText } from 'lucide-react'
 import {
   RegisterVisitDialog,
   VisitResultBadge,
@@ -17,6 +17,7 @@ import {
   type VisitClient,
   type VisitResult,
 } from './register-visit-dialog'
+import { RouteReportDialog } from './route-report-dialog'
 
 export interface VisitEntry {
   client: VisitClient & { max_days_overdue?: number }
@@ -48,6 +49,7 @@ export function VisitPanel({
   const [registering, setRegistering] = useState<VisitClient | null>(null)
   const [pastVisits, setPastVisits]   = useState<any[]>([])
   const [localEntries, setLocalEntries] = useState<VisitEntry[]>(entries)
+  const [showReport, setShowReport] = useState(false)
 
   // Keep local entries in sync
   useEffect(() => { setLocalEntries(entries) }, [entries])
@@ -210,6 +212,16 @@ export function VisitPanel({
 
         {/* Footer actions */}
         <div className="border-t p-3 space-y-2 bg-gray-50">
+          {visitedCount > 0 && (
+            <Button
+              onClick={() => setShowReport(true)}
+              className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+              size="sm"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Generar Reporte ({visitedCount} visitas)
+            </Button>
+          )}
           <Button
             onClick={onGenerateRoute}
             disabled={generatingRoute || localEntries.length === 0}
@@ -238,6 +250,15 @@ export function VisitPanel({
           pastVisits={pastVisits}
           onClose={() => setRegistering(null)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {/* Route report dialog */}
+      {showReport && (
+        <RouteReportDialog
+          entries={localEntries}
+          visitType={visitType}
+          onClose={() => setShowReport(false)}
         />
       )}
     </>

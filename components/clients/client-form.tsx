@@ -59,7 +59,19 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { MapPin } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { MapPin, AlertTriangle } from 'lucide-react'
+
+// Configuración de ratings con rangos de crédito
+const RATING_CONFIG = {
+  A: { label: 'A — Excelente', range: 'S/ 2,000 a más', credit: 2500, color: 'bg-emerald-100 border-emerald-400 text-emerald-800', dot: 'bg-emerald-500' },
+  B: { label: 'B — Bueno',     range: 'S/ 1,001 – 2,000', credit: 1500, color: 'bg-blue-100 border-blue-400 text-blue-800', dot: 'bg-blue-500' },
+  C: { label: 'C — Regular',   range: 'S/ 751 – 1,000',   credit: 875,  color: 'bg-yellow-100 border-yellow-400 text-yellow-800', dot: 'bg-yellow-500' },
+  D: { label: 'D — Básico',    range: 'S/ 501 – 750',     credit: 625,  color: 'bg-orange-100 border-orange-400 text-orange-800', dot: 'bg-orange-500' },
+  E: { label: 'E — Nuevo/Riesgo', range: 'S/ 100 – 500',  credit: 300,  color: 'bg-red-100 border-red-400 text-red-800', dot: 'bg-red-500' },
+} as const
+
+type RatingKey = keyof typeof RATING_CONFIG
 
 // Type for form data based on clientSchema
 type ClientFormData = z.infer<typeof clientSchema>
@@ -79,6 +91,13 @@ export function ClientForm({
 }: ClientFormProps) {
   const [loading, setLoading] = useState(false)
   const [capturingLocation, setCapturingLocation] = useState(false)
+  const [selectedRating, setSelectedRating] = useState<RatingKey>(
+    (initialData as any)?.rating as RatingKey || 'E'
+  )
+  const [referredBy, setReferredBy] = useState<{ id: string; name: string } | null>(null)
+  const [referredBySearch, setReferredBySearch] = useState('')
+  const [referredByResults, setReferredByResults] = useState<Array<{ id: string; name: string; dni?: string }>>([])
+  const [searchingReferrer, setSearchingReferrer] = useState(false)
 
   // Initialize form with React Hook Form + Zod validation
   const form = useForm<ClientFormData>({
@@ -86,6 +105,7 @@ export function ClientForm({
     defaultValues: {
       dni: initialData?.dni || '',
       name: initialData?.name || '',
+      referred_by: initialData?.referred_by,
       phone: initialData?.phone || '',
       email: initialData?.email || '',
       address: initialData?.address || '',
@@ -99,6 +119,33 @@ export function ClientForm({
       active: initialData?.active ?? true,
     },
   })
+
+  // Search for referrer clients
+  const searchReferrer = async (query: string) => {
+    if (!query.trim() || query.length < 2) {
+      setReferredByResults([])
+      return
+    }
+    
+    setSearchingReferrer(true)
+    try {
+      const response = await fetch(`/api/clients/search?q=${encodeURIComponent(query)}&limit=10`)
+      const { data } = await response.json()
+      setReferredByResults(data || [])
+    } catch (error) {
+      console.error('Error searching referrer:', error)
+      setReferredByResults([])
+    } finally {
+      setSearchingReferrer(false)
+    }
+  }
+
+  const selectReferrer = (client: { id: string; name: string; dni?: string }) => {
+    setReferredBy({ id: client.id, name: client.name })
+    setReferredBySearch(client.name)
+    setReferredByResults([])
+    form.setValue('referred_by', client.id)
+  }
 
   // Capture geolocation using browser Geolocation API
   const captureGeolocation = () => {
@@ -132,53 +179,69 @@ export function ClientForm({
   // Extract coordinates from Google Maps link
   const extractCoordinatesFromLink = async (link: string): Promise<{ lat: number; lng: number } | null> => {
     try {
-      // Pattern 1: https://maps.app.goo.gl/... (shortened link - needs expansion)
-      if (link.includes('maps.app.goo.gl') || link.includes('goo.gl')) {
-        try {
-          // Expand the shortened URL using the API endpoint
-          const response = await fetch('/api/expand-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: link })
-          })
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && data.expandedUrl) {
-              link = data.expandedUrl
-            }
+      console.log('[extractCoordinatesFromLink] Original link:', link)
+      
+      // Try to expand URL and extract coordinates using API
+      try {
+        console.log('[extractCoordinatesFromLink] Calling expand-url API...')
+        const response = await fetch('/api/expand-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: link })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('[extractCoordinatesFromLink] API response:', data)
+          
+          // If API returned coordinates directly from HTML
+          if (data.success && data.coordinates) {
+            console.log('[extractCoordinatesFromLink] Coordinates extracted from HTML:', data.coordinates)
+            return data.coordinates
           }
-        } catch (error) {
-          console.error('Error expanding shortened URL:', error)
-          // Continue with original link
+          
+          // If API returned expanded URL, use it for pattern matching
+          if (data.success && data.expandedUrl && data.expandedUrl !== link) {
+            link = data.expandedUrl
+            console.log('[extractCoordinatesFromLink] Using expanded URL:', link)
+          }
+        } else {
+          console.error('[extractCoordinatesFromLink] API error:', response.status)
         }
+      } catch (error) {
+        console.error('[extractCoordinatesFromLink] API call failed:', error)
+        // Continue with pattern matching on original link
       }
 
-      // Pattern 2: https://www.google.com/maps/place/.../@-12.0464,-77.0428,17z
-      // Pattern 3: https://www.google.com/maps?q=-12.0464,-77.0428
-      // Pattern 4: https://maps.google.com/?q=-12.0464,-77.0428
-      
-      // Try to find coordinates in the URL
+      // Try to find coordinates in the URL using regex patterns
       const patterns = [
-        /@(-?\d+\.?\d*),(-?\d+\.?\d*)/,  // @lat,lng
-        /q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,  // q=lat,lng
+        /\/search\/(-?\d+\.?\d*),\s*\+?(-?\d+\.?\d*)/, // /search/lat,+lng or /search/lat, lng
+        /@(-?\d+\.?\d*),\s*\+?(-?\d+\.?\d*)/,  // @lat,lng or @lat,+lng
+        /q=(-?\d+\.?\d*),\s*\+?(-?\d+\.?\d*)/,  // q=lat,lng
         /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/, // !3dlat!4dlng (Google Maps format)
-        /ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/, // ll=lat,lng
+        /ll=(-?\d+\.?\d*),\s*\+?(-?\d+\.?\d*)/, // ll=lat,lng
+        /center=(-?\d+\.?\d*),\s*\+?(-?\d+\.?\d*)/, // center=lat,lng
+        /!2d(-?\d+\.?\d*)!3d(-?\d+\.?\d*)/, // !2dlng!3dlat (inverted order)
+        /place\/[^\/]+\/@(-?\d+\.?\d*),\s*\+?(-?\d+\.?\d*)/, // place/name/@lat,lng
       ]
 
       for (const pattern of patterns) {
         const match = link.match(pattern)
         if (match) {
+          console.log('[extractCoordinatesFromLink] Pattern matched:', pattern, 'Result:', match)
           const lat = parseFloat(match[1])
           const lng = parseFloat(match[2])
           if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            console.log('[extractCoordinatesFromLink] Valid coordinates found:', { lat, lng })
             return { lat, lng }
           }
         }
       }
 
+      console.warn('[extractCoordinatesFromLink] No coordinates found in link')
       return null
     } catch (error) {
-      console.error('Error extracting coordinates:', error)
+      console.error('[extractCoordinatesFromLink] Error extracting coordinates:', error)
       return null
     }
   }
@@ -189,6 +252,7 @@ export function ClientForm({
     
     // Check if it's a Google Maps link
     if (pastedText.includes('google.com/maps') || pastedText.includes('maps.app.goo.gl') || pastedText.includes('goo.gl')) {
+      console.log('[handleMapsLinkPaste] Processing Google Maps link:', pastedText)
       toast.info('Procesando', 'Extrayendo coordenadas del link...')
       
       const coords = await extractCoordinatesFromLink(pastedText)
@@ -196,14 +260,22 @@ export function ClientForm({
         form.setValue('lat', coords.lat)
         form.setValue('lng', coords.lng)
         toast.success('Éxito', `Coordenadas extraídas: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`)
+        console.log('[handleMapsLinkPaste] Coordinates extracted successfully:', coords)
       } else {
-        toast.error('Error', 'No se pudieron extraer las coordenadas del link. Por favor, ingresa las coordenadas manualmente o usa el botón GPS.')
+        console.warn('[handleMapsLinkPaste] Failed to extract coordinates from link')
+        toast.error('Error', 'No se pudieron extraer las coordenadas del link. Por favor, usa el botón GPS o ingresa las coordenadas manualmente.')
       }
     }
   }
 
   // Handle form submission
   const onSubmit = async (data: ClientFormData) => {
+    // Validate referrer in create mode
+    if (mode === 'create' && !data.referred_by) {
+      toast.error('Error', 'Debes seleccionar quién refiere a este cliente')
+      return
+    }
+
     setLoading(true)
     try {
       // Convert data to FormData for server action
@@ -274,6 +346,68 @@ export function ClientForm({
             )}
           />
         </div>
+
+        {/* Referido por - Only show in create mode */}
+        {mode === 'create' && (
+          <div className="space-y-2">
+            <FormLabel>Referido por *</FormLabel>
+            <div className="relative">
+              <Input
+                value={referredBySearch}
+                onChange={(e) => {
+                  setReferredBySearch(e.target.value)
+                  searchReferrer(e.target.value)
+                }}
+                placeholder="Buscar cliente que refiere..."
+                className={referredBy ? 'border-green-500' : ''}
+              />
+              {searchingReferrer && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                </div>
+              )}
+              
+              {/* Search Results Dropdown */}
+              {referredByResults.length > 0 && !referredBy && (
+                <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {referredByResults.map(client => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() => selectReferrer(client)}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors text-sm border-b last:border-b-0"
+                    >
+                      <div className="font-medium">{client.name}</div>
+                      {client.dni && (
+                        <div className="text-xs text-gray-500">DNI: {client.dni}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {referredBy && (
+                <div className="flex items-center gap-2 p-2 mt-2 bg-green-50 border border-green-200 rounded-lg">
+                  <span className="text-sm text-green-900 font-medium">{referredBy.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReferredBy(null)
+                      setReferredBySearch('')
+                      form.setValue('referred_by', undefined)
+                    }}
+                    className="ml-auto text-green-600 hover:text-green-800"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              💡 Solo se pueden crear clientes cuando son referidos por un cliente existente
+            </p>
+          </div>
+        )}
 
         {/* Contact information */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -467,6 +601,62 @@ export function ClientForm({
               </FormItem>
             )}
           />
+        </div>
+
+        {/* Rating / Clasificación del cliente */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">
+              Clasificación del Cliente
+            </Label>
+            {(initialData as any)?.blacklisted && (
+              <Badge className="bg-red-600 text-white gap-1 text-xs">
+                <AlertTriangle className="h-3 w-3" />
+                En lista negra
+              </Badge>
+            )}
+          </div>
+
+          {/* Selector visual de rating */}
+          <div className="grid grid-cols-5 gap-2">
+            {(Object.keys(RATING_CONFIG) as RatingKey[]).reverse().map((key) => {
+              const cfg = RATING_CONFIG[key]
+              const isSelected = selectedRating === key
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRating(key)
+                    form.setValue('credit_limit', cfg.credit)
+                  }}
+                  className={[
+                    'rounded-lg border-2 p-2 text-center transition-all',
+                    isSelected ? cfg.color + ' border-current shadow-sm' : 'border-gray-200 hover:border-gray-400 bg-white',
+                  ].join(' ')}
+                >
+                  <div className={['w-3 h-3 rounded-full mx-auto mb-1', cfg.dot].join(' ')} />
+                  <div className="font-bold text-base leading-none">{key}</div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Info del rating seleccionado */}
+          {selectedRating && (
+            <div className={['rounded-lg border p-3 text-sm', RATING_CONFIG[selectedRating].color].join(' ')}>
+              <div className="font-semibold">{RATING_CONFIG[selectedRating].label}</div>
+              <div className="text-xs mt-0.5">
+                Rango de crédito: <strong>{RATING_CONFIG[selectedRating].range}</strong>
+                {' · '}Límite automático: <strong>S/ {RATING_CONFIG[selectedRating].credit.toLocaleString()}</strong>
+              </div>
+              {selectedRating === 'E' && mode === 'create' && (
+                <div className="text-xs mt-1 opacity-80">
+                  💡 Si el cliente viene referido por alguien de clase A o B, puede subir a D automáticamente.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Photo URLs */}

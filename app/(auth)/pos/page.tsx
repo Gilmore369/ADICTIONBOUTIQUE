@@ -36,6 +36,7 @@ import { ClientSelector } from '@/components/pos/client-selector'
 import { SaleReceipt } from '@/components/pos/sale-receipt'
 import { CreateClientDialog } from '@/components/clients/create-client-dialog'
 import { useCart } from '@/hooks/use-cart'
+import { useStore } from '@/contexts/store-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -50,6 +51,8 @@ interface Client {
   dni?: string
   credit_limit: number
   credit_used: number
+  blacklisted?: boolean
+  rating?: string
 }
 
 interface Product {
@@ -63,6 +66,7 @@ const VISUAL_CART_KEY = 'boutique_visual_cart'
 
 export default function POSPage() {
   const { cart, addItem, removeItem, updateQuantity, updateDiscount, clearCart } = useCart()
+  const { selectedStore, storeName } = useStore() // Get global store selection
   const [saleType, setSaleType] = useState<SaleType>('CONTADO')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [installments, setInstallments] = useState<number>(1)
@@ -70,6 +74,19 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
+
+  // Sync warehouse with global store selection
+  useEffect(() => {
+    if (selectedStore === 'MUJERES') {
+      setWarehouse('Tienda Mujeres')
+    } else if (selectedStore === 'HOMBRES') {
+      setWarehouse('Tienda Hombres')
+    }
+    // If 'ALL', keep current warehouse selection
+  }, [selectedStore])
+
+  // Debug: Log when cart changes
+  console.log('[POS] Cart items count:', cart.items.length, 'Should block selector:', cart.items.length > 0)
 
   // ── Pre-load items from Visual Catalog cart (localStorage bridge) ──────────
   useEffect(() => {
@@ -149,6 +166,8 @@ export default function POSPage() {
     if (saleType === 'CREDITO') {
       if (!selectedClient) return false
       if (installments < 1 || installments > 6) return false
+      // Bloquear crédito a clientes en lista negra
+      if (selectedClient.blacklisted) return false
       // Check credit limit
       if (selectedClient.credit_used + cart.total > selectedClient.credit_limit) {
         return false
@@ -264,17 +283,45 @@ export default function POSPage() {
         {/* Warehouse Selector */}
         <Card className="p-3">
           <label className="text-xs font-medium text-gray-600 block mb-1">
-            Tienda
+            Tienda {(cart.items.length > 0 || selectedStore !== 'ALL') && '🔒'}
           </label>
           <select
             value={warehouse}
-            onChange={(e) => setWarehouse(e.target.value)}
-            disabled={processing}
-            className="text-sm border rounded px-2 py-1 w-full"
+            onChange={(e) => {
+              console.log('[POS] Intentando cambiar tienda. Items en carrito:', cart.items.length)
+              if (cart.items.length > 0) {
+                console.log('[POS] BLOQUEADO - No se puede cambiar con productos en carrito')
+                return
+              }
+              if (selectedStore !== 'ALL') {
+                console.log('[POS] BLOQUEADO - Tienda seleccionada globalmente:', selectedStore)
+                return
+              }
+              setWarehouse(e.target.value)
+            }}
+            disabled={processing || cart.items.length > 0 || selectedStore !== 'ALL'}
+            className="text-sm border rounded px-2 py-1 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              cart.items.length > 0 
+                ? 'No puedes cambiar de tienda con productos en el carrito' 
+                : selectedStore !== 'ALL'
+                  ? `Tienda bloqueada por selección global: ${storeName}`
+                  : ''
+            }
           >
             <option value="Tienda Mujeres">Tienda Mujeres</option>
             <option value="Tienda Hombres">Tienda Hombres</option>
           </select>
+          {cart.items.length > 0 && (
+            <p className="text-xs text-amber-600 mt-1">
+              🔒 Tienda bloqueada con productos en carrito
+            </p>
+          )}
+          {cart.items.length === 0 && selectedStore !== 'ALL' && (
+            <p className="text-xs text-blue-600 mt-1">
+              🔒 Sincronizado con selección global: {storeName}
+            </p>
+          )}
         </Card>
       </div>
 
@@ -328,6 +375,8 @@ export default function POSPage() {
                         dni:          client.dni ?? undefined,
                         credit_limit: client.credit_limit,
                         credit_used:  client.credit_used,
+                        blacklisted:  (client as any).blacklisted ?? false,
+                        rating:       (client as any).rating ?? undefined,
                       })
                     }}
                   />
@@ -399,8 +448,21 @@ export default function POSPage() {
             </Button>
           </div>
 
+          {/* Blacklist Warning */}
+          {saleType === 'CREDITO' && selectedClient?.blacklisted && (
+            <Card className="p-4 border-red-500 bg-red-50">
+              <div className="text-sm font-semibold text-red-700 flex items-center gap-2">
+                🚫 Cliente en lista negra
+              </div>
+              <div className="text-xs text-red-600 mt-1">
+                Tiene deuda vencida mayor a 10 días. No se puede procesar venta a crédito.
+                Puede vender al contado o registrar un pago primero.
+              </div>
+            </Card>
+          )}
+
           {/* Credit Limit Warning */}
-          {saleType === 'CREDITO' && selectedClient && (
+          {saleType === 'CREDITO' && selectedClient && !selectedClient.blacklisted && (
             <Card className="p-4">
               {selectedClient.credit_used + cart.total > selectedClient.credit_limit ? (
                 <div className="text-sm text-red-600">

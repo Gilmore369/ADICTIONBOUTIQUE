@@ -14,6 +14,13 @@ import { createServerClient } from '@/lib/supabase/server'
 export async function GET() {
   try {
     const supabase = await createServerClient()
+
+    // Verificar autenticación
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const today = new Date().toISOString().split('T')[0]
 
     // Get all clients with active credit plans
@@ -29,7 +36,8 @@ export async function GET() {
           lat,
           lng,
           credit_used,
-          credit_limit
+          credit_limit,
+          client_photo_url
         )
       `)
       .eq('status', 'ACTIVE')

@@ -28,7 +28,8 @@ import {
   sizeSchema,
   supplierSchema,
   productSchema,
-  clientSchema
+  clientSchema,
+  clientUpdateSchema
 } from '@/lib/validations/catalogs'
 
 /**
@@ -107,7 +108,8 @@ export async function updateLine(id: string, formData: FormData): Promise<Action
   // Validate input
   const validated = lineSchema.partial().safeParse({
     name: formData.get('name') || undefined,
-    description: formData.get('description') || undefined
+    description: formData.get('description') || undefined,
+    active: formData.get('active') === 'on'
   })
 
   if (!validated.success) {
@@ -136,6 +138,7 @@ export async function updateLine(id: string, formData: FormData): Promise<Action
 
 /**
  * Deletes a product line (soft delete by setting active = false)
+ * Checks for dependencies before deletion
  * 
  * @param id - Line ID
  * @returns ActionResponse with success status or error
@@ -147,8 +150,51 @@ export async function deleteLine(id: string): Promise<ActionResponse> {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
   }
 
-  // Soft delete by setting active = false
   const supabase = await createServerClient()
+
+  // Check if there are products using this line
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, name')
+    .eq('line_id', id)
+    .eq('active', true)
+    .limit(5)
+
+  if (productsError) {
+    return { success: false, error: productsError.message }
+  }
+
+  if (products && products.length > 0) {
+    const productNames = products.map(p => p.name).join(', ')
+    const moreText = products.length === 5 ? ' y más...' : ''
+    return { 
+      success: false, 
+      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta línea: ${productNames}${moreText}` 
+    }
+  }
+
+  // Check if there are categories using this line
+  const { data: categories, error: categoriesError } = await supabase
+    .from('categories')
+    .select('id, name')
+    .eq('line_id', id)
+    .eq('active', true)
+    .limit(5)
+
+  if (categoriesError) {
+    return { success: false, error: categoriesError.message }
+  }
+
+  if (categories && categories.length > 0) {
+    const categoryNames = categories.map(c => c.name).join(', ')
+    const moreText = categories.length === 5 ? ' y más...' : ''
+    return { 
+      success: false, 
+      error: `No se puede eliminar. Hay ${categories.length} categoría(s) usando esta línea: ${categoryNames}${moreText}` 
+    }
+  }
+
+  // Soft delete by setting active = false
   const { error } = await supabase
     .from('lines')
     .update({ active: false })
@@ -233,7 +279,8 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
   const validated = categorySchema.partial().safeParse({
     name: formData.get('name') || undefined,
     line_id: formData.get('line_id') || undefined,
-    description: formData.get('description') || undefined
+    description: formData.get('description') || undefined,
+    active: formData.get('active') === 'on'
   })
 
   if (!validated.success) {
@@ -262,27 +309,93 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
 
 /**
  * Deletes a product category (soft delete by setting active = false)
+ * Checks for dependencies before deletion
  * 
  * @param id - Category ID
  * @returns ActionResponse with success status or error
  */
 export async function deleteCategory(id: string): Promise<ActionResponse> {
+  console.log('[deleteCategory] Starting deletion for category ID:', id)
+  
   // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
+    console.log('[deleteCategory] Permission denied')
     return { success: false, error: 'Forbidden: Insufficient permissions' }
+  }
+  console.log('[deleteCategory] Permission granted')
+
+  const supabase = await createServerClient()
+
+  // Check if there are products using this category
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, name')
+    .eq('category_id', id)
+    .eq('active', true)
+    .limit(5)
+
+  if (productsError) {
+    console.log('[deleteCategory] Error checking products:', productsError)
+    return { success: false, error: productsError.message }
+  }
+
+  console.log('[deleteCategory] Products using category:', products?.length || 0)
+
+  if (products && products.length > 0) {
+    const productNames = products.map(p => p.name).join(', ')
+    const moreText = products.length === 5 ? ' y más...' : ''
+    return { 
+      success: false, 
+      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta categoría: ${productNames}${moreText}` 
+    }
+  }
+
+  // Check if there are sizes using this category
+  const { data: sizes, error: sizesError } = await supabase
+    .from('sizes')
+    .select('id, name')
+    .eq('category_id', id)
+    .eq('active', true)
+    .limit(5)
+
+  if (sizesError) {
+    console.log('[deleteCategory] Error checking sizes:', sizesError)
+    return { success: false, error: sizesError.message }
+  }
+
+  console.log('[deleteCategory] Sizes using category:', sizes?.length || 0)
+
+  if (sizes && sizes.length > 0) {
+    const sizeNames = sizes.map(s => s.name).join(', ')
+    const moreText = sizes.length === 5 ? ' y más...' : ''
+    return { 
+      success: false, 
+      error: `No se puede eliminar. Hay ${sizes.length} talla(s) usando esta categoría: ${sizeNames}${moreText}` 
+    }
   }
 
   // Soft delete by setting active = false
-  const supabase = await createServerClient()
-  const { error } = await supabase
+  console.log('[deleteCategory] Attempting to update category to active=false')
+  const { data: updateData, error } = await supabase
     .from('categories')
     .update({ active: false })
     .eq('id', id)
+    .select()
+
+  console.log('[deleteCategory] Update result:', { data: updateData, error })
 
   if (error) {
+    console.log('[deleteCategory] Update failed:', error)
     return { success: false, error: error.message }
   }
+
+  if (!updateData || updateData.length === 0) {
+    console.log('[deleteCategory] WARNING: Update returned no rows - RLS might be blocking')
+    return { success: false, error: 'No se pudo actualizar la categoría. Verifica los permisos.' }
+  }
+
+  console.log('[deleteCategory] Successfully updated category:', updateData)
 
   // Revalidate cache
   revalidatePath('/catalogs/categories')
@@ -398,7 +511,8 @@ export async function updateBrand(id: string, formData: FormData): Promise<Actio
   // Validate input
   const validated = brandSchema.partial().safeParse({
     name: formData.get('name') || undefined,
-    description: formData.get('description') || undefined
+    description: formData.get('description') || undefined,
+    active: formData.get('active') === 'on'
   })
 
   if (!validated.success) {
@@ -447,6 +561,7 @@ export async function updateBrand(id: string, formData: FormData): Promise<Actio
 
 /**
  * Deletes a brand (soft delete by setting active = false)
+ * Checks for dependencies before deletion
  * 
  * @param id - Brand ID
  * @returns ActionResponse with success status or error
@@ -458,8 +573,30 @@ export async function deleteBrand(id: string): Promise<ActionResponse> {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
   }
 
-  // Soft delete by setting active = false
   const supabase = await createServerClient()
+
+  // Check if there are products using this brand
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, name')
+    .eq('brand_id', id)
+    .eq('active', true)
+    .limit(5)
+
+  if (productsError) {
+    return { success: false, error: productsError.message }
+  }
+
+  if (products && products.length > 0) {
+    const productNames = products.map(p => p.name).join(', ')
+    const moreText = products.length === 5 ? ' y más...' : ''
+    return { 
+      success: false, 
+      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta marca: ${productNames}${moreText}` 
+    }
+  }
+
+  // Soft delete by setting active = false
   const { error } = await supabase
     .from('brands')
     .update({ active: false })
@@ -543,6 +680,7 @@ export async function updateSize(id: string, formData: FormData): Promise<Action
   const validated = sizeSchema.partial().safeParse({
     name: formData.get('name') || undefined,
     category_id: formData.get('category_id') || undefined,
+    active: formData.get('active') === 'on'
   })
 
   if (!validated.success) {
@@ -571,6 +709,7 @@ export async function updateSize(id: string, formData: FormData): Promise<Action
 
 /**
  * Deletes a size (soft delete by setting active = false)
+ * Checks for dependencies before deletion
  * 
  * @param id - Size ID
  * @returns ActionResponse with success status or error
@@ -582,8 +721,41 @@ export async function deleteSize(id: string): Promise<ActionResponse> {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
   }
 
-  // Soft delete by setting active = false
   const supabase = await createServerClient()
+
+  // Check if there are products using this size (stored as text in products.size)
+  // Note: Since size is stored as TEXT in products table, we need to get the size name first
+  const { data: sizeData, error: sizeError } = await supabase
+    .from('sizes')
+    .select('name')
+    .eq('id', id)
+    .single()
+
+  if (sizeError) {
+    return { success: false, error: sizeError.message }
+  }
+
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, name')
+    .eq('size', sizeData.name)
+    .eq('active', true)
+    .limit(5)
+
+  if (productsError) {
+    return { success: false, error: productsError.message }
+  }
+
+  if (products && products.length > 0) {
+    const productNames = products.map(p => p.name).join(', ')
+    const moreText = products.length === 5 ? ' y más...' : ''
+    return { 
+      success: false, 
+      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta talla: ${productNames}${moreText}` 
+    }
+  }
+
+  // Soft delete by setting active = false
   const { error } = await supabase
     .from('sizes')
     .update({ active: false })
@@ -669,7 +841,8 @@ export async function updateSupplier(id: string, formData: FormData): Promise<Ac
     phone: formData.get('phone') || undefined,
     email: formData.get('email') || undefined,
     address: formData.get('address') || undefined,
-    notes: formData.get('notes') || undefined
+    notes: formData.get('notes') || undefined,
+    active: formData.get('active') === 'on'
   })
 
   if (!validated.success) {
@@ -698,6 +871,7 @@ export async function updateSupplier(id: string, formData: FormData): Promise<Ac
 
 /**
  * Deletes a supplier (soft delete by setting active = false)
+ * Checks for dependencies before deletion
  * 
  * @param id - Supplier ID
  * @returns ActionResponse with success status or error
@@ -709,8 +883,30 @@ export async function deleteSupplier(id: string): Promise<ActionResponse> {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
   }
 
-  // Soft delete by setting active = false
   const supabase = await createServerClient()
+
+  // Check if there are products using this supplier
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, name')
+    .eq('supplier_id', id)
+    .eq('active', true)
+    .limit(5)
+
+  if (productsError) {
+    return { success: false, error: productsError.message }
+  }
+
+  if (products && products.length > 0) {
+    const productNames = products.map(p => p.name).join(', ')
+    const moreText = products.length === 5 ? ' y más...' : ''
+    return { 
+      success: false, 
+      error: `No se puede eliminar. Hay ${products.length} producto(s) usando este proveedor: ${productNames}${moreText}` 
+    }
+  }
+
+  // Soft delete by setting active = false
   const { error } = await supabase
     .from('suppliers')
     .update({ active: false })
@@ -951,6 +1147,7 @@ export async function createClient(formData: FormData): Promise<ActionResponse> 
   const validated = clientSchema.safeParse({
     dni: formData.get('dni'),
     name: formData.get('name'),
+    referred_by: formData.get('referred_by') || undefined,
     phone: formData.get('phone') || undefined,
     email: formData.get('email') || undefined,
     address: formData.get('address') || undefined,
@@ -968,6 +1165,11 @@ export async function createClient(formData: FormData): Promise<ActionResponse> 
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
+  // Validate that referred_by is provided for new clients
+  if (!validated.data.referred_by) {
+    return { success: false, error: 'Un cliente debe ser referido por otro cliente existente' }
+  }
+
   // Check DNI uniqueness
   const supabase = await createServerClient()
   const { data: existing } = await supabase
@@ -978,6 +1180,18 @@ export async function createClient(formData: FormData): Promise<ActionResponse> 
 
   if (existing) {
     return { success: false, error: 'DNI already exists' }
+  }
+
+  // Verify that the referring client exists
+  const { data: referrer } = await supabase
+    .from('clients')
+    .select('id, name')
+    .eq('id', validated.data.referred_by)
+    .eq('active', true)
+    .maybeSingle()
+
+  if (!referrer) {
+    return { success: false, error: 'El cliente que refiere no existe o está inactivo' }
   }
 
   // Insert client
@@ -1022,7 +1236,7 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
   const active = formData.get('active')
 
   // Validate input (partial update)
-  const validated = clientSchema.partial().safeParse({
+  const validated = clientUpdateSchema.partial().safeParse({
     dni: formData.get('dni') || undefined,
     name: formData.get('name') || undefined,
     phone: formData.get('phone') || undefined,

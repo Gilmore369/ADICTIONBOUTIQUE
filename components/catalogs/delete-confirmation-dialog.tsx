@@ -51,6 +51,10 @@ export function DeleteConfirmationDialog({
       if (result.success) {
         toast.success('Elemento eliminado correctamente')
         onOpenChange(false)
+        // Reload page after successful deletion to show updated data
+        setTimeout(() => {
+          window.location.reload()
+        }, 100)
       } else {
         toast.error(result.error || 'Error al eliminar')
       }

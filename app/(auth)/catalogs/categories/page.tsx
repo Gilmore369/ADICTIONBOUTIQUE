@@ -12,7 +12,7 @@ async function CategoriesData() {
   const supabase = await createServerClient()
   
   const [categoriesResult, linesResult] = await Promise.all([
-    supabase.from('categories').select('*, lines(name)').order('name'),
+    supabase.from('categories').select('*, lines(name)').eq('active', true).order('name'),
     supabase.from('lines').select('id, name').eq('active', true).order('name')
   ])
   

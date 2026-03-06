@@ -6,6 +6,7 @@
  * Ingreso masivo con estructura:
  * - Modelo Base (campos comunes)
  * - Variantes por Talla (cantidad individual)
+ * Filters lines and categories by selected store
  * 
  * Design Tokens:
  * - Card padding: 16px
@@ -34,6 +35,7 @@ import { createBulkProducts } from '@/actions/products'
 import { ColorPicker } from '@/components/ui/color-picker'
 import { QuickCreateDialog, type QuickCreateType } from './quick-create-dialog'
 import { ImageUpload } from '@/components/ui/image-upload'
+import { useStore } from '@/contexts/store-context'
 
 interface Size {
   id: string
@@ -66,8 +68,14 @@ interface ProductModel {
 }
 
 export function BulkProductEntryV2() {
+  const { storeId, selectedStore, storeName } = useStore()
   const [supplier, setSupplier] = useState('')
-  const [warehouse, setWarehouse] = useState('Tienda Mujeres')
+  // Auto-select warehouse based on store filter
+  const [warehouse, setWarehouse] = useState(() => {
+    if (selectedStore === 'HOMBRES') return 'Tienda Hombres'
+    if (selectedStore === 'MUJERES') return 'Tienda Mujeres'
+    return 'Tienda Mujeres' // Default
+  })
   const [models, setModels] = useState<ProductModel[]>([])
   const [saving, setSaving] = useState(false)
   
@@ -97,7 +105,13 @@ export function BulkProductEntryV2() {
 
   useEffect(() => {
     loadCatalogs()
-  }, [])
+    // Update warehouse when store filter changes
+    if (selectedStore === 'HOMBRES') {
+      setWarehouse('Tienda Hombres')
+    } else if (selectedStore === 'MUJERES') {
+      setWarehouse('Tienda Mujeres')
+    }
+  }, [storeId, selectedStore]) // Reload when store changes
 
   // Load brands when supplier changes
   useEffect(() => {
@@ -121,11 +135,14 @@ export function BulkProductEntryV2() {
 
   const loadCatalogs = async () => {
     try {
-      // Load only essential catalogs first (suppliers and lines)
-      // Brands and categories will be loaded on-demand
+      setLoading(true)
+      // Load catalogs with store filter
+      const params = new URLSearchParams()
+      if (storeId) params.append('store_id', storeId)
+      
       const [suppliersRes, linesRes] = await Promise.all([
         fetch('/api/catalogs/suppliers'),
-        fetch('/api/catalogs/lines')
+        fetch(`/api/catalogs/lines?${params}`)
       ])
 
       const [suppliersData, linesData] = await Promise.all([
@@ -134,12 +151,18 @@ export function BulkProductEntryV2() {
       ])
 
       setSuppliers(suppliersData.data || [])
-      setLines(linesData.data || [])
+      setLines(linesData || [])
       
-      // Load categories separately to reduce initial payload
+      // Load categories filtered by store (through lines)
       const categoriesRes = await fetch('/api/catalogs/categories')
       const categoriesData = await categoriesRes.json()
-      setCategories(categoriesData.data || [])
+      
+      // Filter categories that belong to filtered lines
+      const lineIds = (linesData || []).map((l: any) => l.id)
+      const filteredCategories = (categoriesData.data || []).filter((cat: any) => 
+        lineIds.includes(cat.line_id)
+      )
+      setCategories(filteredCategories)
       
       // Brands will be loaded when supplier is selected
     } catch (error) {
@@ -579,8 +602,12 @@ export function BulkProductEntryV2() {
 
             <div>
               <Label>Tienda Destino <span className="text-red-500">*</span></Label>
-              <Select value={warehouse} onValueChange={setWarehouse}>
-                <SelectTrigger>
+              <Select 
+                value={warehouse} 
+                onValueChange={setWarehouse}
+                disabled={selectedStore !== 'ALL'} // Lock when store filter is active
+              >
+                <SelectTrigger className={selectedStore !== 'ALL' ? 'bg-gray-50' : ''}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -588,6 +615,11 @@ export function BulkProductEntryV2() {
                   <SelectItem value="Tienda Hombres">Tienda Hombres</SelectItem>
                 </SelectContent>
               </Select>
+              {selectedStore !== 'ALL' && (
+                <p className="text-xs text-blue-600 mt-1">
+                  🔒 Bloqueado por filtro de tienda: {storeName}
+                </p>
+              )}
             </div>
           </div>
         </div>

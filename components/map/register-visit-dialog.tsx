@@ -32,14 +32,14 @@ interface PastVisit {
 }
 
 export const VISIT_RESULTS = [
-  { value: 'Pagó',             emoji: '✅', color: 'text-green-700  bg-green-50  border-green-200'  },
-  { value: 'Abono parcial',    emoji: '🟡', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
-  { value: 'Prometió pagar',   emoji: '🤝', color: 'text-blue-700   bg-blue-50   border-blue-200'   },
-  { value: 'No estaba',        emoji: '🚪', color: 'text-orange-700 bg-orange-50 border-orange-200' },
-  { value: 'Rechazó',          emoji: '❌', color: 'text-red-700    bg-red-50    border-red-200'    },
-  { value: 'Interesado',       emoji: '💜', color: 'text-purple-700 bg-purple-50 border-purple-200' },
-  { value: 'Dejé recado',      emoji: '📝', color: 'text-slate-700  bg-slate-50  border-slate-200'  },
-  { value: 'Sin respuesta',    emoji: '📵', color: 'text-gray-700   bg-gray-50   border-gray-200'   },
+  { value: 'Pagó',             emoji: '✅', color: 'text-green-700  bg-green-50  border-green-200',  requiresPayment: true,  requiresPromise: false },
+  { value: 'Abono parcial',    emoji: '🟡', color: 'text-yellow-700 bg-yellow-50 border-yellow-200', requiresPayment: true,  requiresPromise: false },
+  { value: 'Prometió pagar',   emoji: '🤝', color: 'text-blue-700   bg-blue-50   border-blue-200',   requiresPayment: false, requiresPromise: true  },
+  { value: 'No estaba',        emoji: '🚪', color: 'text-orange-700 bg-orange-50 border-orange-200', requiresPayment: false, requiresPromise: false },
+  { value: 'Rechazó',          emoji: '❌', color: 'text-red-700    bg-red-50    border-red-200',    requiresPayment: false, requiresPromise: false },
+  { value: 'Interesado',       emoji: '💜', color: 'text-purple-700 bg-purple-50 border-purple-200', requiresPayment: false, requiresPromise: false },
+  { value: 'Dejé recado',      emoji: '📝', color: 'text-slate-700  bg-slate-50  border-slate-200',  requiresPayment: false, requiresPromise: false },
+  { value: 'Sin respuesta',    emoji: '📵', color: 'text-gray-700   bg-gray-50   border-gray-200',   requiresPayment: false, requiresPromise: false },
 ] as const
 
 export type VisitResult = typeof VISIT_RESULTS[number]['value']
@@ -57,11 +57,25 @@ export function RegisterVisitDialog({ client, visitType, pastVisits, onClose, on
   const [comment, setComment]     = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  
+  // Payment fields
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'EFECTIVO' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA' | 'TARJETA'>('EFECTIVO')
+  const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null)
+  const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null)
+  
+  // Promise fields
+  const [promiseDate, setPromiseDate] = useState('')
+  const [promiseAmount, setPromiseAmount] = useState('')
+  
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [showHistory, setShowHistory] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const paymentProofInputRef = useRef<HTMLInputElement>(null)
   const supabase = createBrowserClient()
+  
+  const selectedResult = VISIT_RESULTS.find(r => r.value === result)
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -70,6 +84,17 @@ export function RegisterVisitDialog({ client, visitType, pastVisits, onClose, on
     setImageFile(file)
     const reader = new FileReader()
     reader.onload = ev => setImagePreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+    setError('')
+  }
+
+  const handlePaymentProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setError('La imagen no debe superar 5 MB.'); return }
+    setPaymentProofFile(file)
+    const reader = new FileReader()
+    reader.onload = ev => setPaymentProofPreview(ev.target?.result as string)
     reader.readAsDataURL(file)
     setError('')
   }
@@ -87,11 +112,39 @@ export function RegisterVisitDialog({ client, visitType, pastVisits, onClose, on
 
   const handleSave = async () => {
     if (!result) { setError('Selecciona el resultado de la visita.'); return }
+    
+    // Validate payment fields
+    if (selectedResult?.requiresPayment) {
+      if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+        setError('Ingresa el monto del pago.')
+        return
+      }
+      if (!paymentProofFile) {
+        setError('Adjunta una foto del comprobante o pantallazo del pago.')
+        return
+      }
+    }
+    
+    // Validate promise fields
+    if (selectedResult?.requiresPromise) {
+      if (!promiseDate) {
+        setError('Ingresa la fecha de promesa de pago.')
+        return
+      }
+      if (!promiseAmount || parseFloat(promiseAmount) <= 0) {
+        setError('Ingresa el monto prometido.')
+        return
+      }
+    }
+    
     setSaving(true)
     setError('')
 
     let image_url: string | null = null
     if (imageFile) image_url = await uploadImage(imageFile)
+    
+    let payment_proof_url: string | null = null
+    if (paymentProofFile) payment_proof_url = await uploadImage(paymentProofFile)
 
     const res = await fetch('/api/visits', {
       method: 'POST',
@@ -102,6 +155,11 @@ export function RegisterVisitDialog({ client, visitType, pastVisits, onClose, on
         result,
         comment:   comment.trim() || null,
         image_url,
+        payment_amount: selectedResult?.requiresPayment ? parseFloat(paymentAmount) : null,
+        payment_method: selectedResult?.requiresPayment ? paymentMethod : null,
+        payment_proof_url,
+        promise_date: selectedResult?.requiresPromise ? promiseDate : null,
+        promise_amount: selectedResult?.requiresPromise ? parseFloat(promiseAmount) : null,
       }),
     })
 
@@ -179,6 +237,122 @@ export function RegisterVisitDialog({ client, visitType, pastVisits, onClose, on
               className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
+
+          {/* Payment fields - shown when result requires payment */}
+          {selectedResult?.requiresPayment && (
+            <div className="space-y-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-green-800">💰 Registro de Pago</h3>
+              
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">
+                  Monto pagado <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={paymentAmount}
+                  onChange={e => setPaymentAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">
+                  Método de pago <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['EFECTIVO', 'YAPE', 'PLIN', 'TRANSFERENCIA', 'TARJETA'] as const).map(method => (
+                    <button
+                      key={method}
+                      onClick={() => setPaymentMethod(method)}
+                      className={`px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                        paymentMethod === method
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-green-400'
+                      }`}
+                    >
+                      {method}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">
+                  Comprobante de pago <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={paymentProofInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handlePaymentProofChange}
+                />
+                {paymentProofPreview ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={paymentProofPreview}
+                      alt="comprobante"
+                      className="w-full h-36 object-cover rounded-lg border"
+                    />
+                    <button
+                      onClick={() => { setPaymentProofFile(null); setPaymentProofPreview(null) }}
+                      className="absolute top-1 right-1 bg-white/90 rounded-full p-1 shadow"
+                    >
+                      <X className="h-3.5 w-3.5 text-gray-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => paymentProofInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-green-300 rounded-lg text-sm text-green-700 hover:border-green-400 hover:bg-green-50 transition-colors"
+                  >
+                    <Camera className="h-5 w-5" />
+                    Foto del comprobante o pantallazo
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Promise fields - shown when result requires promise */}
+          {selectedResult?.requiresPromise && (
+            <div className="space-y-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-blue-800">🤝 Promesa de Pago</h3>
+              
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">
+                  Fecha de promesa <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={promiseDate}
+                  onChange={e => setPromiseDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700 block mb-1.5">
+                  Monto prometido <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={promiseAmount}
+                  onChange={e => setPromiseAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Image */}
           <div>

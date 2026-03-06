@@ -4,9 +4,10 @@
  * Categories Manager Component
  * 
  * Complete CRUD interface for product categories with filters
+ * Filters categories by selected store (through their lines)
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
@@ -15,6 +16,7 @@ import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
 import { CategoryForm } from './category-form'
 import { createCategory, updateCategory, deleteCategory } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
+import { useStore } from '@/contexts/store-context'
 
 interface Category {
   id: string
@@ -36,12 +38,42 @@ interface CategoriesManagerProps {
   lines: Line[]
 }
 
-export function CategoriesManager({ initialCategories, lines }: CategoriesManagerProps) {
+export function CategoriesManager({ initialCategories, lines: initialLines }: CategoriesManagerProps) {
+  const { storeId, selectedStore } = useStore()
   const [categories, setCategories] = useState(initialCategories)
+  const [lines, setLines] = useState(initialLines)
   const [formOpen, setFormOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [lineFilter, setLineFilter] = useState('')
+
+  // Filter lines and categories by store when store changes
+  useEffect(() => {
+    const filterByStore = async () => {
+      if (selectedStore === 'ALL') {
+        setLines(initialLines)
+        setCategories(initialCategories)
+      } else if (storeId) {
+        try {
+          // Fetch filtered lines
+          const linesRes = await fetch(`/api/catalogs/lines?store_id=${storeId}`)
+          const filteredLines = await linesRes.json()
+          setLines(filteredLines)
+
+          // Filter categories that belong to filtered lines
+          const lineIds = filteredLines.map((l: Line) => l.id)
+          const filteredCategories = initialCategories.filter(cat => 
+            lineIds.includes(cat.line_id)
+          )
+          setCategories(filteredCategories)
+        } catch (err) {
+          console.error('Error filtering by store:', err)
+        }
+      }
+    }
+
+    filterByStore()
+  }, [storeId, selectedStore, initialLines, initialCategories])
 
   // Filter categories by line
   const filteredCategories = useMemo(() => {
@@ -80,16 +112,20 @@ export function CategoriesManager({ initialCategories, lines }: CategoriesManage
   }
 
   const handleSubmit = async (formData: FormData) => {
+    let result
     if (selectedCategory) {
-      return await updateCategory(selectedCategory.id, formData)
+      result = await updateCategory(selectedCategory.id, formData)
     } else {
-      return await createCategory(formData)
+      result = await createCategory(formData)
     }
+    
+    return result
   }
 
   const handleConfirmDelete = async () => {
     if (!selectedCategory) return { success: false, error: 'No category selected' }
-    return await deleteCategory(selectedCategory.id)
+    const result = await deleteCategory(selectedCategory.id)
+    return result
   }
 
   return (
@@ -134,7 +170,11 @@ export function CategoriesManager({ initialCategories, lines }: CategoriesManage
         description={selectedCategory ? 'Modifica los datos de la categoría' : 'Crea una nueva categoría de producto'}
         onSubmit={handleSubmit}
       >
-        <CategoryForm lines={lines} defaultValues={selectedCategory || undefined} />
+        <CategoryForm 
+          lines={lines} 
+          defaultValues={selectedCategory || undefined} 
+          isEditing={!!selectedCategory}
+        />
       </CatalogFormDialog>
 
       <DeleteConfirmationDialog

@@ -35,6 +35,7 @@ interface Client {
   lng: number
   credit_used: number
   credit_limit: number
+  client_photo_url?: string
   overdue_amount?: number
   overdue_count?: number
   upcoming_amount?: number
@@ -576,7 +577,20 @@ export function DebtorsMap() {
               position={{ lat: selectedClient.lat, lng: selectedClient.lng }}
               onCloseClick={() => setSelectedClient(null)}
             >
-              <div className="p-2" style={{ minWidth: '200px' }}>
+              <div className="p-2" style={{ minWidth: '220px' }}>
+                {/* Client Photo */}
+                <div className="flex justify-center mb-3">
+                  <img
+                    src={selectedClient.client_photo_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(selectedClient.name) + '&size=64&background=random'}
+                    alt={selectedClient.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                    onError={(e) => {
+                      // Fallback to UI Avatars if image fails to load
+                      e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(selectedClient.name) + '&size=64&background=random';
+                    }}
+                  />
+                </div>
+
                 <h3 className="font-bold text-sm text-gray-900 mb-2">{selectedClient.name}</h3>
 
                 <div className="space-y-1 text-xs text-gray-600 mb-2">
@@ -603,6 +617,11 @@ export function DebtorsMap() {
                     <div className="text-sm">
                       <p className="text-gray-600 text-xs">Próximo Pago</p>
                       <p className="font-bold text-yellow-600">{formatCurrency(selectedClient.upcoming_amount || 0)}</p>
+                      {selectedClient.next_due_date && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Vence: {new Date(selectedClient.next_due_date).toLocaleDateString('es-PE')}
+                        </p>
+                      )}
                     </div>
                   )}
                   {filter === 'up-to-date' && (
