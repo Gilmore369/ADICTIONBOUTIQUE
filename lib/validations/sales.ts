@@ -17,7 +17,7 @@ export const saleItemSchema = z.object({
  */
 export const saleSchema = z.object({
   store_id: z.string().min(1, 'Store ID is required'),
-  client_id: z.string().uuid('Invalid client ID').optional(),
+  client_id: z.string().min(1, 'Invalid client ID').optional(),
   sale_type: z.enum(['CONTADO', 'CREDITO'], {
     errorMap: () => ({ message: 'Sale type must be CONTADO or CREDITO' })
   }),

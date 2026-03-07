@@ -5,6 +5,8 @@
  *
  * Navigation sidebar with:
  * - Collapsible (icon-only) desktop mode — managed by AppShell
+ * - Hover-to-expand: when collapsed, hovering temporarily shows full menu (overlay)
+ * - Collapse button fixed at the bottom
  * - Mobile overlay mode
  * - Expandable submenus
  */
@@ -16,6 +18,7 @@ import {
   LayoutDashboard, Package, Users, ShoppingCart, CreditCard, Wallet, Map,
   Menu, X, ChevronDown, ChevronRight, ChevronLeft, Box, Tag, Layers,
   Ruler, Truck, PackagePlus, Warehouse, BarChart3, DollarSign, Images,
+  PanelLeftClose, PanelLeftOpen, FileText, AlertTriangle, RotateCcw,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -35,39 +38,54 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { title: 'Reportes',  href: '/reports',   icon: BarChart3 },
-  {
-    title: 'Catálogos', href: '/catalogs', icon: Package,
-    subItems: [
-      { title: 'Productos',       href: '/catalogs/products',   icon: Box },
-      { title: 'Catálogo Visual', href: '/catalogs/visual',     icon: Images },
-      { title: 'Líneas',          href: '/catalogs/lines',      icon: Layers },
-      { title: 'Categorías',      href: '/catalogs/categories', icon: Tag },
-      { title: 'Marcas',          href: '/catalogs/brands',     icon: Tag },
-      { title: 'Tallas',          href: '/catalogs/sizes',      icon: Ruler },
-      { title: 'Proveedores',     href: '/catalogs/suppliers',  icon: Truck },
-    ],
-  },
-  {
-    title: 'Inventario', href: '/inventory', icon: Warehouse,
-    subItems: [
-      { title: 'Stock',          href: '/inventory/stock',      icon: Box },
-      { title: 'Movimientos',    href: '/inventory/movements',  icon: PackagePlus },
-      { title: 'Ingreso Masivo', href: '/inventory/bulk-entry', icon: PackagePlus },
-    ],
-  },
+  
+  // ── VENTAS ──
+  { title: 'POS', href: '/pos', icon: ShoppingCart },
+  { title: 'Catálogo Visual', href: '/catalogs/visual', icon: Images },
+  { title: 'Historial de Ventas', href: '/sales', icon: FileText },
+  { title: 'Devoluciones', href: '/returns', icon: RotateCcw },
+  
+  // ── FINANZAS ──
+  { title: 'Caja', href: '/cash', icon: DollarSign },
+  { title: 'Deuda', href: '/debt', icon: CreditCard },
+  { title: 'Cobranzas', href: '/collections', icon: Wallet },
+  
+  // ── CLIENTES ──
   {
     title: 'Clientes', href: '/clients', icon: Users,
     subItems: [
-      { title: 'Lista de Clientes', href: '/clients',           icon: Users },
-      { title: 'Dashboard CRM',     href: '/clients/dashboard', icon: LayoutDashboard },
+      { title: 'Lista de Clientes', href: '/clients', icon: Users },
+      { title: 'Dashboard CRM', href: '/clients/dashboard', icon: LayoutDashboard },
+      { title: 'Lista Negra', href: '/clients/blacklist', icon: AlertTriangle },
+      { title: 'Mapa', href: '/map', icon: Map },
     ],
   },
-  { title: 'POS',       href: '/pos',         icon: ShoppingCart },
-  { title: 'Caja',      href: '/cash',        icon: DollarSign },
-  { title: 'Deuda',     href: '/debt',        icon: CreditCard },
-  { title: 'Cobranzas', href: '/collections', icon: Wallet },
-  { title: 'Mapa',      href: '/map',         icon: Map },
+  
+  // ── INVENTARIO ──
+  {
+    title: 'Inventario', href: '/inventory', icon: Warehouse,
+    subItems: [
+      { title: 'Stock', href: '/inventory/stock', icon: Box },
+      { title: 'Movimientos', href: '/inventory/movements', icon: PackagePlus },
+      { title: 'Ingreso Masivo', href: '/inventory/bulk-entry', icon: PackagePlus },
+    ],
+  },
+  
+  // ── CATÁLOGOS ──
+  {
+    title: 'Catálogos', href: '/catalogs', icon: Package,
+    subItems: [
+      { title: 'Productos', href: '/catalogs/products', icon: Box },
+      { title: 'Líneas', href: '/catalogs/lines', icon: Layers },
+      { title: 'Categorías', href: '/catalogs/categories', icon: Tag },
+      { title: 'Marcas', href: '/catalogs/brands', icon: Tag },
+      { title: 'Tallas', href: '/catalogs/sizes', icon: Ruler },
+      { title: 'Proveedores', href: '/catalogs/suppliers', icon: Truck },
+    ],
+  },
+  
+  // ── REPORTES ──
+  { title: 'Reportes', href: '/reports', icon: BarChart3 },
 ]
 
 interface SidebarProps {
@@ -82,6 +100,11 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>(['/catalogs', '/inventory'])
   const [storeLogo, setStoreLogo] = useState<string | null>(null)
   const [storeName, setStoreName] = useState('Adiction Boutique')
+  // Hover state: when collapsed, hovering temporarily shows full sidebar as overlay
+  const [hovered, setHovered] = useState(false)
+
+  // Effective collapsed: true only when collapsed AND not hovering
+  const effectiveCollapsed = collapsed && !hovered
 
   useEffect(() => {
     const load = () => {
@@ -113,8 +136,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       const isExpanded  = expandedItems.includes(item.href)
       const hasSubItems = !!item.subItems?.length
 
-      // Collapsed desktop: icon-only, link goes to first sub-item (or href)
-      if (collapsed) {
+      // Collapsed desktop (icon-only): only show when effectiveCollapsed
+      if (effectiveCollapsed) {
         return (
           <li key={item.href}>
             <Link
@@ -224,20 +247,24 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
 
       {/* ── Sidebar panel ─────────────────────────────────────────────────── */}
       <aside
+        onMouseEnter={() => collapsed && setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900',
+          'fixed left-0 top-0 h-screen bg-white dark:bg-gray-900',
           'border-r border-gray-200 dark:border-gray-800',
           'transition-all duration-300 ease-in-out flex flex-col',
+          // When hovering while collapsed → use z-50 so it overlays content
+          collapsed && hovered ? 'z-50 shadow-xl' : 'z-40',
           // Mobile: always w-64, slides in/out
           mobileOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0',
-          // Desktop: collapsed=w-16, expanded=w-64
-          collapsed ? 'md:w-16' : 'md:w-64'
+          // Desktop width: collapsed (and not hovered) = w-16, otherwise w-64
+          effectiveCollapsed ? 'md:w-16' : 'md:w-64'
         )}
       >
         {/* ── Brand header ─────────────────────────────────────────────────── */}
         <div className={cn(
           'flex items-center h-16 border-b border-gray-200 dark:border-gray-800 flex-shrink-0',
-          collapsed ? 'justify-center px-2' : 'gap-3 px-4'
+          effectiveCollapsed ? 'justify-center px-2' : 'gap-3 px-4'
         )}>
           {storeLogo ? (
             <img src={storeLogo} alt="Logo" className="h-8 w-8 object-contain flex-shrink-0" />
@@ -246,7 +273,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               <span className="text-primary-foreground text-xs font-bold select-none">AB</span>
             </div>
           )}
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
               {storeName}
             </span>
@@ -260,7 +287,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
           </ul>
         </nav>
 
-        {/* ── Collapse toggle (desktop only) ────────────────────────────── */}
+        {/* ── Collapse toggle — always at the bottom (desktop only) ─────── */}
         {onToggleCollapse && (
           <div className="hidden md:flex border-t border-gray-200 dark:border-gray-800 p-2 flex-shrink-0">
             <button
@@ -268,15 +295,15 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
               className={cn(
                 'flex items-center gap-2 rounded-lg text-xs text-gray-500',
-                'hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors py-2',
-                collapsed ? 'justify-center w-full px-2' : 'w-full px-3'
+                'hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 transition-colors py-2',
+                effectiveCollapsed ? 'justify-center w-full px-2' : 'w-full px-3'
               )}
             >
               {collapsed
-                ? <ChevronRight className="h-4 w-4" />
+                ? <PanelLeftOpen  className="h-4 w-4" />
                 : <>
-                    <ChevronLeft className="h-4 w-4 flex-shrink-0" />
-                    <span>Colapsar</span>
+                    <PanelLeftClose className="h-4 w-4 flex-shrink-0" />
+                    <span>Colapsar menú</span>
                   </>
               }
             </button>

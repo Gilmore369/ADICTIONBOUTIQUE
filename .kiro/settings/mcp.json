@@ -1,0 +1,43 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "env": {},
+      "disabled": false,
+      "autoApprove": [
+        "browser_click",
+        "browser_fill_form",
+        "browser_wait_for",
+        "browser_snapshot",
+        "browser_take_screenshot",
+        "browser_navigate",
+        "browser_press_key",
+        "browser_close",
+        "browser_run_code",
+        "browser_evaluate",
+        "browser_console_messages",
+        "browser_type",
+        "browser_network_requests",
+        "browser_select_option",
+        "browser_install",
+        "browser_tabs"
+      ]
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres"
+      ],
+      "env": {
+        "POSTGRES_CONNECTION_URL": "postgresql://postgres.mwdqdrqlzlffmfqqcnmp:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}

@@ -1182,10 +1182,10 @@ export async function createClient(formData: FormData): Promise<ActionResponse> 
     return { success: false, error: 'DNI already exists' }
   }
 
-  // Verify that the referring client exists
+  // Verify that the referring client exists and get their rating
   const { data: referrer } = await supabase
     .from('clients')
-    .select('id, name')
+    .select('id, name, rating')
     .eq('id', validated.data.referred_by)
     .eq('active', true)
     .maybeSingle()
@@ -1194,10 +1194,23 @@ export async function createClient(formData: FormData): Promise<ActionResponse> 
     return { success: false, error: 'El cliente que refiere no existe o está inactivo' }
   }
 
-  // Insert client
+  // Determine initial rating based on referrer's rating
+  // If referrer is A or B → new client starts at D, otherwise starts at E
+  const referrerRating = (referrer as any).rating as string | null
+  const initialRating = (referrerRating === 'A' || referrerRating === 'B') ? 'D' : 'E'
+  const creditLimitByRating: Record<string, number> = { A: 2500, B: 1500, C: 875, D: 625, E: 300 }
+  const initialCreditLimit = validated.data.credit_limit > 0
+    ? validated.data.credit_limit  // Admin manually set a credit limit
+    : creditLimitByRating[initialRating]
+
+  // Insert client with computed initial rating
   const { data, error } = await supabase
     .from('clients')
-    .insert(validated.data as any)
+    .insert({
+      ...validated.data,
+      rating: initialRating,
+      credit_limit: initialCreditLimit,
+    } as any)
     .select()
     .single()
 
@@ -1235,6 +1248,8 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
   const creditUsed = formData.get('credit_used')
   const active = formData.get('active')
 
+  const ratingRaw = formData.get('rating')
+
   // Validate input (partial update)
   const validated = clientUpdateSchema.partial().safeParse({
     dni: formData.get('dni') || undefined,
@@ -1246,6 +1261,7 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
     lng: lng ? Number(lng) : undefined,
     credit_limit: creditLimit ? Number(creditLimit) : undefined,
     credit_used: creditUsed ? Number(creditUsed) : undefined,
+    rating: ratingRaw || undefined,
     dni_photo_url: formData.get('dni_photo_url') || undefined,
     client_photo_url: formData.get('client_photo_url') || undefined,
     birthday: formData.get('birthday') || undefined,
@@ -1269,6 +1285,23 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
     if (existing) {
       return { success: false, error: 'DNI already exists' }
     }
+  }
+
+  // If rating changes and credit_limit is not explicitly provided,
+  // set credit_limit to GREATEST(rating_default, current credit_used)
+  // to avoid violating the credit constraint on existing clients
+  const creditLimitByRating: Record<string, number> = { A: 2500, B: 1500, C: 875, D: 625, E: 300 }
+  if (validated.data.rating && !validated.data.credit_limit) {
+    const { data: currentClient } = await supabase
+      .from('clients')
+      .select('credit_used')
+      .eq('id', id)
+      .single()
+    const creditUsed = (currentClient as any)?.credit_used ?? 0
+    validated.data.credit_limit = Math.max(
+      creditLimitByRating[validated.data.rating] ?? 300,
+      creditUsed
+    )
   }
 
   // Update client

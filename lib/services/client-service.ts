@@ -56,10 +56,15 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       .eq('id', clientId)
       .single(),
     
-    // Fetch purchase history
+    // Fetch purchase history with items
     supabase
       .from('sales')
-      .select('id, sale_number, created_at, total, sale_type, payment_status')
+      .select(`
+        id, sale_number, created_at, total, subtotal, discount, sale_type, payment_status,
+        sale_items (
+          id, quantity, unit_price, subtotal, product_name, product_id
+        )
+      `)
       .eq('client_id', clientId)
       .eq('voided', false)
       .order('created_at', { ascending: false }), // Most recent first
@@ -131,8 +136,18 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
     saleNumber: p.sale_number || '',
     date: new Date(p.created_at),
     total: p.total || 0,
+    subtotal: p.subtotal || 0,
+    discount: p.discount || 0,
     saleType: p.sale_type as 'CONTADO' | 'CREDITO',
     paymentStatus: p.payment_status as 'PAID' | 'PENDING' | 'PARTIAL',
+    items: (p.sale_items || []).map((item: any) => ({
+      id: item.id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      subtotal: item.subtotal,
+      product_name: item.product_name || 'Producto',
+      product_id: item.product_id || null,
+    })),
   }))
   
   // Transform installments and calculate days overdue

@@ -36,21 +36,37 @@ async function ClientsData() {
     throw new Error(`Error loading user profile: ${profileError.message}`)
   }
 
-  if (!profile || (!((profile as any).roles?.includes('admin')) && !((profile as any).roles?.includes('vendedor')))) {
-    console.log('Access denied. User roles:', (profile as any)?.roles)
+  const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+  if (!profile || (!userRoles.includes('admin') && !userRoles.includes('vendedor'))) {
     redirect('/')
   }
 
-  // Fetch first 100 clients for initial load with pagination
-  const { data: clients, error } = await supabase
-    .from('clients')
-    .select('*')
-    .order('name')
-    .limit(100)
+  // Fetch clients — try with blacklisted column first, fall back without it
+  let clients: any[] | null = null
 
-  if (error) {
-    console.error('Error loading clients:', error)
-    throw new Error(`Error loading clients: ${error.message}`)
+  const { data: clientsWithBL, error: errorWithBL } = await supabase
+    .from('clients')
+    .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted')
+    .order('blacklisted', { ascending: false })
+    .order('name')
+    .limit(200)
+
+  if (errorWithBL) {
+    // Columna blacklisted aún no existe en BD — cargar sin ella
+    console.warn('blacklisted column not available:', errorWithBL.message)
+    const { data: clientsNoBL, error: errorNoBL } = await supabase
+      .from('clients')
+      .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason')
+      .order('name')
+      .limit(200)
+
+    if (errorNoBL) {
+      console.error('Error loading clients:', errorNoBL)
+      throw new Error(`Error loading clients: ${errorNoBL.message}`)
+    }
+    clients = clientsNoBL
+  } else {
+    clients = clientsWithBL
   }
 
   return <ClientsListView initialClients={(clients || []) as any} />

@@ -47,12 +47,14 @@ export enum AlertPriority {
 
 /**
  * Client rating categories based on behavior
+ * A=Excellent (90+), B=Good (75-89), C=Regular (60-74), D=Basic (40-59), E=New/Risk (<40)
  */
 export enum RatingCategory {
   A = 'A',
   B = 'B',
   C = 'C',
   D = 'D',
+  E = 'E',
 }
 
 // ============================================================================
@@ -89,6 +91,18 @@ export interface CreditSummary {
 }
 
 /**
+ * Purchase item (line in a sale)
+ */
+export interface PurchaseItem {
+  id: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+  product_name: string
+  product_id: string | null
+}
+
+/**
  * Purchase record
  * Represents a single purchase transaction
  */
@@ -97,8 +111,11 @@ export interface Purchase {
   saleNumber: string
   date: Date
   total: number
+  subtotal?: number
+  discount?: number
   saleType: 'CONTADO' | 'CREDITO'
   paymentStatus: 'PAID' | 'PENDING' | 'PARTIAL'
+  items?: PurchaseItem[]
 }
 
 /**

@@ -25,6 +25,14 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createServerClient()
+
+    // Verificar autenticación
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const params    = request.nextUrl.searchParams
     const clientId  = params.get('client_id')
     const amountRaw = params.get('amount')
@@ -37,8 +45,6 @@ export async function GET(request: NextRequest) {
     if (isNaN(amount) || amount <= 0) {
       return NextResponse.json({ error: 'amount debe ser mayor a 0' }, { status: 400 })
     }
-
-    const supabase = await createServerClient()
 
     // Fetch all unpaid / partially-paid installments for this client
     const { data: rows, error } = await supabase

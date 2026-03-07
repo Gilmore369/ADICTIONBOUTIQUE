@@ -169,6 +169,33 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// ── PATCH /api/upload/product-image?id=<image_id> — update color tag ────────
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
+    const id = request.nextUrl.searchParams.get('id')
+    if (!id) return err400('id is required')
+
+    const body = await request.json()
+    // Allow setting color to a string or null (to remove color tag)
+    const color = body.color !== undefined ? (body.color?.trim() || null) : undefined
+    if (color === undefined) return err400('color field is required')
+
+    const { error } = await supabase
+      .from('product_images')
+      .update({ color })
+      .eq('id', id)
+
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true, data: { id, color } })
+  } catch (error) {
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 // ── DELETE /api/upload/product-image?id=<image_id> ─────────────────────────
 export async function DELETE(request: NextRequest) {
   try {

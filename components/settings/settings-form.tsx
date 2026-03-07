@@ -40,6 +40,8 @@ export function SettingsForm() {
   })
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Load logo and config from localStorage on mount
@@ -62,42 +64,112 @@ export function SettingsForm() {
     }
   }, [])
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const processLogoFile = async (file: File) => {
+    console.log('[Settings] Processing file:', file.name, file.type, file.size)
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
+      console.error('[Settings] Invalid file type:', file.type)
       toast.error('Por favor selecciona una imagen válida')
       return
     }
 
     // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
+      console.error('[Settings] File too large:', file.size)
       toast.error('La imagen no debe superar 2MB')
       return
     }
 
-    // Create preview and save
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      const result = reader.result as string
-      setLogoPreview(result)
-      // Save immediately to localStorage
-      try {
-        localStorage.setItem('store_logo', result)
-        toast.success('Logo cargado correctamente')
-        // Trigger storage event for other components
-        window.dispatchEvent(new Event('storage'))
-      } catch (error) {
-        console.error('Error saving logo:', error)
-        toast.error('Error al guardar el logo (archivo muy grande)')
+    setUploading(true)
+    console.log('[Settings] Reading file...')
+
+    try {
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        const result = reader.result as string
+        console.log('[Settings] File read successfully, size:', result.length)
+        setLogoPreview(result)
+        
+        // Save to localStorage
+        try {
+          localStorage.setItem('store_logo', result)
+          console.log('[Settings] Logo saved to localStorage')
+        } catch (error) {
+          console.error('[Settings] Error saving to localStorage:', error)
+        }
+
+        // Save to server
+        try {
+          const formData = new FormData()
+          formData.append('logo', file)
+
+          const response = await fetch('/api/settings/upload-logo', {
+            method: 'POST',
+            body: formData
+          })
+
+          if (!response.ok) {
+            throw new Error('Error al subir el logo al servidor')
+          }
+
+          const data = await response.json()
+          console.log('[Settings] Logo uploaded to server:', data)
+          toast.success('Logo guardado exitosamente')
+          window.dispatchEvent(new Event('storage'))
+        } catch (error) {
+          console.error('[Settings] Error uploading to server:', error)
+          toast.error('Logo guardado localmente, pero no se pudo subir al servidor')
+        } finally {
+          setUploading(false)
+        }
       }
+      reader.onerror = () => {
+        console.error('[Settings] Error reading file')
+        toast.error('Error al leer la imagen')
+        setUploading(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('[Settings] Error processing file:', error)
+      toast.error('Error al procesar la imagen')
+      setUploading(false)
     }
-    reader.onerror = () => {
-      toast.error('Error al leer la imagen')
+  }
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('[Settings] File input changed')
+    const file = e.target.files?.[0]
+    if (!file) {
+      console.log('[Settings] No file selected')
+      return
     }
-    reader.readAsDataURL(file)
+    processLogoFile(file)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      console.log('[Settings] File dropped:', file.name)
+      processLogoFile(file)
+    }
   }
 
   const handleRemoveLogo = () => {
@@ -127,8 +199,30 @@ export function SettingsForm() {
     }
   }
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click()
+  const handleUploadClick = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    console.log('[Settings] Upload button clicked')
+    console.log('[Settings] File input ref:', fileInputRef.current)
+    
+    if (fileInputRef.current) {
+      try {
+        // Reset value to allow selecting the same file again
+        fileInputRef.current.value = ''
+        
+        // Trigger click on the input
+        fileInputRef.current.click()
+        console.log('[Settings] File input clicked successfully')
+      } catch (error) {
+        console.error('[Settings] Error clicking file input:', error)
+        toast.error('Error al abrir el selector de archivos')
+      }
+    } else {
+      console.error('[Settings] File input ref is null')
+      toast.error('Error: No se pudo abrir el selector de archivos')
+    }
   }
 
   return (
@@ -189,7 +283,19 @@ export function SettingsForm() {
 
           {/* Logo Preview */}
           <div className="flex items-center gap-4">
-            <div className="relative w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            <label
+              htmlFor="logo-upload-input"
+              className={`relative w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${
+                isDragging 
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
+                  : 'border-gray-300 bg-gray-50 dark:bg-gray-800 dark:border-gray-700'
+              } ${uploading ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20'}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              title="Click o arrastra una imagen aquí"
+              style={{ pointerEvents: uploading ? 'none' : 'auto' }}
+            >
               {logoPreview ? (
                 <>
                   <img
@@ -198,52 +304,76 @@ export function SettingsForm() {
                     className="max-w-full max-h-full object-contain p-2"
                   />
                   <button
-                    onClick={handleRemoveLogo}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemoveLogo()
+                    }}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors shadow-md"
                     title="Eliminar logo"
+                    disabled={uploading}
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </>
               ) : (
-                <div className="text-center">
+                <div className="text-center pointer-events-none">
                   <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-xs text-gray-500">Sin logo</p>
+                  <p className="text-xs text-gray-500">
+                    {uploading ? 'Subiendo...' : isDragging ? 'Suelta aquí' : 'Click o arrastra'}
+                  </p>
                 </div>
               )}
-            </div>
+            </label>
 
-            <div className="flex-1">
+            <div className="flex-1 space-y-3">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/svg+xml"
                 onChange={handleLogoChange}
                 className="hidden"
+                id="logo-upload-input"
+                disabled={uploading}
               />
-              <Button
-                variant="outline"
-                onClick={handleUploadClick}
-                className="gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {logoPreview ? 'Cambiar Imagen' : 'Seleccionar Imagen'}
-              </Button>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Formatos: JPG, PNG, GIF, SVG (máx. 2MB)
-              </p>
+              <div>
+                {/* Label nativo - más confiable en Windows */}
+                <label
+                  htmlFor="logo-upload-input"
+                  className={`inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full sm:w-auto ${
+                    uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                  style={{ pointerEvents: uploading ? 'none' : 'auto' }}
+                >
+                  <Upload className="h-4 w-4" />
+                  {uploading ? 'Subiendo...' : logoPreview ? 'Cambiar Imagen' : 'Seleccionar Imagen'}
+                </label>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Formatos: JPG, PNG, GIF, SVG (máx. 2MB)
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  💡 Tres formas de subir:
+                </p>
+                <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 ml-4">
+                  <li>• Click en el cuadro de arriba</li>
+                  <li>• Click en "Seleccionar Imagen"</li>
+                  <li>• Arrastra y suelta la imagen</li>
+                </ul>
+              </div>
             </div>
           </div>
 
           {/* Instructions */}
           <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
-              Instrucciones para usar el logo
+              Cómo subir tu logo
             </h3>
             <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
-              <li>Selecciona una imagen de tu logo (preferiblemente con fondo transparente)</li>
-              <li>La imagen se guardará en tu navegador automáticamente</li>
-              <li>El logo aparecerá en el sidebar y en todos los tickets de venta</li>
+              <li>Haz click en el cuadro de arriba o en "Seleccionar Imagen"</li>
+              <li>También puedes arrastrar y soltar la imagen directamente</li>
+              <li>El logo se guardará automáticamente en el servidor</li>
+              <li>Aparecerá en el sidebar y en todos los tickets de venta</li>
               <li>Para cambiar el logo, simplemente sube una nueva imagen</li>
             </ol>
           </div>

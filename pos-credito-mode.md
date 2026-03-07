@@ -1,0 +1,138 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - img "Logo" [ref=e219]
+      - navigation [ref=e8]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Dashboard" [ref=e11] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e12]
+          - listitem [ref=e17]:
+            - link "Reportes" [ref=e18] [cursor=pointer]:
+              - /url: /reports
+              - img [ref=e19]
+          - listitem [ref=e21]:
+            - link "Catálogos" [ref=e220] [cursor=pointer]:
+              - /url: /catalogs/products
+              - img [ref=e221]
+          - listitem [ref=e75]:
+            - link "Inventario" [ref=e225] [cursor=pointer]:
+              - /url: /inventory/stock
+              - img [ref=e226]
+          - listitem [ref=e102]:
+            - link "Clientes" [ref=e229] [cursor=pointer]:
+              - /url: /clients
+              - img [ref=e230]
+          - listitem [ref=e113]:
+            - link "POS" [ref=e114] [cursor=pointer]:
+              - /url: /pos
+              - img [ref=e115]
+          - listitem [ref=e119]:
+            - link "Caja" [ref=e120] [cursor=pointer]:
+              - /url: /cash
+              - img [ref=e121]
+          - listitem [ref=e123]:
+            - link "Deuda" [ref=e124] [cursor=pointer]:
+              - /url: /debt
+              - img [ref=e125]
+          - listitem [ref=e127]:
+            - link "Cobranzas" [ref=e128] [cursor=pointer]:
+              - /url: /collections
+              - img [ref=e129]
+          - listitem [ref=e132]:
+            - link "Mapa" [ref=e133] [cursor=pointer]:
+              - /url: /map
+              - img [ref=e134]
+      - button "Expandir menú" [ref=e235]:
+        - img [ref=e236]
+    - generic [ref=e142]:
+      - banner [ref=e143]:
+        - generic [ref=e145]:
+          - button "Tienda Hombres" [ref=e239]:
+            - img
+          - button "Personalizar tema" [ref=e148]:
+            - img
+          - button "Admin User" [ref=e150]:
+            - generic [ref=e151]:
+              - img
+            - generic [ref=e152]: Admin User
+      - main [ref=e153]:
+        - generic [ref=e177]:
+          - generic [ref=e178]:
+            - generic [ref=e179]:
+              - heading "Punto de Venta" [level=1] [ref=e180]
+              - paragraph [ref=e181]: Sistema de ventas y gestión de caja
+            - generic [ref=e182]:
+              - generic [ref=e183]: Tienda 🔒
+              - combobox "No puedes cambiar de tienda con productos en el carrito" [disabled] [ref=e240]:
+                - option "Tienda Mujeres"
+                - option "Tienda Hombres" [selected]
+              - paragraph [ref=e241]: 🔒 Tienda bloqueada con productos en carrito
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - generic [ref=e189]:
+                - img [ref=e190]
+                - textbox "Escanear código de barras..." [ref=e191]
+              - generic [ref=e192]:
+                - generic [ref=e193]: Buscar Producto
+                - textbox "Buscar por nombre o código de barras..." [ref=e196]
+              - generic [ref=e197]:
+                - generic [ref=e198]: Tipo de Venta
+                - generic [ref=e199]:
+                  - button "Contado" [ref=e200]
+                  - button "Crédito" [active] [ref=e201]
+              - generic [ref=e242]:
+                - generic [ref=e243]:
+                  - generic [ref=e244]: Cliente *
+                  - button "Nuevo cliente" [ref=e245]:
+                    - img [ref=e246]
+                    - text: Nuevo cliente
+                - generic [ref=e250]:
+                  - generic [ref=e251]: Cliente *
+                  - generic [ref=e252]:
+                    - generic [ref=e253]:
+                      - generic [ref=e254]: Carlos Mendoza Rivas
+                      - generic [ref=e255]: "DNI: 74852362"
+                      - generic [ref=e256]: "Crédito disponible: S/ 3,000.00"
+                    - button "Cambiar" [ref=e257]
+              - generic [ref=e258]:
+                - generic [ref=e259]: Número de Cuotas (1-6)
+                - spinbutton "Número de Cuotas (1-6)" [ref=e260]: "6"
+                - paragraph [ref=e261]: "Cuota mensual: S/ 15.83"
+            - generic [ref=e202]:
+              - generic [ref=e203]:
+                - heading "Carrito" [level=2] [ref=e204]
+                - generic [ref=e262]:
+                  - generic [ref=e263]:
+                    - generic [ref=e264]: Camisa Formal - L - Celeste
+                    - generic [ref=e265]: S/ 95.00
+                  - generic [ref=e266]:
+                    - button [ref=e267]:
+                      - img
+                    - generic [ref=e268]: "1"
+                    - button [ref=e269]:
+                      - img
+                  - generic [ref=e270]: S/ 95.00
+                  - button [ref=e271]:
+                    - img
+                - generic [ref=e206]:
+                  - generic [ref=e207]:
+                    - generic [ref=e208]: "Subtotal:"
+                    - generic [ref=e209]: S/ 95.00
+                  - generic [ref=e210]:
+                    - generic [ref=e211]: "Descuento:"
+                    - generic [ref=e212]:
+                      - spinbutton "Descuento:" [ref=e213]: "0"
+                      - generic [ref=e214]: S/ 0.00
+                  - generic [ref=e215]:
+                    - generic [ref=e216]: "Total:"
+                    - generic [ref=e217]: S/ 95.00
+              - generic [ref=e218]:
+                - button "Completar Venta" [ref=e272]
+                - button "Limpiar Carrito" [ref=e273]
+              - generic [ref=e275]: ✓ Crédito disponible suficiente
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e281] [cursor=pointer]:
+    - img [ref=e282]
+  - alert [ref=e285]

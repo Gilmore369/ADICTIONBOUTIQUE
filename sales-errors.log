@@ -1,0 +1,4 @@
+Total messages: 6 (Errors: 1, Warnings: 0)
+Returning 1 messages for level "error"
+
+[ERROR] %c%s%c Error fetching sales: background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server   {code: 42703, details: null, hint: Perhaps you meant to reference the column "sales.sale_type"., message: column sales.sale_date does not exist} @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/userspace/app/errors/intercept-console-error.js:51

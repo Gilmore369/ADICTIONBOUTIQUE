@@ -22,8 +22,15 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient()
+
+    // Verificar autenticación
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
-    
+
     // Get query parameter
     const query = searchParams.get('q') || ''
     
@@ -52,7 +59,9 @@ export async function GET(request: NextRequest) {
         lng,
         credit_limit,
         credit_used,
-        active
+        active,
+        rating,
+        blacklisted
       `)
       .or(`name.ilike.%${query}%,dni.eq.${query}`)
       .eq('active', true)

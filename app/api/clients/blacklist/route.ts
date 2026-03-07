@@ -25,7 +25,8 @@ export async function POST() {
       .eq('id', user.id)
       .single()
 
-    if (!profile || !(profile as any).roles?.includes('admin')) {
+    const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+    if (!profile || !userRoles.includes('admin')) {
       return NextResponse.json({ error: 'Solo administradores pueden ejecutar esta acción' }, { status: 403 })
     }
 

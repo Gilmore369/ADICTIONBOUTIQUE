@@ -20,7 +20,8 @@ async function CashData() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || (!((profile as any).roles?.includes('admin')) && !((profile as any).roles?.includes('cajero')))) {
+  const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+  if (!profile || (!userRoles.includes('admin') && !userRoles.includes('cajero'))) {
     redirect('/')
   }
 

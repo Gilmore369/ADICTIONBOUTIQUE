@@ -34,12 +34,13 @@ export async function exportFilteredClients(filters: ClientFilters) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || ((profile as any).role !== 'admin' && (profile as any).role !== 'vendedor')) {
+    const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+    if (!profile || (!userRoles.includes('admin') && !userRoles.includes('vendedor'))) {
       throw new Error('No tiene permisos para realizar esta acción')
     }
 
     // Determine if user is admin (for data masking)
-    const userRole = (profile as any).role
+    const userRole = userRoles.includes('admin') ? 'admin' : 'vendedor'
     
     // Generate CSV
     const csvData = await exportClients(filters, userRole)

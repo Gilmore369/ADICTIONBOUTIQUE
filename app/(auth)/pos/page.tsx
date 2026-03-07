@@ -63,6 +63,7 @@ interface Product {
 }
 
 const VISUAL_CART_KEY = 'boutique_visual_cart'
+const POS_SESSION_KEY = 'boutique_pos_session'
 
 export default function POSPage() {
   const { cart, addItem, removeItem, updateQuantity, updateDiscount, clearCart } = useCart()
@@ -75,6 +76,31 @@ export default function POSPage() {
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
 
+  // ── Load persisted session state on mount ────────────────────────────────
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(POS_SESSION_KEY)
+      if (!saved) return
+      const session = JSON.parse(saved)
+      if (session.saleType) setSaleType(session.saleType)
+      if (session.selectedClient) setSelectedClient(session.selectedClient)
+      if (session.installments) setInstallments(session.installments)
+      if (session.warehouse) setWarehouse(session.warehouse)
+    } catch { /* ignore */ }
+  }, [])
+
+  // ── Persist session state whenever it changes ────────────────────────────
+  useEffect(() => {
+    try {
+      localStorage.setItem(POS_SESSION_KEY, JSON.stringify({
+        saleType,
+        selectedClient,
+        installments,
+        warehouse,
+      }))
+    } catch { /* ignore */ }
+  }, [saleType, selectedClient, installments, warehouse])
+
   // Sync warehouse with global store selection
   useEffect(() => {
     if (selectedStore === 'MUJERES') {
@@ -84,9 +110,6 @@ export default function POSPage() {
     }
     // If 'ALL', keep current warehouse selection
   }, [selectedStore])
-
-  // Debug: Log when cart changes
-  console.log('[POS] Cart items count:', cart.items.length, 'Should block selector:', cart.items.length > 0)
 
   // ── Pre-load items from Visual Catalog cart (localStorage bridge) ──────────
   useEffect(() => {
@@ -191,6 +214,11 @@ export default function POSPage() {
       
       // Add client_id and installments for CREDITO sales
       if (saleType === 'CREDITO' && selectedClient) {
+        console.log('[POS] Adding client to FormData:', {
+          client_id: selectedClient.id,
+          client_id_type: typeof selectedClient.id,
+          client_name: selectedClient.name
+        })
         formData.append('client_id', selectedClient.id)
         formData.append('installments', installments.toString())
       }
@@ -241,11 +269,12 @@ export default function POSPage() {
           `Venta ${result.data.sale_number} por S/ ${result.data.total.toFixed(2)} registrada exitosamente`
         )
         
-        // Clear cart and reset state
+        // Clear cart and reset state (also clears localStorage)
         clearCart()
         setSelectedClient(null)
         setInstallments(1)
         setSaleType('CONTADO')
+        try { localStorage.removeItem(POS_SESSION_KEY) } catch { /* ignore */ }
       } else {
         // Display error toast
         const errorMessage = typeof result.error === 'string'

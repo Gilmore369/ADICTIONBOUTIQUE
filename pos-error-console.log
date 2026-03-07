@@ -1,0 +1,5 @@
+Total messages: 8 (Errors: 2, Warnings: 0)
+Returning 2 messages for level "error"
+
+[ERROR] [POS] createSale error: {client_id: Array(1)} @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/userspace/app/errors/intercept-console-error.js:51
+[ERROR] [POS] createSale error: {client_id: Array(1)} @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/userspace/app/errors/intercept-console-error.js:51

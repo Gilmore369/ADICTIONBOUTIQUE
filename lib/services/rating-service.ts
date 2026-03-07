@@ -11,10 +11,11 @@
  * - Client Tenure: 10% weight
  * 
  * Rating Categories:
- * - A: 90-100 (Excellent)
- * - B: 70-89 (Good)
- * - C: 50-69 (Regular)
- * - D: 0-49 (Poor)
+ * - A: 90-100 (Excelente)
+ * - B: 75-89 (Bueno)
+ * - C: 60-74 (Regular)
+ * - D: 40-59 (Básico)
+ * - E: 0-39 (Nuevo/Riesgo)
  */
 
 import { createServerClient } from '@/lib/supabase/server'
@@ -72,14 +73,14 @@ export async function calculateClientRating(clientId: string): Promise<ClientRat
   const purchases = purchasesResult.data || []
   const client = clientResult.data
   
-  // Handle edge case: client with no purchase history
+  // Handle edge case: client with no purchase history → new client starts at E
   if (!client || purchases.length === 0) {
     return {
       client_id: clientId,
-      rating: RatingCategory.C,
-      score: 50,
-      payment_punctuality: 50,
-      purchase_frequency: 50,
+      rating: RatingCategory.E,
+      score: 20,
+      payment_punctuality: 0,
+      purchase_frequency: 0,
       total_purchases: 0,
       client_tenure_days: 0,
       last_calculated: new Date()
@@ -136,15 +137,18 @@ export async function calculateClientRating(clientId: string): Promise<ClientRat
     (tenureScore * 0.1)
   
   // Step 7: Assign rating category
+  // A=90+, B=75-89, C=60-74, D=40-59, E=<40
   let rating: RatingCategory
   if (finalScore >= 90) {
     rating = RatingCategory.A
-  } else if (finalScore >= 70) {
+  } else if (finalScore >= 75) {
     rating = RatingCategory.B
-  } else if (finalScore >= 50) {
+  } else if (finalScore >= 60) {
     rating = RatingCategory.C
-  } else {
+  } else if (finalScore >= 40) {
     rating = RatingCategory.D
+  } else {
+    rating = RatingCategory.E
   }
   
   // Step 8: Return rating object

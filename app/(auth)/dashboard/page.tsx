@@ -129,8 +129,8 @@ export default async function DashboardPage() {
       {/* Fila 1: KPIs ventas/cobros - todos clickeables */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
 
-        {/* Ventas Hoy → /pos */}
-        <Link href="/pos" className="group block">
+        {/* Ventas Hoy → /sales */}
+        <Link href="/sales" className="group block">
           <Card className="p-3 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200/60 transition-all hover:shadow-md hover:border-emerald-300 cursor-pointer h-full">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">

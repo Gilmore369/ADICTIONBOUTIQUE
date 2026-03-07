@@ -142,9 +142,34 @@ export function DebtorsMap() {
   const [routeType, setRouteType] = useState<RouteType>('Cobranza')
 
   // Visit panel state
+  const MAP_VISITS_KEY = 'boutique_map_visits'
   const [selectionMode, setSelectionMode] = useState(false)
   const [visitEntries, setVisitEntries]   = useState<VisitEntry[]>([])
   const [panelOpen, setPanelOpen]         = useState(false)
+
+  // Load persisted visit checklist on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(MAP_VISITS_KEY)
+      if (!saved) return
+      const entries: VisitEntry[] = JSON.parse(saved)
+      if (Array.isArray(entries) && entries.length > 0) {
+        setVisitEntries(entries)
+        setPanelOpen(true)
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  // Persist visit checklist whenever it changes
+  useEffect(() => {
+    try {
+      if (visitEntries.length > 0) {
+        localStorage.setItem(MAP_VISITS_KEY, JSON.stringify(visitEntries))
+      } else {
+        localStorage.removeItem(MAP_VISITS_KEY)
+      }
+    } catch { /* ignore */ }
+  }, [visitEntries])
 
   // Days overdue filter (only for 'overdue' filter)
   const [minDays, setMinDays] = useState(0)

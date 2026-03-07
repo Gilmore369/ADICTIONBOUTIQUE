@@ -66,27 +66,66 @@ export function SaleReceipt({
   onClose
 }: SaleReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null)
-  const [storeConfig, setStoreConfig] = useState(DEFAULT_STORE_CONFIG)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [storeConfig] = useState(DEFAULT_STORE_CONFIG)
+  const [logoUrl] = useState<string | null>('/images/logo.png')
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [email, setEmail] = useState(clientEmail || '')
   const [sendingEmail, setSendingEmail] = useState(false)
 
   useEffect(() => {
-    // Load store config from localStorage
-    const savedConfig = localStorage.getItem('store_config')
-    if (savedConfig) {
-      try {
-        setStoreConfig(JSON.parse(savedConfig))
-      } catch (error) {
-        console.error('Error loading store config:', error)
+    // Agregar estilos de impresión para formato compacto 80mm
+    const style = document.createElement('style')
+    style.id = 'receipt-print-styles'
+    style.textContent = `
+      @media print {
+        @page {
+          size: 80mm auto;
+          margin: 0;
+        }
+        
+        * {
+          margin: 0;
+          padding: 0;
+        }
+        
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        body * {
+          visibility: hidden;
+        }
+        
+        .receipt-content,
+        .receipt-content * {
+          visibility: visible;
+        }
+        
+        .receipt-content {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 80mm;
+          max-width: 80mm;
+          margin: 0;
+          padding: 10mm;
+          font-size: 10pt;
+          background: white;
+        }
+        
+        .print\\:hidden {
+          display: none !important;
+        }
       }
-    }
+    `
+    document.head.appendChild(style)
 
-    // Load logo from localStorage
-    const savedLogo = localStorage.getItem('store_logo')
-    if (savedLogo) {
-      setLogoUrl(savedLogo)
+    return () => {
+      const existingStyle = document.getElementById('receipt-print-styles')
+      if (existingStyle) {
+        existingStyle.remove()
+      }
     }
   }, [])
 
@@ -96,6 +135,11 @@ export function SaleReceipt({
 
   const handleDownloadPDF = async () => {
     try {
+      // Generar URL base para el QR
+      const baseUrl = window.location.origin
+      
+      toast.info('Generando PDF...', 'Por favor espera')
+      
       const response = await fetch('/api/sales/generate-pdf', {
         method: 'POST',
         headers: {
@@ -115,28 +159,73 @@ export function SaleReceipt({
           storePhone: storeConfig.phone,
           storeRuc: storeConfig.ruc,
           installments: paymentType === 'CREDITO' ? installments : undefined,
-          installmentAmount: paymentType === 'CREDITO' ? installmentAmount : undefined
+          installmentAmount: paymentType === 'CREDITO' ? installmentAmount : undefined,
+          ticketUrl: `${baseUrl}/tickets/${saleNumber}`,
+          method: 'jspdf' // Usar jspdf para mejor compatibilidad con Windows
         })
       })
 
       if (!response.ok) {
-        throw new Error('Error generating PDF')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Error generating PDF')
+      }
+
+      // Verificar que la respuesta es un PDF
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/pdf')) {
+        throw new Error('La respuesta no es un PDF válido')
       }
 
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `Ticket_${saleNumber}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      
+      // Verificar que el blob tiene contenido
+      if (blob.size === 0) {
+        throw new Error('El PDF generado está vacío')
+      }
 
-      toast.success('PDF descargado exitosamente')
+      console.log('[PDF] Tamaño del PDF:', blob.size, 'bytes')
+      
+      // Crear URL del blob
+      const url = window.URL.createObjectURL(blob)
+      
+      // Abrir en nueva pestaña para visualización
+      const newWindow = window.open(url, '_blank')
+      
+      if (newWindow) {
+        // Esperar a que se cargue y luego intentar descargar
+        setTimeout(() => {
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `Ticket_${saleNumber}.pdf`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          
+          // Limpiar después de un delay
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url)
+          }, 1000)
+        }, 500)
+        
+        toast.success('PDF generado', `Abriendo Ticket_${saleNumber}.pdf (${(blob.size / 1024).toFixed(2)} KB)`)
+      } else {
+        // Si no se puede abrir nueva ventana, solo descargar
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `Ticket_${saleNumber}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url)
+        }, 100)
+        
+        toast.success('PDF descargado', `Ticket_${saleNumber}.pdf (${(blob.size / 1024).toFixed(2)} KB)`)
+      }
     } catch (error) {
       console.error('Error downloading PDF:', error)
-      toast.error('Error al descargar PDF')
+      toast.error('Error al descargar PDF', error instanceof Error ? error.message : 'Error desconocido')
     }
   }
 

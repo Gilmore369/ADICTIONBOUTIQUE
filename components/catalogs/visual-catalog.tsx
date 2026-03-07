@@ -33,8 +33,9 @@ import {
 } from '@/components/ui/dialog'
 import {
   Search, X, ImageIcon, ChevronLeft, ChevronRight,
-  Package, Star, Upload, Trash2, RefreshCw,
+  Package, Star, Upload, Trash2, Filter, Camera,
   ShoppingCart, Plus, Minus, ArrowRight, Check,
+  Grid3x3, List, Store, TrendingUp, AlertCircle, Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -45,6 +46,9 @@ const CART_KEY = 'boutique_visual_cart'
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'UNICA', 'ÚNICA']
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type ViewMode = 'grid' | 'list' | 'pos'
+type SortOption = 'name' | 'recent' | 'price-asc' | 'price-desc' | 'stock'
 
 interface ModelVariant {
   product_id: string
@@ -72,6 +76,7 @@ interface ModelCard {
   size_names: string[]      // sorted unique sizes
   colors: string[]          // unique colors
   primary_image_url: string | null
+  color_images: Record<string, string>  // color (lowercase) → public_url
   variants: ModelVariant[]  // per-variant real stock
 }
 
@@ -211,6 +216,15 @@ function ModelCardItem({
     model.total_stock < 5   ? 'text-amber-600' :
     'text-emerald-600'
 
+  // ── Imagen activa: cambia según el color seleccionado ────────────────────
+  const displayImage = useMemo(() => {
+    if (selColor) {
+      const colorKey = selColor.toLowerCase()
+      if (model.color_images[colorKey]) return model.color_images[colorKey]
+    }
+    return model.primary_image_url
+  }, [selColor, model.color_images, model.primary_image_url])
+
   // ── Qué tallas existen para el color seleccionado ─────────────────────────
   // Si no hay color seleccionado, todas las tallas están "disponibles"
   const sizesForSelColor = useMemo(() => {
@@ -333,12 +347,13 @@ function ModelCardItem({
         className="relative aspect-[3/4] bg-muted overflow-hidden cursor-pointer flex-shrink-0"
         onClick={onOpenDetail}
       >
-        {model.primary_image_url ? (
+        {displayImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={model.primary_image_url}
-            alt={model.base_name}
-            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            key={displayImage}
+            src={displayImage}
+            alt={selColor ? `${model.base_name} — ${selColor}` : model.base_name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground/30">
@@ -378,15 +393,26 @@ function ModelCardItem({
           <div className="flex flex-wrap gap-1 items-center">
             {model.colors.slice(0, 7).map(c => {
               const isDisabled = !colorsForSelSize.has(c)
+              const hasImage = !!model.color_images[c.toLowerCase()]
               return (
-                <ColorDot
-                  key={c}
-                  color={c}
-                  size="md"
-                  selected={selColor === c}
-                  disabled={isDisabled}
-                  onClick={isDisabled ? undefined : e => handleColorClick(e, c)}
-                />
+                <span key={c} className="relative inline-flex">
+                  <ColorDot
+                    color={c}
+                    size="md"
+                    selected={selColor === c}
+                    disabled={isDisabled}
+                    onClick={isDisabled ? undefined : e => handleColorClick(e, c)}
+                  />
+                  {/* Indicador de foto vinculada */}
+                  {hasImage && (
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-white flex items-center justify-center shadow-sm"
+                      title={`Foto vinculada: ${c}`}
+                    >
+                      <Camera className="w-1.5 h-1.5 text-primary" />
+                    </span>
+                  )}
+                </span>
               )
             })}
             {model.colors.length > 7 && (
@@ -512,15 +538,14 @@ function ModelDetailModal({
   const [uploadColor, setUploadColor] = useState('')
   const [uploadAsPrimary, setUploadAsPrimary] = useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  // Color-image linking: when set, gallery shows images tagged with that color (+ untagged)
+  const [colorFilter, setColorFilter] = useState<string | null>(null)
+  // Edit color of existing image
+  const [editingColor, setEditingColor] = useState(false)
+  const [editColorValue, setEditColorValue] = useState('')
+  const [savingColor, setSavingColor] = useState(false)
 
-  useEffect(() => {
-    if (model && open) {
-      loadImages(model)
-      setGalleryIdx(0)
-    }
-  }, [model?.base_code, open])
-
-  const loadImages = async (m: ModelCard) => {
+  const loadImages = useCallback(async (m: ModelCard) => {
     const supabase = createBrowserClient()
     try {
       const { data } = await supabase
@@ -556,9 +581,46 @@ function ModelDetailModal({
         setImages([])
       }
     }
-  }
+  }, [])
 
-  const handleUpload = async (file: File) => {
+  useEffect(() => {
+    if (model && open) {
+      loadImages(model)
+      setGalleryIdx(0)
+      setColorFilter(null)
+    }
+  }, [model?.base_code, open, loadImages])
+
+  // Compute which images to show based on color filter
+  const displayImages = useMemo(() => {
+    if (!colorFilter) return images
+    // Show images tagged for this color + untagged (generic) images
+    const filtered = images.filter(
+      i => !i.color || i.color.toLowerCase() === colorFilter.toLowerCase()
+    )
+    return filtered.length > 0 ? filtered : images
+  }, [images, colorFilter])
+
+  // Jump gallery to first image for selected color
+  useEffect(() => {
+    if (!colorFilter) { setGalleryIdx(0); return }
+    const idx = displayImages.findIndex(
+      i => i.color?.toLowerCase() === colorFilter.toLowerCase()
+    )
+    setGalleryIdx(idx !== -1 ? idx : 0)
+  }, [colorFilter, displayImages])
+
+  // Reset color editor when gallery changes
+  useEffect(() => { setEditingColor(false) }, [galleryIdx])
+
+  // Map color → count of tagged images for the camera indicator
+  const imagesPerColor = useMemo(() => {
+    const map: Record<string, number> = {}
+    images.forEach(img => { if (img.color) map[img.color.toLowerCase()] = (map[img.color.toLowerCase()] || 0) + 1 })
+    return map
+  }, [images])
+
+  const handleUpload = useCallback(async (file: File) => {
     if (!model) return
     setUploading(true)
     try {
@@ -580,9 +642,9 @@ function ModelDetailModal({
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }
+  }, [model, uploadColor, uploadAsPrimary, loadImages, onRefresh])
 
-  const handleSetPrimary = async (imgId: string) => {
+  const handleSetPrimary = useCallback(async (imgId: string) => {
     if (!model || imgId === '__fallback__') return
     const supabase = createBrowserClient()
     // @ts-ignore - product_images table types not yet generated
@@ -593,9 +655,9 @@ function ModelDetailModal({
     await loadImages(model)
     onRefresh()
     toast.success('Imagen marcada como principal')
-  }
+  }, [model, loadImages, onRefresh])
 
-  const handleDelete = async (imgId: string) => {
+  const handleDelete = useCallback(async (imgId: string) => {
     if (imgId === '__fallback__') return
     if (!confirm('¿Eliminar esta imagen?')) return
     const res  = await fetch(`/api/upload/product-image?id=${imgId}`, { method: 'DELETE' })
@@ -608,10 +670,37 @@ function ModelDetailModal({
     } else {
       toast.error(json.error || 'Error al eliminar')
     }
-  }
+  }, [onRefresh])
 
+  const handleSaveColor = useCallback(async (imgId: string) => {
+    if (imgId === '__fallback__') return
+    setSavingColor(true)
+    try {
+      const res  = await fetch(`/api/upload/product-image?id=${imgId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ color: editColorValue.trim() || null }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(editColorValue.trim() ? `Color asignado: ${editColorValue}` : 'Color removido')
+        setImages(prev => prev.map(i =>
+          i.id === imgId ? { ...i, color: editColorValue.trim() || null } : i
+        ))
+        setEditingColor(false)
+        onRefresh()
+      } else {
+        toast.error(json.error || 'Error al guardar color')
+      }
+    } finally {
+      setSavingColor(false)
+    }
+  }, [editColorValue, onRefresh])
+
+  // Early return AFTER all hooks
   if (!model) return null
-  const currentImg = images[galleryIdx]
+  
+  const currentImg = displayImages[galleryIdx]
   const showMultiColor = model.colors.length > 1
 
   return (
@@ -627,6 +716,24 @@ function ModelDetailModal({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* ── Gallery ── */}
           <div className="space-y-3">
+            {/* Color filter indicator */}
+            {colorFilter && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Camera className="h-3 w-3" />
+                <span>Fotos de color:</span>
+                <div className="flex items-center gap-1">
+                  <ColorDot color={colorFilter} size="sm" />
+                  <span className="font-medium text-foreground">{colorFilter}</span>
+                </div>
+                <button
+                  onClick={() => setColorFilter(null)}
+                  className="ml-auto text-[10px] text-primary hover:underline"
+                >
+                  Ver todas
+                </button>
+              </div>
+            )}
+
             <div className="relative aspect-[3/4] rounded-lg bg-muted overflow-hidden">
               {currentImg ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -640,33 +747,42 @@ function ModelDetailModal({
                   <ImageIcon className="h-16 w-16" />
                 </div>
               )}
-              {images.length > 1 && (
+              {displayImages.length > 1 && (
                 <>
                   <button
-                    onClick={() => setGalleryIdx(i => (i - 1 + images.length) % images.length)}
+                    onClick={() => setGalleryIdx(i => (i - 1 + displayImages.length) % displayImages.length)}
                     className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center hover:bg-white transition"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => setGalleryIdx(i => (i + 1) % images.length)}
+                    onClick={() => setGalleryIdx(i => (i + 1) % displayImages.length)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 shadow flex items-center justify-center hover:bg-white transition"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </>
               )}
-              {currentImg?.is_primary && (
-                <div className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-                  <Star className="h-2.5 w-2.5" /> Principal
-                </div>
-              )}
+              {/* Badges: Principal + color tag */}
+              <div className="absolute top-2 left-2 flex flex-col gap-1">
+                {currentImg?.is_primary && (
+                  <div className="bg-amber-400 text-amber-900 text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Star className="h-2.5 w-2.5" /> Principal
+                  </div>
+                )}
+                {currentImg?.color && (
+                  <div className="bg-white/90 text-foreground text-[9px] font-medium px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                    <ColorDot color={currentImg.color} size="sm" />
+                    {currentImg.color}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Thumbnails */}
-            {images.length > 1 && (
+            {displayImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {images.map((img, idx) => (
+                {displayImages.map((img, idx) => (
                   <button
                     key={img.id}
                     onClick={() => setGalleryIdx(idx)}
@@ -676,6 +792,12 @@ function ModelDetailModal({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img.public_url} alt="" className="w-full h-full object-cover" />
+                    {/* Color tag indicator on thumbnail */}
+                    {img.color && (
+                      <div className="absolute bottom-0 right-0 m-0.5">
+                        <ColorDot color={img.color} size="sm" />
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -683,22 +805,54 @@ function ModelDetailModal({
 
             {/* Image actions */}
             {currentImg && currentImg.id !== '__fallback__' && (
-              <div className="flex gap-2">
-                <Button
-                  size="sm" variant="outline" className="flex-1 gap-1.5 text-xs"
-                  onClick={() => handleSetPrimary(currentImg.id)}
-                  disabled={currentImg.is_primary}
-                >
-                  <Star className="h-3 w-3" />
-                  {currentImg.is_primary ? 'Principal ✓' : 'Marcar principal'}
-                </Button>
-                <Button
-                  size="sm" variant="outline"
-                  className="gap-1.5 text-xs text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(currentImg.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Button
+                    size="sm" variant="outline" className="flex-1 gap-1.5 text-xs"
+                    onClick={() => handleSetPrimary(currentImg.id)}
+                    disabled={currentImg.is_primary}
+                  >
+                    <Star className="h-3 w-3" />
+                    {currentImg.is_primary ? 'Principal ✓' : 'Marcar principal'}
+                  </Button>
+                  <Button
+                    size="sm" variant="outline"
+                    className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(currentImg.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                {/* Color tag editor */}
+                {editingColor ? (
+                  <div className="flex gap-1.5">
+                    <Input
+                      placeholder="Ej: Azul, Rojo…"
+                      value={editColorValue}
+                      onChange={e => setEditColorValue(e.target.value)}
+                      className="h-7 text-xs flex-1"
+                      autoFocus
+                      onKeyDown={e => { if (e.key === 'Enter') handleSaveColor(currentImg.id) }}
+                    />
+                    <Button size="sm" className="h-7 text-xs px-2.5" onClick={() => handleSaveColor(currentImg.id)} disabled={savingColor}>
+                      {savingColor ? '…' : 'OK'}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setEditingColor(false)}>
+                      ✕
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setEditColorValue(currentImg.color || ''); setEditingColor(true) }}
+                    className="w-full flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Camera className="h-3 w-3" />
+                    {currentImg.color
+                      ? <><ColorDot color={currentImg.color} size="sm" /><span>Color: <strong>{currentImg.color}</strong> (editar)</span></>
+                      : <span>Sin color asignado — <span className="text-primary underline">Asignar color</span></span>
+                    }
+                  </button>
+                )}
               </div>
             )}
 
@@ -843,18 +997,50 @@ function ModelDetailModal({
               </div>
             </div>
 
-            {/* Colors summary */}
+            {/* Colors summary — clickable to filter gallery images */}
             {model.colors.length > 0 && (
               <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Colores disponibles</p>
-                <div className="flex flex-wrap gap-2">
-                  {model.colors.map(c => (
-                    <div key={c} className="flex items-center gap-1.5">
-                      <ColorDot color={c} size="md" />
-                      <span className="text-xs text-muted-foreground">{c}</span>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Colores disponibles</p>
+                  {colorFilter && (
+                    <button
+                      onClick={() => setColorFilter(null)}
+                      className="text-[9px] text-primary hover:underline ml-auto"
+                    >
+                      Ver todas las fotos
+                    </button>
+                  )}
                 </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {model.colors.map(c => {
+                    const hasImages = (imagesPerColor[c.toLowerCase()] ?? 0) > 0
+                    const isSelected = colorFilter === c
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => setColorFilter(isSelected ? null : c)}
+                        className={[
+                          'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors',
+                          isSelected
+                            ? 'bg-primary/10 ring-1 ring-primary text-foreground'
+                            : 'hover:bg-muted text-muted-foreground',
+                        ].join(' ')}
+                        title={hasImages ? `Ver fotos de ${c}` : `${c} (sin fotos)`}
+                      >
+                        <ColorDot color={c} size="md" selected={isSelected} />
+                        <span>{c}</span>
+                        {hasImages && (
+                          <Camera className="h-2.5 w-2.5 text-primary" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                {model.colors.some(c => (imagesPerColor[c.toLowerCase()] ?? 0) > 0) && (
+                  <p className="text-[9px] text-muted-foreground/60 mt-1.5">
+                    Haz clic en un color con <Camera className="inline h-2 w-2" /> para ver sus fotos
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -1036,20 +1222,9 @@ export function VisualCatalog() {
   // ── UI state ───────────────────────────────────────────────────────────────
   const [selected,  setSelected]  = useState<ModelCard | null>(null)
   const [cartOpen,  setCartOpen]  = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [filtersOpen, setFiltersOpen] = useState(false) // Mobile filters modal
-
-  // Detect screen size and adjust sidebar
-  useEffect(() => {
-    const handleResize = () => {
-      const isDesktop = window.innerWidth >= 1024 // lg breakpoint
-      setSidebarOpen(isDesktop)
-    }
-    
-    handleResize() // Initial check
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  const [filtersOpen, setFiltersOpen] = useState(false) // Mobile filters bottom sheet
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [sortBy, setSortBy] = useState<SortOption>('name')
 
   // ── Cart ───────────────────────────────────────────────────────────────────
   const [cartItems, setCartItems] = useState<VisualCartItem[]>([])
@@ -1282,6 +1457,7 @@ export function VisualCatalog() {
           size_names:     [],
           colors:         [],
           primary_image_url: pAny.image_url ?? null,
+          color_images:   {},
           variants:       [],
         }
       }
@@ -1312,7 +1488,7 @@ export function VisualCatalog() {
       })
     }
 
-    // ── Override primary images from product_images table ────────────────
+    // ── Override primary images + build color_images map ────────────────
     const baseCodes = Object.keys(grouped)
     if (baseCodes.length > 0) {
       try {
@@ -1320,13 +1496,32 @@ export function VisualCatalog() {
           .from('product_images')
           .select('base_code, public_url, is_primary, color')
           .in('base_code', baseCodes)
-          .eq('is_primary', true as any)
-        
+          .order('is_primary', { ascending: false })  // primarias primero
+          .order('sort_order' as any)
+
         if (!imgErr && imgs) {
           for (const img of imgs) {
             const imgAny = img as any
-            if (grouped[imgAny.base_code] && imgAny.public_url) {
-              grouped[imgAny.base_code].primary_image_url = imgAny.public_url as string
+            const group = grouped[imgAny.base_code]
+            if (!group || !imgAny.public_url) continue
+
+            // Imagen primaria → sobrescribe primary_image_url
+            if (imgAny.is_primary) {
+              group.primary_image_url = imgAny.public_url as string
+            }
+
+            // Imagen con color etiquetado → guardar en mapa color_images
+            // Solo guarda la primera imagen encontrada por color (is_primary primero)
+            if (imgAny.color) {
+              const colorKey = (imgAny.color as string).toLowerCase()
+              if (!group.color_images[colorKey]) {
+                group.color_images[colorKey] = imgAny.public_url as string
+              }
+            }
+
+            // Fallback: si aún no hay primary_image_url, usar la primera imagen disponible
+            if (!group.primary_image_url) {
+              group.primary_image_url = imgAny.public_url as string
             }
           }
         }
@@ -1380,8 +1575,39 @@ export function VisualCatalog() {
     return out
   }, [models, filterLine, filterCategory, filterBrand, filterColor, search])
 
-  const totalPages      = Math.ceil(filtered.length / ITEMS_PER_PAGE)
-  const paginated       = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+  // ── Sorting ────────────────────────────────────────────────────────────────
+  const sorted = useMemo(() => {
+    const arr = [...filtered]
+    switch (sortBy) {
+      case 'name':
+        return arr.sort((a, b) => a.base_name.localeCompare(b.base_name))
+      case 'recent':
+        return arr.sort((a, b) => b.base_code.localeCompare(a.base_code)) // Assuming newer codes are higher
+      case 'price-asc':
+        return arr.sort((a, b) => a.sale_price - b.sale_price)
+      case 'price-desc':
+        return arr.sort((a, b) => b.sale_price - a.sale_price)
+      case 'stock':
+        return arr.sort((a, b) => b.total_stock - a.total_stock)
+      default:
+        return arr
+    }
+  }, [filtered, sortBy])
+
+  // ── Statistics ─────────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const totalModels = models.length
+    const totalUnits = models.reduce((sum, m) => sum + m.total_stock, 0)
+    const outOfStock = models.filter(m => m.total_stock === 0).length
+    // "Nuevos hoy" - productos agregados hoy (simulado: últimos 5% de códigos)
+    const recentThreshold = Math.floor(models.length * 0.95)
+    const newToday = models.length - recentThreshold
+    
+    return { totalModels, totalUnits, outOfStock, newToday }
+  }, [models])
+
+  const totalPages      = Math.ceil(sorted.length / ITEMS_PER_PAGE)
+  const paginated       = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
   const cartCount       = cartItems.reduce((s, i) => s + i.quantity, 0)
   const cartProductIds  = useMemo(() => new Set(cartItems.map(i => i.product_id)), [cartItems])
   const hasFilters      = search || filterLine !== 'all' || filterCategory !== 'all' || filterBrand !== 'all' || filterColor
@@ -1457,20 +1683,142 @@ export function VisualCatalog() {
   )
 
   return (
-    <div className="flex bg-background" style={{ height: 'calc(100dvh - 9.5rem)' }}>
-      {/* Desktop Sidebar - Hidden on mobile */}
-      <div
-        className={`hidden lg:block transition-all duration-300 ease-in-out border-r ${
-          sidebarOpen ? 'w-64' : 'w-0'
-        } overflow-hidden flex-shrink-0`}
-      >
-        <div className="w-64 h-full bg-muted/30 p-4 space-y-4">
-          <h3 className="font-semibold text-sm">Filtros</h3>
-          <FiltersContent />
+    <div className="flex flex-col bg-background" style={{ height: 'calc(100dvh - 9.5rem)' }}>
+
+      {/* ── Statistics Bar ──────────────────────────────────────────────────── */}
+      <div className="border-b bg-muted/30 px-4 py-2 flex-shrink-0">
+        <div className="flex items-center gap-4 flex-wrap text-xs">
+          <div className="flex items-center gap-1.5">
+            <Package className="h-3.5 w-3.5 text-primary" />
+            <span className="font-semibold">{stats.totalModels}</span>
+            <span className="text-muted-foreground">Modelos</span>
+          </div>
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+            <span className="font-semibold">{stats.totalUnits}</span>
+            <span className="text-muted-foreground">Unidades</span>
+          </div>
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
+            <span className="font-semibold">{stats.outOfStock}</span>
+            <span className="text-muted-foreground">sin stock</span>
+          </div>
+          {stats.newToday > 0 && (
+            <>
+              <div className="h-3 w-px bg-border" />
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                <span className="font-semibold">{stats.newToday}</span>
+                <span className="text-muted-foreground">nuevos hoy</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Mobile Filters Modal */}
+      {/* ── Top bar: search + inline filters (desktop) + cart toggle ────────── */}
+      <div className="border-b px-4 py-2.5 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+
+          {/* Mobile: Filters button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setFiltersOpen(true)}
+            className="lg:hidden h-8 px-3 flex-shrink-0 gap-1.5"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Filtros
+            {hasFilters && (
+              <Badge variant="secondary" className="h-4 px-1 text-[9px] ml-0.5">
+                {[filterLine !== 'all', filterCategory !== 'all', filterBrand !== 'all', filterColor].filter(Boolean).length}
+              </Badge>
+            )}
+          </Button>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[160px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar nombre, código, marca..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1) }}
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
+
+          {/* Desktop inline filters */}
+          <div className="hidden lg:flex items-center gap-1.5 flex-wrap">
+            <Select value={filterLine} onValueChange={v => { setFilterLine(v); setPage(1) }}>
+              <SelectTrigger className="h-8 text-xs w-36">
+                <SelectValue placeholder="Línea" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las líneas</SelectItem>
+                {lines.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterCategory} onValueChange={v => { setFilterCategory(v); setPage(1) }}>
+              <SelectTrigger className="h-8 text-xs w-32">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Categoría</SelectItem>
+                {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterBrand} onValueChange={v => { setFilterBrand(v); setPage(1) }}>
+              <SelectTrigger className="h-8 text-xs w-28">
+                <SelectValue placeholder="Marca" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Marca</SelectItem>
+                {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Input
+              placeholder="Color..."
+              value={filterColor}
+              onChange={e => { setFilterColor(e.target.value); setPage(1) }}
+              className="h-8 text-xs w-24"
+            />
+
+            {hasFilters && (
+              <Button
+                size="sm" variant="ghost"
+                onClick={resetFilters}
+                className="h-8 px-2 gap-1 text-xs text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-3 w-3" /> Limpiar
+              </Button>
+            )}
+          </div>
+
+          {/* Right: count + cart */}
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => setCartOpen(!cartOpen)}
+              className="relative h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              title={cartOpen ? 'Ocultar carrito' : 'Mostrar carrito'}
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{cartOpen ? 'Ocultar' : 'Carrito'}</span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center tabular-nums">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile Filters Bottom Sheet ──────────────────────────────────────── */}
       {filtersOpen && (
         <>
           <div
@@ -1481,12 +1829,7 @@ export function VisualCatalog() {
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Filtros</h3>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setFiltersOpen(false)}
-                  className="h-7 w-7 p-0"
-                >
+                <Button size="sm" variant="ghost" onClick={() => setFiltersOpen(false)} className="h-7 w-7 p-0">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -1496,91 +1839,91 @@ export function VisualCatalog() {
         </>
       )}
 
-      {/* Contenido principal */}
-      <div className="flex-1 overflow-auto relative">
-        <div className="space-y-4 p-4">
-          {/* Barra superior con búsqueda y controles */}
-          <div className="flex items-center gap-2">
-            {/* Desktop: Toggle sidebar button */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="hidden lg:flex h-8 px-2 flex-shrink-0"
-              title={sidebarOpen ? 'Ocultar filtros' : 'Mostrar filtros'}
-            >
-              {sidebarOpen ? (
-                <ChevronLeft className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </Button>
+      {/* ── Main area: grid + cart drawer side by side ──────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
 
-            {/* Mobile: Filters button */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setFiltersOpen(true)}
-              className="lg:hidden h-8 px-3 flex-shrink-0 gap-1.5"
-            >
-              <Package className="h-3.5 w-3.5" />
-              Filtros
-              {hasFilters && (
-                <Badge variant="secondary" className="h-4 px-1 text-[9px] ml-0.5">
-                  {[filterLine !== 'all', filterCategory !== 'all', filterBrand !== 'all', filterColor].filter(Boolean).length}
-                </Badge>
-              )}
-            </Button>
-
-            {/* Búsqueda */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre, código, marca..."
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1) }}
-                className="pl-8 h-8 text-xs"
-              />
+        {/* Grid area */}
+        <div className="flex-1 overflow-auto p-4">
+          
+          {/* ── View Controls & Sort ──────────────────────────────────────────── */}
+          <div className="flex items-center justify-between mb-4 pb-3 border-b">
+            {/* Left: Results info */}
+            <div className="text-xs text-muted-foreground">
+              Mostrando <span className="font-semibold text-foreground">{sorted.length}</span> modelo{sorted.length !== 1 ? 's' : ''}
+              {' · '}
+              <span className="font-semibold text-foreground">
+                {sorted.reduce((sum, m) => sum + m.total_stock, 0)}
+              </span> unidades totales
             </div>
 
-            {/* Controles derecha */}
-            <div className="flex items-center gap-2 ml-auto">
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                onClick={loadData} 
-                className="h-8 gap-1.5 text-xs"
-              >
-                <RefreshCw className="h-3 w-3" /> Actualizar
-              </Button>
-              
-              <Badge variant="secondary" className="h-8 px-3 text-xs tabular-nums">
-                {filtered.length} modelo{filtered.length !== 1 ? 's' : ''}
-              </Badge>
+            {/* Right: View mode + Sort */}
+            <div className="flex items-center gap-3">
+              {/* View mode toggle */}
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`h-7 px-2.5 rounded flex items-center gap-1.5 text-xs transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-background shadow-sm font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Vista Grid"
+                >
+                  <Grid3x3 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`h-7 px-2.5 rounded flex items-center gap-1.5 text-xs transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-background shadow-sm font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Vista Lista"
+                >
+                  <List className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Lista</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('pos')}
+                  className={`h-7 px-2.5 rounded flex items-center gap-1.5 text-xs transition-colors ${
+                    viewMode === 'pos'
+                      ? 'bg-background shadow-sm font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Vista POS"
+                >
+                  <Store className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">POS</span>
+                </button>
+              </div>
 
-              {/* Botón carrito */}
-              <button
-                onClick={() => setCartOpen(!cartOpen)}
-                className="relative h-8 px-3 rounded-md flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                title={cartOpen ? 'Ocultar carrito' : 'Mostrar carrito'}
-              >
-                <ShoppingCart className="h-3.5 w-3.5" />
-                <span>{cartOpen ? 'Ocultar' : 'Carrito'}</span>
-                {cartCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center tabular-nums">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
+              {/* Sort dropdown */}
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                <SelectTrigger className="h-7 text-xs w-36">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Nombre A-Z</SelectItem>
+                  <SelectItem value="recent">Más recientes</SelectItem>
+                  <SelectItem value="price-asc">Precio: Menor</SelectItem>
+                  <SelectItem value="price-desc">Precio: Mayor</SelectItem>
+                  <SelectItem value="stock">Mayor stock</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* ── Grid ───────────────────────────────────────────────────────────── */}
+          {/* ── Grid ──────────────────────────────────────────────────────────── */}
           {loading ? (
             <div className={`grid gap-3 ${
-              sidebarOpen && cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' :
-              sidebarOpen || cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' :
-              'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
+              viewMode === 'pos'
+                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+                : viewMode === 'list'
+                  ? 'grid-cols-1'
+                  : cartOpen
+                    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                    : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
             }`}>
               {Array.from({ length: 12 }).map((_, i) => (
                 <div key={i} className="rounded-xl border overflow-hidden animate-pulse">
@@ -1593,7 +1936,7 @@ export function VisualCatalog() {
                 </div>
               ))}
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
               <Package className="h-12 w-12 mb-3" />
               <p className="text-sm">
@@ -1603,9 +1946,13 @@ export function VisualCatalog() {
           ) : (
             <>
               <div className={`grid gap-3 ${
-                sidebarOpen && cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' :
-                sidebarOpen || cartOpen ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' :
-                'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
+                viewMode === 'pos'
+                  ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+                  : viewMode === 'list'
+                    ? 'grid-cols-1'
+                    : cartOpen
+                      ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                      : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
               }`}>
                 {paginated.map(m => (
                   <ModelCardItem
@@ -1619,44 +1966,55 @@ export function VisualCatalog() {
                         { duration: 1500 }
                       )
                     }}
-                isInCart={m.variants.some(v => cartProductIds.has(v.product_id))}
-              />
-            ))}
-          </div>
+                    isInCart={m.variants.some(v => cartProductIds.has(v.product_id))}
+                  />
+                ))}
+              </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <Button
-                size="sm" variant="outline"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                Pág {page} / {totalPages}
-              </span>
-              <Button
-                size="sm" variant="outline"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-4">
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    Pág {page} / {totalPages}
+                  </span>
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
         </div>
+
+        {/* ── Cart Drawer ────────────────────────────────────────────────────── */}
+        <CartDrawer
+          items={cartItems}
+          open={cartOpen}
+          onClose={() => setCartOpen(false)}
+          onUpdateQty={updateCartQty}
+          onRemove={removeFromCart}
+          onClear={clearCart}
+          onGoToPOS={goToPOS}
+        />
       </div>
 
-      {/* ── Detail Modal ────────────────────────────────────────────────────── */}
+      {/* ── Detail Modal ─────────────────────────────────────────────────────── */}
       <ModelDetailModal
         model={selected}
         open={!!selected}
         onClose={() => setSelected(null)}
-        onRefresh={loadData}
+        onRefresh={() => loadData(storeId)}
         onAddToCart={variant => {
           if (selected) {
             addToCart(selected, variant)
@@ -1666,17 +2024,6 @@ export function VisualCatalog() {
             )
           }
         }}
-      />
-
-      {/* ── Cart Drawer ─────────────────────────────────────────────────────── */}
-      <CartDrawer
-        items={cartItems}
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        onUpdateQty={updateCartQty}
-        onRemove={removeFromCart}
-        onClear={clearCart}
-        onGoToPOS={goToPOS}
       />
     </div>
   )

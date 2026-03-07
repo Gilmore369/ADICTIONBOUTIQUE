@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download } from 'lucide-react'
+import { Download, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -20,12 +20,13 @@ interface Client {
   dni: string | null
   name: string
   phone: string | null
-  rating: 'A' | 'B' | 'C' | 'D' | null
+  rating: 'A' | 'B' | 'C' | 'D' | 'E' | null
   rating_score: number | null
   last_purchase_date: string | null
   credit_used: number
   active: boolean
   deactivation_reason: string | null
+  blacklisted?: boolean | null
 }
 
 interface ClientsTableEnhancedProps {
@@ -36,16 +37,12 @@ interface ClientsTableEnhancedProps {
 export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhancedProps) {
   const getRatingColor = (rating: string | null) => {
     switch (rating) {
-      case 'A':
-        return 'bg-green-100 text-green-800 border-green-200'
-      case 'B':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'C':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'D':
-        return 'bg-red-100 text-red-800 border-red-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+      case 'A': return 'bg-green-100 text-green-800 border-green-200'
+      case 'B': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'C': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'D': return 'bg-orange-100 text-orange-800 border-orange-200'
+      case 'E': return 'bg-red-100 text-red-800 border-red-200'
+      default:  return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
 
@@ -80,6 +77,7 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
               <TableHead>Última Compra</TableHead>
               <TableHead>Estado Deuda</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead>Lista Negra</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -87,7 +85,7 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
             {clients.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="text-center text-muted-foreground h-24"
                 >
                   No se encontraron clientes con los filtros aplicados
@@ -159,6 +157,18 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
                       )}
                     </TableCell>
                     
+                    {/* Blacklist */}
+                    <TableCell>
+                      {client.blacklisted ? (
+                        <Badge variant="destructive" className="gap-1 text-xs">
+                          <AlertTriangle className="h-3 w-3" />
+                          Lista Negra
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </TableCell>
+
                     {/* Actions */}
                     <TableCell className="text-right">
                       <Link href={`/clients/${client.id}`}>

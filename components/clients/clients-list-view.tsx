@@ -8,18 +8,21 @@ import { filterClientsAction } from '@/actions/clients'
 import { exportFilteredClients } from '@/actions/export'
 import { toast } from '@/lib/toast'
 import type { ClientFilters as ClientFiltersType } from '@/lib/types/crm'
+import { Button } from '@/components/ui/button'
+import { AlertTriangle } from 'lucide-react'
 
 interface Client {
   id: string
   dni: string | null
   name: string
   phone: string | null
-  rating: 'A' | 'B' | 'C' | 'D' | null
+  rating: 'A' | 'B' | 'C' | 'D' | 'E' | null
   rating_score: number | null
   last_purchase_date: string | null
   credit_used: number
   active: boolean
   deactivation_reason: string | null
+  blacklisted?: boolean | null
 }
 
 interface ClientsListViewProps {
@@ -30,6 +33,9 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
   const [clients, setClients] = useState<Client[]>(initialClients)
   const [filters, setFilters] = useState<ClientFiltersType>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [showOnlyBlacklisted, setShowOnlyBlacklisted] = useState(false)
+
+  const blacklistedCount = useMemo(() => clients.filter(c => c.blacklisted).length, [clients])
 
   // Filter clients based on current filters
   const filteredClients = useMemo(() => {
@@ -87,9 +93,12 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
         }
       }
 
+        // Blacklist quick filter
+      if (showOnlyBlacklisted && !client.blacklisted) return false
+
       return true
     })
-  }, [clients, filters])
+  }, [clients, filters, showOnlyBlacklisted])
 
   const handleFilterChange = useCallback(async (newFilters: ClientFiltersType) => {
     setFilters(newFilters)
@@ -153,19 +162,33 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
       credit_used: 0,
       active: true,
       deactivation_reason: null,
+      blacklisted: false,
     }, ...prev])
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold">Clientes</h1>
           <p className="text-muted-foreground">
             Gestiona y filtra tu cartera de clientes
           </p>
         </div>
-        <CreateClientDialog onSuccess={handleClientCreated} />
+        <div className="flex items-center gap-2">
+          {blacklistedCount > 0 && (
+            <Button
+              variant={showOnlyBlacklisted ? 'destructive' : 'outline'}
+              size="sm"
+              className="gap-2"
+              onClick={() => setShowOnlyBlacklisted(v => !v)}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Lista Negra ({blacklistedCount})
+            </Button>
+          )}
+          <CreateClientDialog onSuccess={handleClientCreated} />
+        </div>
       </div>
 
       <ClientFilters onFilterChange={handleFilterChange} />

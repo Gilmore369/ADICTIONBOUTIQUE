@@ -71,10 +71,31 @@ export async function createSale(formData: FormData): Promise<ActionResponse> {
 
   const discount = formData.get('discount')
   const installments = formData.get('installments')
+  
+  // Debug: Check if client_id has multiple values
+  const clientIdAll = formData.getAll('client_id')
+  console.log('[createSale] client_id debug:', {
+    get: formData.get('client_id'),
+    getAll: clientIdAll,
+    length: clientIdAll.length
+  })
+  
+  // Use first value if multiple exist (shouldn't happen, but defensive)
+  const clientId = clientIdAll.length > 0 ? clientIdAll[0] : null
+
+  // Debug log
+  console.log('[createSale] FormData values:', {
+    store_id: formData.get('store_id'),
+    client_id: clientId,
+    client_id_type: typeof clientId,
+    sale_type: formData.get('sale_type'),
+    discount,
+    installments
+  })
 
   const validated = saleSchema.safeParse({
     store_id: formData.get('store_id'),
-    client_id: formData.get('client_id') || undefined,
+    client_id: clientId || undefined,
     sale_type: formData.get('sale_type'),
     items,
     discount: discount ? Number(discount) : 0,

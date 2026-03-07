@@ -8,9 +8,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar autenticación
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { to, subject, html } = body
 

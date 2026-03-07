@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 export interface CartItem {
   product_id: string
@@ -18,13 +18,42 @@ export interface CartState {
   total: number
 }
 
+const CART_KEY = 'boutique_pos_cart'
+
+const defaultCart: CartState = {
+  items: [],
+  subtotal: 0,
+  discount: 0,
+  total: 0
+}
+
+function loadFromStorage(): CartState {
+  try {
+    const saved = localStorage.getItem(CART_KEY)
+    if (!saved) return defaultCart
+    const parsed = JSON.parse(saved)
+    // Basic validation
+    if (!Array.isArray(parsed.items)) return defaultCart
+    return parsed
+  } catch {
+    return defaultCart
+  }
+}
+
 export function useCart() {
-  const [cart, setCart] = useState<CartState>({
-    items: [],
-    subtotal: 0,
-    discount: 0,
-    total: 0
-  })
+  const [cart, setCart] = useState<CartState>(defaultCart)
+
+  // Load persisted cart on mount (client-side only)
+  useEffect(() => {
+    setCart(loadFromStorage())
+  }, [])
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(cart))
+    } catch { /* ignore storage errors */ }
+  }, [cart])
 
   // Calculate totals
   const calculateTotals = useCallback((items: CartItem[], discount: number = 0) => {
@@ -43,7 +72,7 @@ export function useCart() {
     setCart(prev => {
       // Check if item already exists
       const existingIndex = prev.items.findIndex(item => item.product_id === product.id)
-      
+
       let newItems: CartItem[]
       if (existingIndex >= 0) {
         // Update existing item quantity
@@ -131,14 +160,12 @@ export function useCart() {
     })
   }, [calculateTotals])
 
-  // Clear cart
+  // Clear cart and remove from localStorage
   const clearCart = useCallback(() => {
-    setCart({
-      items: [],
-      subtotal: 0,
-      discount: 0,
-      total: 0
-    })
+    try {
+      localStorage.removeItem(CART_KEY)
+    } catch { /* ignore */ }
+    setCart(defaultCart)
   }, [])
 
   return {

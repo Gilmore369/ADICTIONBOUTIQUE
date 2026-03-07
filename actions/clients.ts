@@ -12,6 +12,7 @@ import {
 } from '@/lib/services/client-service'
 import { z } from 'zod'
 import type { ClientFilters } from '@/lib/types/crm'
+import { ActionType } from '@/lib/types/crm'
 
 /**
  * Server Actions for Client CRM Operations
@@ -60,7 +61,7 @@ async function checkAuthorization(requiredRole?: 'admin' | 'vendedor') {
     throw new Error('Perfil de usuario no encontrado')
   }
 
-  const roles = (profile as any).roles || []
+  const roles: string[] = ((profile as any).roles || []).map((r: string) => r.toLowerCase())
 
   if (requiredRole === 'admin' && !roles.includes('admin')) {
     throw new Error('Se requieren permisos de administrador')
@@ -200,6 +201,111 @@ export async function filterClientsAction(filters: ClientFilters) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Error al filtrar clientes'
+    }
+  }
+}
+
+/**
+ * Add Client to Blacklist
+ * 
+ * Blocks a client from making credit purchases.
+ */
+export async function addToBlacklistAction(data: {
+  clientId: string
+  reason: string
+  notes: string | null
+}) {
+  try {
+    const supabase = await createServerClient()
+    
+    // Check authorization
+    const { userId } = await checkAuthorization()
+    
+    // Update client
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        blacklisted: true,
+        blacklisted_at: new Date().toISOString(),
+        blacklisted_reason: data.reason,
+        blacklisted_by: userId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', data.clientId)
+    
+    if (error) throw error
+    
+    // Create action log
+    await createActionLog(
+      data.clientId,
+      ActionType.NOTA,
+      `Cliente agregado a lista negra. Motivo: ${data.reason}${data.notes ? `. Notas: ${data.notes}` : ''}`,
+      userId
+    )
+    
+    // Revalidate paths
+    revalidatePath(`/clients/${data.clientId}`)
+    revalidatePath('/clients')
+    revalidatePath('/clients/blacklist')
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Error adding to blacklist:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al agregar a lista negra'
+    }
+  }
+}
+
+/**
+ * Remove Client from Blacklist
+ * 
+ * Unblocks a client, allowing credit purchases again.
+ */
+export async function removeFromBlacklistAction(data: {
+  clientId: string
+  notes: string | null
+}) {
+  try {
+    const supabase = await createServerClient()
+    
+    // Check authorization
+    const { userId } = await checkAuthorization()
+    
+    // Update client
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        blacklisted: false,
+        blacklisted_at: null,
+        blacklisted_reason: null,
+        blacklisted_by: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', data.clientId)
+    
+    if (error) throw error
+    
+    // Create action log
+    await createActionLog(
+      data.clientId,
+      ActionType.NOTA,
+      `Cliente removido de lista negra${data.notes ? `. Motivo: ${data.notes}` : ''}`,
+      userId
+    )
+    
+    // Revalidate paths
+    revalidatePath(`/clients/${data.clientId}`)
+    revalidatePath('/clients')
+    revalidatePath('/clients/blacklist')
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Error removing from blacklist:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error al remover de lista negra'
     }
   }
 }

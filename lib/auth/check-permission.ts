@@ -33,7 +33,9 @@ async function getUserRoles(): Promise<string[] | null> {
       .single()
 
     if (!profile) return null
-    return (profile as Record<string, unknown>).roles as string[] || []
+    const rawRoles = (profile as Record<string, unknown>).roles as string[] || []
+    // Normalizar a minúsculas — la BD puede tener 'ADMIN' o 'admin', ambos deben funcionar
+    return rawRoles.map((r: string) => r.toLowerCase())
   } catch (error) {
     // Fail closed — any DB/network error → deny all permissions
     console.error('[checkPermission] getUserRoles failed (denying):', error)

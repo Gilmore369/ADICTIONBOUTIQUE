@@ -30,8 +30,8 @@ async function DashboardContent() {
     throw new Error(`Error loading user profile: ${profileError.message}`)
   }
 
-  if (!profile || (!((profile as any).roles?.includes('admin')) && !((profile as any).roles?.includes('vendedor')))) {
-    console.log('Access denied. User roles:', (profile as any)?.roles)
+  const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+  if (!profile || (!userRoles.includes('admin') && !userRoles.includes('vendedor'))) {
     redirect('/')
   }
 

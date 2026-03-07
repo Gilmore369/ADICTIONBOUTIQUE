@@ -33,7 +33,8 @@ export async function calculateAndUpdateRating(clientId: string) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || (!((profile as any).roles?.includes('admin')) && !((profile as any).roles?.includes('vendedor')))) {
+    const roles1: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+    if (!profile || (!roles1.includes('admin') && !roles1.includes('vendedor'))) {
       throw new Error('No tiene permisos para realizar esta acción')
     }
 
@@ -90,7 +91,8 @@ export async function recalculateAllRatings() {
       .eq('id', user.id)
       .single()
 
-    if (!profile || !(profile as any).roles?.includes('admin')) {
+    const roles2: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+    if (!profile || !roles2.includes('admin')) {
       throw new Error('Se requieren permisos de administrador')
     }
 

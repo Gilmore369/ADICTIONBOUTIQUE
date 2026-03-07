@@ -94,9 +94,9 @@ export function ClientForm({
   const [selectedRating, setSelectedRating] = useState<RatingKey>(
     (initialData as any)?.rating as RatingKey || 'E'
   )
-  const [referredBy, setReferredBy] = useState<{ id: string; name: string } | null>(null)
+  const [referredBy, setReferredBy] = useState<{ id: string; name: string; rating?: string } | null>(null)
   const [referredBySearch, setReferredBySearch] = useState('')
-  const [referredByResults, setReferredByResults] = useState<Array<{ id: string; name: string; dni?: string }>>([])
+  const [referredByResults, setReferredByResults] = useState<Array<{ id: string; name: string; dni?: string; rating?: string }>>([])
   const [searchingReferrer, setSearchingReferrer] = useState(false)
 
   // Initialize form with React Hook Form + Zod validation
@@ -140,11 +140,18 @@ export function ClientForm({
     }
   }
 
-  const selectReferrer = (client: { id: string; name: string; dni?: string }) => {
-    setReferredBy({ id: client.id, name: client.name })
+  const selectReferrer = (client: { id: string; name: string; dni?: string; rating?: string }) => {
+    setReferredBy({ id: client.id, name: client.name, rating: client.rating })
     setReferredBySearch(client.name)
     setReferredByResults([])
     form.setValue('referred_by', client.id)
+    // Auto-suggest initial rating based on referrer's rating
+    if (mode === 'create') {
+      const suggestedRating: RatingKey = (client.rating === 'A' || client.rating === 'B') ? 'D' : 'E'
+      setSelectedRating(suggestedRating)
+      form.setValue('rating', suggestedRating)
+      form.setValue('credit_limit', RATING_CONFIG[suggestedRating].credit)
+    }
   }
 
   // Capture geolocation using browser Geolocation API
@@ -389,12 +396,29 @@ export function ClientForm({
               {referredBy && (
                 <div className="flex items-center gap-2 p-2 mt-2 bg-green-50 border border-green-200 rounded-lg">
                   <span className="text-sm text-green-900 font-medium">{referredBy.name}</span>
+                  {referredBy.rating && (
+                    <span className={[
+                      'text-xs font-bold px-1.5 py-0.5 rounded',
+                      referredBy.rating === 'A' ? 'bg-emerald-100 text-emerald-800' :
+                      referredBy.rating === 'B' ? 'bg-blue-100 text-blue-800' :
+                      referredBy.rating === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                      referredBy.rating === 'D' ? 'bg-orange-100 text-orange-800' :
+                      'bg-red-100 text-red-800'
+                    ].join(' ')}>
+                      Clase {referredBy.rating}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
                       setReferredBy(null)
                       setReferredBySearch('')
                       form.setValue('referred_by', undefined)
+                      if (mode === 'create') {
+                        setSelectedRating('E')
+                        form.setValue('rating', 'E')
+                        form.setValue('credit_limit', RATING_CONFIG.E.credit)
+                      }
                     }}
                     className="ml-auto text-green-600 hover:text-green-800"
                   >
@@ -628,6 +652,7 @@ export function ClientForm({
                   type="button"
                   onClick={() => {
                     setSelectedRating(key)
+                    form.setValue('rating', key)
                     form.setValue('credit_limit', cfg.credit)
                   }}
                   className={[
@@ -650,9 +675,11 @@ export function ClientForm({
                 Rango de crédito: <strong>{RATING_CONFIG[selectedRating].range}</strong>
                 {' · '}Límite automático: <strong>S/ {RATING_CONFIG[selectedRating].credit.toLocaleString()}</strong>
               </div>
-              {selectedRating === 'E' && mode === 'create' && (
+              {mode === 'create' && (
                 <div className="text-xs mt-1 opacity-80">
-                  💡 Si el cliente viene referido por alguien de clase A o B, puede subir a D automáticamente.
+                  💡 {referredBy?.rating === 'A' || referredBy?.rating === 'B'
+                    ? `Referido por clase ${referredBy.rating} → inicia en clase D (S/ 625 crédito)`
+                    : 'Si el referidor es clase A o B, el cliente iniciará en clase D automáticamente.'}
                 </div>
               )}
             </div>
