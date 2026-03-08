@@ -1,378 +1,166 @@
-# Adiction Boutique Suite - Supabase Migration
+# Adiction Boutique - Sistema de Gestión
 
-Sistema de gestión empresarial completo migrado de Google Apps Script + Google Sheets a Next.js 14 + Supabase + TypeScript.
+Sistema completo de gestión para boutique de ropa desarrollado con Next.js 16 y Supabase.
 
-## 🚀 Stack Tecnológico
+## 🚀 Características Principales
 
-- **Frontend:** Next.js 14 (App Router), React 18, TypeScript 5+
-- **Backend:** Next.js Server Actions, API Routes
-- **Database:** Supabase (PostgreSQL 15+)
-- **Auth:** Supabase Auth con JWT y RLS
-- **UI:** TailwindCSS 3+, shadcn/ui
-- **Validación:** Zod, React Hook Form
-- **Estado:** React Query (TanStack Query)
-- **Mapas:** Google Maps JavaScript API
+### Módulos Implementados
 
-## 📦 Módulos Implementados
+- **Dashboard**: Métricas en tiempo real del negocio
+- **Catálogos**: Gestión completa de productos, líneas, categorías, marcas, tallas y proveedores
+- **Inventario**: Control de stock, movimientos y entrada masiva de productos
+- **Punto de Venta (POS)**: Sistema de ventas con soporte para contado y crédito
+- **Clientes**: CRM con gestión de créditos, historial y calificación
+- **Cobranzas**: Sistema de seguimiento de pagos y acciones de cobranza
+- **Deuda**: Gestión de planes de crédito y cuotas
+- **Caja**: Control de turnos y movimientos de efectivo
+- **Reportes**: Análisis de ventas, inventario y clientes
+- **Mapa**: Visualización geográfica de clientes
 
-### 1. Catálogos
-- Gestión de líneas, categorías, marcas, tallas, proveedores
-- Catálogo de productos con búsqueda debounced (300ms)
-- Gestión de clientes con geolocalización
-- CRUD completo con validación Zod
+### Características Técnicas
 
-### 2. POS (Punto de Venta)
-- Ventas al contado y a crédito
-- Búsqueda de productos con debounce + LIMIT 50
-- Carrito de compras con cálculo en tiempo real
-- Validación de stock y límite de crédito
-- Transacciones atómicas con rollback
+- ✅ **Next.js 16** con App Router
+- ✅ **Supabase** para base de datos y autenticación
+- ✅ **TypeScript** para type safety
+- ✅ **Tailwind CSS** para estilos
+- ✅ **React Query** para gestión de estado
+- ✅ **Zod** para validación de datos
+- ✅ **Row Level Security (RLS)** implementado
+- ✅ **Multi-tienda** con soporte para múltiples ubicaciones
+- ✅ **Sistema de roles** (Admin, Vendedor)
 
-### 3. Deuda
-- Planes de crédito con 1-6 cuotas
-- Cuotas con fechas +30 días
-- Marcado automático de cuotas vencidas
-- Visualización de estado de deuda
+## 📋 Requisitos Previos
 
-### 4. Cobranzas
-- Registro de pagos con algoritmo oldest_due_first
-- Aplicación automática a cuotas vencidas primero
-- Manejo de pagos parciales y completos
-- Acciones de cobranza (llamadas, visitas, WhatsApp)
-- Reprogramación de cuotas
+- Node.js 18 o superior
+- npm o yarn
+- Cuenta de Supabase
 
-### 5. Mapa
-- Visualización geográfica de clientes
-- Marcadores con código de colores (rojo/amarillo/verde)
-- Filtros por estado de deuda
-- Planificación de rutas de cobranza
+## 🛠️ Instalación
 
-## 🏗️ Estructura del Proyecto
-
-```
-supa/
-├── app/                      # Next.js App Router
-│   ├── (auth)/              # Rutas autenticadas
-│   │   ├── catalogs/        # Módulo Catálogos
-│   │   ├── pos/             # Módulo POS
-│   │   ├── debt/            # Módulo Deuda
-│   │   ├── collections/     # Módulo Cobranzas
-│   │   ├── map/             # Módulo Mapa
-│   │   └── layout.tsx       # Layout con sidebar
-│   ├── (public)/            # Rutas públicas
-│   │   └── login/           # Página de login
-│   └── api/                 # API Routes
-│       ├── products/search/
-│       ├── clients/search/
-│       └── installments/
-├── components/              # Componentes React
-│   ├── ui/                  # shadcn/ui base
-│   ├── catalogs/            # Componentes de catálogos
-│   ├── pos/                 # Componentes de POS
-│   ├── debt/                # Componentes de deuda
-│   ├── collections/         # Componentes de cobranzas
-│   ├── map/                 # Componentes de mapa
-│   └── shared/              # Componentes compartidos
-├── actions/                 # Server Actions
-│   ├── catalogs.ts
-│   ├── sales.ts
-│   ├── payments.ts
-│   └── auth.ts
-├── lib/                     # Utilidades
-│   ├── supabase/            # Clientes Supabase
-│   ├── validations/         # Esquemas Zod
-│   ├── auth/                # RBAC y permisos
-│   └── payments/            # Algoritmo oldest_due_first
-├── hooks/                   # Custom hooks
-│   ├── use-debounce.ts
-│   └── use-cart.ts
-├── types/                   # TypeScript types
-│   └── database.ts
-└── supabase/                # Migraciones SQL
-    └── migrations/
-        ├── 20240101000000_initial_schema.sql
-        ├── 20240101000001_create_indexes.sql
-        ├── 20240101000002_atomic_functions.sql
-        └── 20240101000003_row_level_security.sql
-```
-
-## 🔧 Configuración
-
-### 1. Variables de Entorno
-
-Crear `.env.local`:
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# Google Maps
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
-```
-
-### 2. Instalación
-
+1. Clonar el repositorio:
 ```bash
-cd supa
+git clone https://github.com/Gilmore369/ADICTIONBOUTIQUE.git
+cd ADICTIONBOUTIQUE
+```
+
+2. Instalar dependencias:
+```bash
 npm install
 ```
 
-### 3. Base de Datos
-
+3. Configurar variables de entorno:
 ```bash
-# Ejecutar migraciones
-npx supabase db push
-
-# O manualmente en Supabase Dashboard > SQL Editor
-# Ejecutar en orden:
-# 1. 20240101000000_initial_schema.sql
-# 2. 20240101000001_create_indexes.sql
-# 3. 20240101000002_atomic_functions.sql
-# 4. 20240101000003_row_level_security.sql
+cp .env.local.example .env.local
 ```
 
-### 4. Desarrollo
+Editar `.env.local` con tus credenciales de Supabase:
+```env
+NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+```
 
+4. Ejecutar migraciones de base de datos:
+```bash
+# Conectar a tu proyecto de Supabase y ejecutar las migraciones en /supabase/migrations
+```
+
+5. Iniciar el servidor de desarrollo:
 ```bash
 npm run dev
 ```
 
-Abrir [http://localhost:3000](http://localhost:3000)
+6. Abrir [http://localhost:3000](http://localhost:3000)
 
-## 🎨 Sistema de Diseño
+## 📁 Estructura del Proyecto
 
-### Tokens de Diseño
-
-**Espaciado (base 8px):**
-- 4px, 8px, 12px, 16px, 24px, 32px
-
-**Border Radius:**
-- Estándar: 8px
-- Pills/Badges: 999px
-
-**Componentes:**
-- Button height: 36px
-- Button padding: 12px × 16px
-- Card padding: 16px
-- Card border: 1px solid
-
-**Tipografía:**
-- H1: 20-24px
-- H2: 16-18px
-- Body: 14-16px
-
-**Estrategia de Profundidad:**
-- Solo bordes (no sombras pesadas)
-
-## ⚡ Optimizaciones de Performance
-
-### Reglas Críticas
-
-✅ **NO bulk loading** - UI carga sin esperar datos (Suspense)
-✅ **Búsquedas debounced** - 300ms delay + LIMIT 50
-✅ **Cache con React Query** - staleTime configurado
-✅ **Operaciones atómicas** - Funciones de base de datos
-✅ **Validación de fechas** - Sin undefined/Invalid Date
-✅ **Invalidación de cache** - revalidatePath en mutaciones
-
-### Patrones de Acceso a Datos
-
-```typescript
-// ✅ BUENO - Lazy loading con Suspense
-<Suspense fallback={<TableSkeleton />}>
-  <ProductsData />
-</Suspense>
-
-// ✅ BUENO - Búsqueda debounced
-const debouncedSearch = useDebounce(search, 300)
-
-// ✅ BUENO - LIMIT forzado
-const limit = Math.min(Math.max(requestedLimit, 1), 50)
+```
+supa/
+├── actions/          # Server Actions de Next.js
+├── app/             # App Router de Next.js
+│   ├── (auth)/      # Rutas protegidas
+│   └── (public)/    # Rutas públicas
+├── components/      # Componentes React
+├── lib/            # Utilidades y servicios
+├── supabase/       # Migraciones y scripts SQL
+└── public/         # Archivos estáticos
 ```
 
-## 🔐 Autenticación y Autorización
+## 🔐 Autenticación y Seguridad
 
-### Roles
-
-- **Admin:** Acceso completo
-- **Vendedor:** Productos, ventas, clientes, reportes
-- **Cajero:** Ventas, caja
-- **Cobrador:** Clientes, pagos, cobranzas, reportes
-
-### RLS (Row Level Security)
-
-Todas las tablas tienen políticas RLS:
-- Users: Ver perfil propio
-- Products: Ver activos, gestionar por rol
-- Sales: Ver tiendas propias, anular solo admin
-- Clients: Ver todos, gestionar por rol
-- Installments: Ver todos, actualizar por rol
+- Sistema de autenticación con Supabase Auth
+- Row Level Security (RLS) en todas las tablas
+- Roles de usuario: Admin y Vendedor
+- Políticas de acceso por tienda
 
 ## 📊 Base de Datos
 
-### Tablas (19 total)
+### Tablas Principales
 
-**Configuración:**
-- users, audit_log
+- `users` - Usuarios del sistema
+- `stores` - Tiendas/ubicaciones
+- `clients` - Clientes
+- `suppliers` - Proveedores
+- `brands` - Marcas
+- `lines` - Líneas de productos
+- `categories` - Categorías
+- `sizes` - Tallas
+- `products` - Productos
+- `stock` - Inventario
+- `sales` - Ventas
+- `credit_plans` - Planes de crédito
+- `installments` - Cuotas
+- `payments` - Pagos
+- `collection_actions` - Acciones de cobranza
+- `cash_shifts` - Turnos de caja
 
-**Catálogos:**
-- lines, categories, brands, sizes, suppliers, products
+## 🧪 Validación
 
-**Inventario:**
-- stock, movements
+El sistema ha sido validado exhaustivamente con Playwright. Ver reportes:
+- `VALIDACION_CATALOGOS.md` - Análisis del código
+- `PLAN_PRUEBAS_PLAYWRIGHT.md` - Plan de pruebas
+- `REPORTE_VALIDACION_PLAYWRIGHT.md` - Resultados completos
 
-**Clientes:**
-- clients
+## 📝 Documentación Adicional
 
-**Ventas:**
-- sales, sale_items
+- `ANALISIS_BASE_DATOS.md` - Análisis completo de la base de datos
+- `AUDITORIA_SEGURIDAD_COMPLETA.md` - Auditoría de seguridad
+- `COMO_EJECUTAR_SCRIPTS.md` - Guía para ejecutar scripts SQL
 
-**Crédito:**
-- credit_plans, installments, payments
-
-**Cobranzas:**
-- collection_actions
-
-**Caja:**
-- cash_shifts, cash_expenses
-
-### Funciones Atómicas
-
-```sql
--- Decrementar stock con bloqueo FOR UPDATE
-decrement_stock(warehouse_id, product_id, quantity)
-
--- Incrementar crédito usado
-increment_credit_used(client_id, amount)
-
--- Decrementar crédito usado
-decrement_credit_used(client_id, amount)
-
--- Crear venta completa (transacción atómica)
-create_sale_transaction(...)
-```
-
-### Índices
-
-```sql
--- Full-text search con gin_trgm_ops
-CREATE INDEX idx_products_name ON products USING gin(to_tsvector('spanish', name));
-CREATE INDEX idx_clients_name ON clients USING gin(to_tsvector('spanish', name));
-
--- Lookups
-CREATE INDEX idx_products_barcode ON products(barcode);
-CREATE INDEX idx_clients_dni ON clients(dni);
-CREATE INDEX idx_installments_due_date ON installments(due_date);
-```
-
-## 🧪 Testing
-
-```bash
-# Unit tests
-npm run test
-
-# E2E tests
-npm run test:e2e
-
-# Coverage
-npm run test:coverage
-```
-
-## 🚢 Deployment
+## 🚀 Despliegue
 
 ### Vercel (Recomendado)
 
-```bash
-# Instalar Vercel CLI
-npm i -g vercel
+1. Conectar el repositorio a Vercel
+2. Configurar variables de entorno
+3. Desplegar
 
-# Deploy
-vercel
+### Otras Plataformas
 
-# Production
-vercel --prod
-```
-
-### Variables de Entorno en Vercel
-
-Configurar en Vercel Dashboard > Settings > Environment Variables:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
-
-## 📝 Algoritmos Clave
-
-### oldest_due_first (Cobranzas)
-
-Algoritmo de aplicación de pagos que prioriza:
-1. Cuotas vencidas (due_date < hoy)
-2. Cuotas próximas (due_date >= hoy)
-3. Dentro de cada grupo, ordena por due_date ascendente
-
-```typescript
-// Aplicar pago de S/ 250 a cuotas
-const result = applyPaymentToInstallments(250, installments)
-// result.updatedInstallments: cuotas actualizadas
-// result.remainingAmount: monto sobrante (si hay)
-```
-
-### Validación de Fechas
-
-Todas las fechas usan formato ISO y se validan:
-
-```typescript
-// Zod schema
-z.string().datetime('Invalid date format')
-
-// Validación adicional
-const date = new Date(dateString)
-if (isNaN(date.getTime())) {
-  throw new Error('Invalid date')
-}
-```
-
-## 🔄 Migración de Datos
-
-Script de migración desde Google Sheets:
-
-```bash
-# Ejecutar migración
-npm run migrate:sheets
-```
-
-El script:
-1. Lee datos de Google Sheets (batch con getValues)
-2. Transforma datos al esquema PostgreSQL
-3. Valida integridad
-4. Inserta en Supabase (batch)
-5. Verifica conteo de filas
-6. Registra en audit_log
-
-## 📚 Documentación Adicional
-
-- [API Documentation](./docs/API.md)
-- [Database Schema](./docs/DATABASE.md)
-- [Migration Guide](./docs/MIGRATION.md)
-- [Business Logic](./docs/BUSINESS_LOGIC.md)
+El proyecto es compatible con cualquier plataforma que soporte Next.js:
+- Netlify
+- Railway
+- AWS Amplify
+- etc.
 
 ## 🤝 Contribución
 
-1. Fork el proyecto
-2. Crear feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit cambios (`git commit -m 'Add AmazingFeature'`)
-4. Push al branch (`git push origin feature/AmazingFeature`)
-5. Abrir Pull Request
+Este es un proyecto privado. Para contribuir, contactar al propietario del repositorio.
 
 ## 📄 Licencia
 
-Propietario: Adiction Boutique
+Todos los derechos reservados © 2026 Adiction Boutique
 
-## 👥 Equipo
+## 👥 Autor
 
-Desarrollado para Adiction Boutique Suite
+- **Gilmore369** - [GitHub](https://github.com/Gilmore369)
+
+## 🆘 Soporte
+
+Para soporte o preguntas, abrir un issue en el repositorio.
 
 ---
 
-**Versión:** 1.0.0  
-**Última actualización:** 2024
+**Última actualización**: Marzo 2026  
+**Versión**: 1.0.0  
+**Estado**: ✅ Producción
