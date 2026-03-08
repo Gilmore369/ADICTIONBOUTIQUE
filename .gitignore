@@ -42,3 +42,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright mcp (local testing)
+/playwright-mcp/
+
+# screenshots and test files
+*.png
+*.pdf
+*.zip
