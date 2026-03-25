@@ -66,15 +66,17 @@ export const productSchema = z.object({
   barcode: z.string().min(1, 'Barcode is required').max(100, 'Barcode must be less than 100 characters'),
   name: z.string().min(1, 'Name is required').max(200, 'Name must be less than 200 characters'),
   description: z.string().optional(),
-  line_id: z.string().uuid('Invalid line ID'),
-  category_id: z.string().uuid('Invalid category ID'),
-  brand_id: z.string().uuid('Invalid brand ID').optional().or(z.literal('')),
-  supplier_id: z.string().uuid('Invalid supplier ID').optional().or(z.literal('')),
+  // UUID viene del dropdown — solo validamos que no sea vacío
+  line_id: z.string().min(1, 'Línea es requerida'),
+  category_id: z.string().min(1, 'Categoría es requerida'),
+  // brand/supplier pueden ser '' o 'none' (sin seleccionar) → opcional
+  brand_id: z.string().optional().or(z.literal('')).or(z.literal('none')),
+  supplier_id: z.string().optional().or(z.literal('')).or(z.literal('none')),
   size: z.string().max(50, 'Size must be less than 50 characters').optional(),
   color: z.string().max(50, 'Color must be less than 50 characters').optional(),
   presentation: z.string().max(100, 'Presentation must be less than 100 characters').optional(),
   purchase_price: z.number().nonnegative('Purchase price must be non-negative').optional(),
-  price: z.number().positive('Price must be positive'),
+  price: z.number().positive('El precio de venta debe ser mayor a 0'),
   min_stock: z.number().int('Min stock must be an integer').nonnegative('Min stock must be non-negative').default(0),
   entry_date: z.string().optional(), // ISO date string
   image_url: z.string().url('Invalid image URL').optional().or(z.literal('')),

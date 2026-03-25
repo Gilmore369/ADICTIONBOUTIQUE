@@ -37,7 +37,7 @@ function TableSkeleton() {
 
 export default function CreditPlansPage() {
   return (
-    <div className="container mx-auto py-6 px-4 space-y-6 max-w-6xl">
+    <div className="container mx-auto py-6 px-4 space-y-6">
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -57,7 +57,7 @@ export default function CreditPlansPage() {
             <span className="text-foreground font-medium">Planes de Crédito</span>
           </nav>
 
-          <h1 className="text-xl font-semibold tracking-tight">Planes de Crédito</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Planes de Crédito</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Clientes con crédito activo — expandí cada uno para ver sus cuotas
           </p>

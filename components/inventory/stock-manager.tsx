@@ -2,13 +2,8 @@
 
 /**
  * Stock Manager Component
- * 
+ *
  * Visualiza y gestiona el inventario por tienda
- * 
- * Design Tokens:
- * - Card padding: 16px
- * - Border radius: 8px
- * - Spacing: 16px, 24px
  */
 
 import { useState } from 'react'
@@ -24,6 +19,7 @@ import {
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Search, AlertTriangle } from 'lucide-react'
+import { useStore } from '@/contexts/store-context'
 
 interface StockItem {
   warehouse_id: string
@@ -37,19 +33,54 @@ interface StockItem {
   }
 }
 
-interface StockManagerProps {
-  initialData: StockItem[]
+interface StoreInfo {
+  id: string
+  name: string
+  code: string
 }
 
-export function StockManager({ initialData }: StockManagerProps) {
+interface StockManagerProps {
+  initialData: StockItem[]
+  stores?: StoreInfo[]
+}
+
+export function StockManager({ initialData, stores = [] }: StockManagerProps) {
   const [stock] = useState(initialData)
   const [search, setSearch] = useState('')
+  const { selectedStore, storeId } = useStore()
 
-  const filteredStock = stock.filter((item) =>
-    item.products?.name.toLowerCase().includes(search.toLowerCase()) ||
-    item.products?.barcode.includes(search) ||
-    item.warehouse_id.toLowerCase().includes(search.toLowerCase())
-  )
+  // Helper: resolve a warehouse_id to a display name
+  const getWarehouseName = (warehouseId: string): string => {
+    // Try UUID match against stores table
+    const byId = stores.find(s => s.id === warehouseId)
+    if (byId) return byId.name
+    // Try code match (e.g., 'TIENDA_MUJERES' contains 'MUJERES')
+    const byCode = stores.find(s => warehouseId.toUpperCase().includes(s.code))
+    if (byCode) return byCode.name
+    // Friendly fallback
+    if (warehouseId.toUpperCase().includes('MUJERES')) return 'Tienda Mujeres'
+    if (warehouseId.toUpperCase().includes('HOMBRES')) return 'Tienda Hombres'
+    return warehouseId
+  }
+
+  // Helper: check if a warehouse matches the selected store
+  const warehouseMatchesStore = (warehouseId: string): boolean => {
+    if (selectedStore === 'ALL') return true
+    // UUID match
+    if (storeId && warehouseId === storeId) return true
+    // Name/code match (handles 'TIENDA_MUJERES', 'Tienda Mujeres', etc.)
+    return warehouseId.toUpperCase().includes(selectedStore)
+  }
+
+  const filteredStock = stock.filter((item) => {
+    const matchesSearch =
+      !search ||
+      item.products?.name.toLowerCase().includes(search.toLowerCase()) ||
+      item.products?.barcode?.includes(search) ||
+      getWarehouseName(item.warehouse_id).toLowerCase().includes(search.toLowerCase())
+    const matchesStore = warehouseMatchesStore(item.warehouse_id)
+    return matchesSearch && matchesStore
+  })
 
   const groupedByWarehouse = filteredStock.reduce((acc, item) => {
     if (!acc[item.warehouse_id]) {
@@ -73,9 +104,14 @@ export function StockManager({ initialData }: StockManagerProps) {
       </div>
 
       {/* Stock by Warehouse */}
+      {Object.entries(groupedByWarehouse).length === 0 && (
+        <Card className="p-8 text-center text-muted-foreground">
+          No hay stock para la tienda seleccionada
+        </Card>
+      )}
       {Object.entries(groupedByWarehouse).map(([warehouse, items]) => (
         <Card key={warehouse} className="p-4">
-          <h3 className="text-lg font-semibold mb-4">{warehouse}</h3>
+          <h3 className="text-lg font-semibold mb-4">{getWarehouseName(warehouse)}</h3>
           
           <div className="overflow-x-auto">
             <Table>

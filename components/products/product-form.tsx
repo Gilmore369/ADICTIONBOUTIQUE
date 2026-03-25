@@ -43,7 +43,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { productSchema } from '@/lib/validations/catalogs'
 import { createProduct, updateProduct } from '@/actions/catalogs'
 import { toast } from '@/lib/toast'
@@ -65,6 +65,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Upload, ImageIcon, X } from 'lucide-react'
 
 // Type for form data based on productSchema
 type ProductFormData = z.infer<typeof productSchema>
@@ -94,6 +95,9 @@ export function ProductForm({
   const [brands, setBrands] = useState<CatalogOption[]>([])
   const [suppliers, setSuppliers] = useState<CatalogOption[]>([])
   const [loadingCatalogs, setLoadingCatalogs] = useState(true)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string>(initialData?.image_url || '')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Initialize form with React Hook Form + Zod validation
   const form = useForm<ProductFormData>({
@@ -110,9 +114,9 @@ export function ProductForm({
       color: initialData?.color || '',
       presentation: initialData?.presentation || '',
       purchase_price: initialData?.purchase_price || undefined,
-      price: initialData?.price || 0,
+      price: initialData?.price || undefined,
       min_stock: initialData?.min_stock || 0,
-      entry_date: initialData?.entry_date || '',
+      entry_date: initialData?.entry_date || new Date().toISOString().split('T')[0],
       image_url: initialData?.image_url || '',
       active: initialData?.active ?? true,
     },
@@ -152,10 +156,41 @@ export function ProductForm({
     loadCatalogs()
   }, [])
 
+  // Handle image file upload
+  const handleImageUpload = async (file: File) => {
+    if (!file) return
+    const barcode = form.getValues('barcode')
+    const baseCode = barcode || `temp-${Date.now()}`
+    setUploadingImage(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('base_code', baseCode)
+      fd.append('is_primary', 'true')
+      const res = await fetch('/api/upload/product-image', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (json.success && json.data?.public_url) {
+        form.setValue('image_url', json.data.public_url)
+        setImagePreview(json.data.public_url)
+        toast.success('Imagen subida', 'La imagen del producto se subió correctamente')
+      } else {
+        toast.error('Error', json.error || 'No se pudo subir la imagen')
+      }
+    } catch {
+      toast.error('Error', 'Error al subir la imagen')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   // Handle form submission
   const onSubmit = async (data: ProductFormData) => {
     setLoading(true)
     try {
+      // Limpiar valores 'none' (sin selección) → vacío para no enviar IDs inválidos
+      if (data.brand_id === 'none') data.brand_id = ''
+      if (data.supplier_id === 'none') data.supplier_id = ''
+
       // Convert data to FormData for server action
       const formData = new FormData()
       Object.entries(data).forEach(([key, value]) => {
@@ -500,20 +535,57 @@ export function ProductForm({
             )}
           />
 
-          {/* Image URL */}
+          {/* Image Upload */}
           <FormField
             control={form.control}
             name="image_url"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>URL de Imagen</FormLabel>
+                <FormLabel>Foto del Producto</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="url" 
-                    placeholder="https://ejemplo.com/imagen.jpg" 
-                    {...field} 
-                    value={field.value || ''}
-                  />
+                  <div className="flex items-center gap-3">
+                    {/* Preview */}
+                    <div className="h-16 w-16 rounded-lg border bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {imagePreview ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={imagePreview} alt="preview" className="h-full w-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f) }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 h-8 text-xs"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingImage || loading}
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        {uploadingImage ? 'Subiendo…' : 'Adjuntar foto'}
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground">JPG, PNG, WEBP · Máx. 2 MB</p>
+                      {imagePreview && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 text-[10px] text-red-500 hover:text-red-700"
+                          onClick={() => { form.setValue('image_url', ''); setImagePreview('') }}
+                        >
+                          <X className="h-3 w-3" /> Quitar imagen
+                        </button>
+                      )}
+                    </div>
+                    {/* Hidden field value */}
+                    <input type="hidden" {...field} value={field.value || ''} />
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>

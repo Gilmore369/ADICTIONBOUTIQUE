@@ -209,7 +209,17 @@ export async function createSale(formData: FormData): Promise<ActionResponse> {
       }
     }
 
-    // 8. Audit log (fire-and-forget)
+    // 8. Actualizar last_purchase_date del cliente (fire-and-forget)
+    if (client_id) {
+      supabase
+        .from('clients')
+        .update({ last_purchase_date: new Date().toISOString() })
+        .eq('id', client_id)
+        .then(() => {})
+        .catch(() => {})
+    }
+
+    // 8b. Audit log (fire-and-forget)
     logSaleCreated(saleId, user.id, {
       sale_number: saleNumber,
       store_id,

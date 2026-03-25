@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { useStore } from '@/contexts/store-context'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate, getSafeTimestamp, isValidDate } from '@/lib/utils/date'
 import { InstallmentStatusBadge } from './installment-status-badge'
@@ -70,8 +71,10 @@ export function CreditPlansView() {
   const [search, setSearch] = useState('')
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
+  const { selectedStore, storeId } = useStore()
 
-  useEffect(() => { loadData() }, [])
+  // Reload data when store changes
+  useEffect(() => { loadData() }, [selectedStore])
 
   // ─── Data loading ──────────────────────────────────────────────────────────
 
@@ -79,7 +82,7 @@ export function CreditPlansView() {
     const supabase = createBrowserClient()
 
     // Fetch all active plans with client + sale + installments
-    const { data: plans } = await supabase
+    let query = supabase
       .from('credit_plans')
       .select(`
         id,
@@ -88,19 +91,27 @@ export function CreditPlansView() {
         sale_id,
         status,
         created_at,
-        sale:sales ( id, sale_number, created_at ),
+        sale:sales ( id, sale_number, created_at, store_id ),
         client:clients ( id, name, phone, dni, credit_limit, credit_used ),
         installments ( id, installment_number, amount, paid_amount, due_date, status )
       `)
       .in('status', ['ACTIVE'])
       .order('created_at', { ascending: false })
 
-    // Group by client
+    const { data: plans } = await query
+
+    // Group by client — filter by selected store if not ALL
     const byClient: Record<string, ClientRow> = {}
 
     for (const plan of plans || []) {
       const c = plan.client as any
       if (!c) continue
+
+      // Filter by store: skip plans from other stores
+      if (selectedStore !== 'ALL' && storeId) {
+        const saleStoreId = (plan.sale as any)?.store_id
+        if (saleStoreId && saleStoreId !== storeId) continue
+      }
 
       if (!byClient[c.id]) {
         byClient[c.id] = {

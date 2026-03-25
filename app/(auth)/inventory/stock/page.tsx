@@ -10,17 +10,15 @@ export const metadata = {
 
 async function StockData() {
   const supabase = await createServerClient()
-  
-  const { data: stock, error } = await supabase
-    .from('stock')
-    .select('*, products(id, name, barcode, min_stock)')
-    .order('warehouse_id')
-  
-  if (error) {
-    throw new Error(error.message)
-  }
-  
-  return <StockManager initialData={stock || []} />
+
+  const [stockRes, storesRes] = await Promise.all([
+    supabase.from('stock').select('*, products(id, name, barcode, min_stock)').order('warehouse_id'),
+    supabase.from('stores').select('id, name, code')
+  ])
+
+  if (stockRes.error) throw new Error(stockRes.error.message)
+
+  return <StockManager initialData={stockRes.data || []} stores={storesRes.data || []} />
 }
 
 export default function StockPage() {

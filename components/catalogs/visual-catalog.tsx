@@ -1386,7 +1386,7 @@ export function VisualCatalog() {
       .select(`
         id, barcode, name, size, color, base_code, base_name,
         purchase_price, price, category_id, brand_id, line_id,
-        image_url,
+        image_url, entry_date,
         categories ( id, name, line_id, lines ( id, name ) ),
         brands ( id, name ),
         stock ( quantity )
@@ -1599,10 +1599,12 @@ export function VisualCatalog() {
     const totalModels = models.length
     const totalUnits = models.reduce((sum, m) => sum + m.total_stock, 0)
     const outOfStock = models.filter(m => m.total_stock === 0).length
-    // "Nuevos hoy" - productos agregados hoy (simulado: últimos 5% de códigos)
-    const recentThreshold = Math.floor(models.length * 0.95)
-    const newToday = models.length - recentThreshold
-    
+    // "Nuevos hoy" — modelos con entry_date = hoy
+    const todayStr = new Date().toISOString().split('T')[0]
+    const newToday = models.filter(m =>
+      m.variants.some(v => (v as any).entry_date && String((v as any).entry_date).startsWith(todayStr))
+    ).length
+
     return { totalModels, totalUnits, outOfStock, newToday }
   }, [models])
 
