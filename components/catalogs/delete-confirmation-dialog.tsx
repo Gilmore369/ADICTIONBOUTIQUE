@@ -11,6 +11,7 @@
  */
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function DeleteConfirmationDialog({
   itemName
 }: DeleteConfirmationDialogProps) {
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   const handleConfirm = async () => {
     setLoading(true)
@@ -49,12 +51,10 @@ export function DeleteConfirmationDialog({
       const result = await onConfirm()
 
       if (result.success) {
-        toast.success('Elemento eliminado correctamente')
         onOpenChange(false)
-        // Reload page after successful deletion to show updated data
-        setTimeout(() => {
-          window.location.reload()
-        }, 100)
+        toast.success('Elemento eliminado correctamente')
+        // Use Next.js router.refresh() to re-fetch server data without full page reload
+        router.refresh()
       } else {
         toast.error(result.error || 'Error al eliminar')
       }

@@ -82,16 +82,18 @@ export function CashShiftManager({ openShifts, recentShifts, userId }: CashShift
     setIsOpening(false)
   }
 
-  const handleCloseShift = async () => {
-    if (!selectedShiftId) return
-    
+  const handleCloseShift = async (shiftIdOverride?: string) => {
+    const effectiveShiftId = shiftIdOverride || selectedShiftId
+    if (!effectiveShiftId) return
+
     if (!closingAmount || parseFloat(closingAmount) < 0) {
       toast.error('Ingrese un monto de cierre válido')
       return
     }
 
     setIsClosing(true)
-    const result = await closeCashShift(selectedShiftId, parseFloat(closingAmount))
+    setSelectedShiftId(effectiveShiftId)
+    const result = await closeCashShift(effectiveShiftId, parseFloat(closingAmount))
     
     if (result.success) {
       toast.success('Turno de caja cerrado exitosamente')
@@ -104,8 +106,9 @@ export function CashShiftManager({ openShifts, recentShifts, userId }: CashShift
     setIsClosing(false)
   }
 
-  const handleAddExpense = async () => {
-    if (!selectedShiftId) {
+  const handleAddExpense = async (shiftIdOverride?: string) => {
+    const effectiveShiftId = shiftIdOverride || selectedShiftId
+    if (!effectiveShiftId) {
       toast.error('Seleccione un turno')
       return
     }
@@ -121,7 +124,7 @@ export function CashShiftManager({ openShifts, recentShifts, userId }: CashShift
     }
 
     const result = await addCashExpense(
-      selectedShiftId,
+      effectiveShiftId,
       parseFloat(expenseAmount),
       expenseCategory,
       expenseDescription
@@ -185,11 +188,8 @@ export function CashShiftManager({ openShifts, recentShifts, userId }: CashShift
                         }}
                       />
                     </div>
-                    <Button 
-                      onClick={() => {
-                        setSelectedShiftId(shift.id)
-                        handleCloseShift()
-                      }}
+                    <Button
+                      onClick={() => handleCloseShift(shift.id)}
                       disabled={isClosing}
                       className="w-full"
                     >
@@ -249,11 +249,8 @@ export function CashShiftManager({ openShifts, recentShifts, userId }: CashShift
                         }}
                       />
                     </div>
-                    <Button 
-                      onClick={() => {
-                        setSelectedShiftId(shift.id)
-                        handleAddExpense()
-                      }}
+                    <Button
+                      onClick={() => handleAddExpense(shift.id)}
                       variant="outline"
                       className="w-full"
                     >

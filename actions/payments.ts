@@ -174,7 +174,7 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
     const firstInstallment = unpaidInstallments.find(i =>
       updatedInstallments.some(u => u.id === i.id)
     )
-    const { data: payment, error: paymentError } = await supabase
+    let insertResult = await supabase
       .from('payments')
       .insert({
         client_id,
@@ -188,6 +188,30 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
       })
       .select()
       .single()
+
+    // Fallback: si las columnas plan_id/installment_id no existen en la BD,
+    // reintentar sin ellas para compatibilidad hacia atrás (migración no ejecutada)
+    if (insertResult.error && (
+      insertResult.error.message.includes('plan_id') ||
+      insertResult.error.message.includes('installment_id') ||
+      insertResult.error.code === '42703'
+    )) {
+      console.warn('[payments] Fallback: plan_id/installment_id columns not found, retrying without them')
+      insertResult = await supabase
+        .from('payments')
+        .insert({
+          client_id,
+          amount,
+          payment_date,
+          user_id: user.id,
+          receipt_url: validatedReceiptUrl || null,
+          notes:       validatedNotes || null,
+        })
+        .select()
+        .single()
+    }
+
+    const { data: payment, error: paymentError } = insertResult
 
     if (paymentError) {
       throw new Error(`Failed to insert payment: ${paymentError.message}`)

@@ -95,7 +95,7 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
     },
     {
       title: 'Deuda Total',
-      value: `S/ ${formatCurrency(metrics.totalOutstandingDebt)}`,
+      value: formatCurrency(metrics.totalOutstandingDebt),
       icon: DollarSign,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
@@ -105,7 +105,7 @@ export function DashboardMetrics({ metrics }: DashboardMetricsProps) {
     },
     {
       title: 'Deuda Vencida',
-      value: `S/ ${formatCurrency(metrics.totalOverdueDebt)}`,
+      value: formatCurrency(metrics.totalOverdueDebt),
       icon: TrendingDown,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
