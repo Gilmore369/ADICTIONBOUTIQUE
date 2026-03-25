@@ -860,10 +860,10 @@ export default function DashboardClient({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-400 font-medium">Ventas Hoy</p>
-              <p className="text-base font-extrabold text-gray-900 tabular-nums">S/ {fc(metrics.salesToday)}</p>
+              <p className="text-base font-extrabold text-gray-900 tabular-nums">S/ {fc(m.salesToday)}</p>
             </div>
             <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
-              {fn(metrics.salesCountToday)} {metrics.salesCountToday === 1 ? 'venta' : 'ventas'}
+              {fn(m.salesCountToday)} {m.salesCountToday === 1 ? 'venta' : 'ventas'}
             </span>
           </div>
 
@@ -874,7 +874,7 @@ export default function DashboardClient({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-400 font-medium">Cobros del Mes</p>
-              <p className="text-base font-extrabold text-gray-900 tabular-nums">S/ {fc(metrics.paymentsThisMonth)}</p>
+              <p className="text-base font-extrabold text-gray-900 tabular-nums">S/ {fc(m.paymentsThisMonth)}</p>
             </div>
             <Link href="/debt/plans" className="text-[11px] text-indigo-600 hover:underline font-medium">Ver →</Link>
           </div>
@@ -886,7 +886,7 @@ export default function DashboardClient({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-400 font-medium">Deuda Vencida</p>
-              <p className="text-base font-extrabold text-rose-600 tabular-nums">S/ {fc(metrics.totalOverdueDebt)}</p>
+              <p className="text-base font-extrabold text-rose-600 tabular-nums">S/ {fc(m.totalOverdueDebt)}</p>
             </div>
             <Link href="/collections/actions" className="text-[11px] text-rose-500 hover:underline font-medium">Cobrar →</Link>
           </div>
