@@ -629,23 +629,41 @@ export async function createSize(data: FormData | { name: string; category_id: s
     return { success: false, error: 'Forbidden: Insufficient permissions' }
   }
 
-  // Extract data from FormData or object (NO description field - not in DB schema)
-  const inputData = data instanceof FormData
-    ? {
-        name: data.get('name'),
-        category_id: data.get('category_id')
-      }
-    : data
+  const supabase = await createServerClient()
 
-  // Validate input
-  const validated = sizeSchema.safeParse(inputData)
+  if (data instanceof FormData) {
+    // Support multiple names (from dynamic multi-row form)
+    const names = data.getAll('name').map(n => String(n).trim()).filter(Boolean)
+    const category_id = String(data.get('category_id') || '').trim()
 
+    if (!category_id) {
+      return { success: false, error: 'Categoría es requerida' }
+    }
+    if (names.length === 0) {
+      return { success: false, error: 'Ingresa al menos una talla' }
+    }
+
+    // Batch insert all sizes at once
+    const rows = names.map(name => ({ name, category_id }))
+    const { data: result, error } = await supabase
+      .from('sizes')
+      .insert(rows)
+      .select()
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/catalogs/sizes')
+    return { success: true, data: result }
+  }
+
+  // Object mode (programmatic)
+  const validated = sizeSchema.safeParse(data)
   if (!validated.success) {
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
-  // Insert size (only name and category_id)
-  const supabase = await createServerClient()
   const { data: result, error } = await supabase
     .from('sizes')
     .insert(validated.data as any)
@@ -656,9 +674,7 @@ export async function createSize(data: FormData | { name: string; category_id: s
     return { success: false, error: error.message }
   }
 
-  // Revalidate cache
   revalidatePath('/catalogs/sizes')
-
   return { success: true, data: result }
 }
 

@@ -1,80 +1,32 @@
-import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { fetchDashboardMetrics } from '@/lib/services/dashboard-service'
-import { generateAlerts } from '@/lib/services/alert-service'
-import { DashboardMetrics } from '@/components/clients/dashboard-metrics'
-import { AlertsList } from '@/components/clients/alerts-list'
-import { Skeleton } from '@/components/ui/skeleton'
+import { CrmDashboard } from '@/components/clients/crm-dashboard'
 
-export const revalidate = 300 // 5 minutes cache
-
-async function DashboardContent() {
+export default async function ClientDashboardPage() {
   const supabase = await createServerClient()
-  
   const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    redirect('/login')
-  }
+  if (!user) redirect('/login')
 
-  // Check authorization
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile } = await supabase
     .from('users')
     .select('roles')
     .eq('id', user.id)
     .single()
 
-  if (profileError) {
-    console.error('Error fetching user profile:', profileError)
-    throw new Error(`Error loading user profile: ${profileError.message}`)
-  }
-
   const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-  if (!profile || (!userRoles.includes('admin') && !userRoles.includes('vendedor'))) {
+  if (!userRoles.includes('admin') && !userRoles.includes('vendedor') && !userRoles.includes('cobrador')) {
     redirect('/')
   }
 
-  // Fetch metrics and alerts in parallel
-  const [metrics, alerts] = await Promise.all([
-    fetchDashboardMetrics(),
-    generateAlerts()
-  ])
-
   return (
-    <div className="space-y-6">
-      <DashboardMetrics metrics={metrics} />
-      <AlertsList alerts={alerts} />
-    </div>
-  )
-}
-
-export default function ClientDashboardPage() {
-  return (
-    <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Dashboard de Clientes</h1>
-        <p className="text-muted-foreground">
-          Métricas y alertas del sistema de gestión de clientes
+    <div className="space-y-1">
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard CRM</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Métricas, cobranzas y análisis de clientes en tiempo real
         </p>
       </div>
-      
-      <Suspense fallback={<DashboardSkeleton />}>
-        <DashboardContent />
-      </Suspense>
-    </div>
-  )
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className="h-32" />
-        ))}
-      </div>
-      <Skeleton className="h-96" />
+      <CrmDashboard />
     </div>
   )
 }

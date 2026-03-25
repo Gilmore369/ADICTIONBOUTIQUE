@@ -15,10 +15,38 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { User, LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ThemeSettings } from './theme-settings'
 import { StoreSelector } from '@/components/layout/store-selector'
+
+const AVATAR_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6']
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
+
+function getAvatarColor(name: string) {
+  let hash = 0
+  for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+function UserAvatar({ name }: { name: string }) {
+  const initials = getInitials(name)
+  const color = getAvatarColor(name)
+  return (
+    <div
+      className="flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-bold flex-shrink-0"
+      style={{ background: color }}
+      title={name}
+    >
+      {initials}
+    </div>
+  )
+}
 
 interface HeaderProps {
   user?: {
@@ -56,13 +84,11 @@ export function Header({ user }: HeaderProps) {
           <div className="relative">
           <Button
             variant="ghost"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 px-2"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200">
-              <User className="h-4 w-4 text-gray-600" />
-            </div>
-            <span className="hidden md:inline text-sm font-medium text-gray-700">
+            <UserAvatar name={user?.name || user?.email || 'U'} />
+            <span className="hidden md:inline text-sm font-medium text-gray-700 max-w-[120px] truncate">
               {user?.name || user?.email || 'Usuario'}
             </span>
           </Button>
@@ -78,13 +104,16 @@ export function Header({ user }: HeaderProps) {
 
               {/* Dropdown content */}
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                <div className="p-3 border-b border-gray-200">
-                  <p className="text-sm font-medium text-gray-900">
-                    {user?.name || 'Usuario'}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {user?.email}
-                  </p>
+                <div className="p-3 border-b border-gray-200 flex items-center gap-3">
+                  <UserAvatar name={user?.name || user?.email || 'U'} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {user?.name || 'Usuario'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {user?.email}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="p-2">

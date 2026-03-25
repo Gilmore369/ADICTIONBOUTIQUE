@@ -2,15 +2,18 @@
 
 /**
  * Size Form Component
- * 
- * Form for creating/editing sizes
- * Requires category selection
+ *
+ * Form for creating/editing sizes.
+ * When creating (isEditing=false): supports adding multiple size names at once.
+ * When editing: single name input as before.
  */
 
 import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Plus, X } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -31,22 +34,17 @@ interface SizeFormProps {
 
 export function SizeForm({ categories, defaultValues, isEditing = false }: SizeFormProps) {
   const [categoryId, setCategoryId] = useState(defaultValues?.category_id || '')
+  // Multiple names when creating
+  const [names, setNames] = useState<string[]>(isEditing ? [defaultValues?.name || ''] : [''])
+
+  const addRow = () => setNames(prev => [...prev, ''])
+  const removeRow = (idx: number) => setNames(prev => prev.filter((_, i) => i !== idx))
+  const updateRow = (idx: number, val: string) =>
+    setNames(prev => prev.map((v, i) => (i === idx ? val : v)))
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">
-          Nombre <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="name"
-          name="name"
-          defaultValue={defaultValues?.name}
-          placeholder="Ej: S, M, L, XL, 38, 40"
-          required
-          maxLength={50}
-        />
-      </div>
+      {/* Category */}
       <div className="space-y-2">
         <Label htmlFor="category_id">
           Categoría <span className="text-destructive">*</span>
@@ -65,6 +63,62 @@ export function SizeForm({ categories, defaultValues, isEditing = false }: SizeF
         </Select>
         <input type="hidden" name="category_id" value={categoryId} />
       </div>
+
+      {/* Size names */}
+      <div className="space-y-2">
+        <Label>
+          {isEditing ? 'Nombre' : 'Tallas'}{' '}
+          <span className="text-destructive">*</span>
+          {!isEditing && (
+            <span className="text-xs text-gray-500 font-normal ml-1">
+              (puedes agregar varias a la vez)
+            </span>
+          )}
+        </Label>
+
+        <div className="space-y-2">
+          {names.map((val, idx) => (
+            <div key={idx} className="flex gap-2 items-center">
+              <Input
+                name="name"
+                value={val}
+                onChange={(e) => updateRow(idx, e.target.value)}
+                placeholder="Ej: S, M, L, XL, 38, 40"
+                required
+                maxLength={50}
+                className="flex-1"
+              />
+              {!isEditing && names.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-gray-400 hover:text-red-500"
+                  onClick={() => removeRow(idx)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Add more button (only when creating) */}
+        {!isEditing && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addRow}
+            className="mt-1 h-8 text-xs"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Agregar otra talla
+          </Button>
+        )}
+      </div>
+
+      {/* Active toggle (editing only) */}
       {isEditing && (
         <div className="flex items-center space-x-2">
           <Checkbox
