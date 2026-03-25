@@ -7,7 +7,7 @@
 
 import { VisualCatalog } from '@/components/catalogs/visual-catalog'
 import Link from 'next/link'
-import { ChevronRight, LayoutGrid, Plus, PackagePlus, ShoppingCart } from 'lucide-react'
+import { ChevronRight, LayoutGrid, Plus, PackagePlus } from 'lucide-react'
 
 export const metadata = {
   title: 'Catálogo Visual | Adiction Boutique',
@@ -54,13 +54,6 @@ export default function VisualCatalogPage() {
           >
             <PackagePlus className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Ingreso masivo</span>
-          </Link>
-          <Link
-            href="/pos"
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">POS</span>
           </Link>
         </div>
       </div>

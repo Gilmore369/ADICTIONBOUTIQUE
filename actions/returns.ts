@@ -122,6 +122,18 @@ export async function rejectReturnAction(returnId: string, adminNotes: string) {
 export async function completeReturnAction(returnId: string, refundAmount?: number) {
   const supabase = await createServerClient()
 
+  // Fetch the return to get returned_items for stock restoration
+  const { data: returnRecord, error: fetchError } = await supabase
+    .from('returns')
+    .select('returned_items, store_id')
+    .eq('id', returnId)
+    .single()
+
+  if (fetchError) {
+    console.error('Error fetching return for completion:', fetchError)
+    return { success: false, error: fetchError.message }
+  }
+
   const { data, error } = await supabase
     .from('returns')
     .update({
@@ -137,7 +149,36 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     return { success: false, error: error.message }
   }
 
+  // Restore stock for each returned item that has a product_id
+  const returnedItems: Array<{ product_id?: string; quantity?: number }> =
+    Array.isArray(returnRecord?.returned_items) ? returnRecord.returned_items : []
+
+  for (const item of returnedItems) {
+    if (!item.product_id || !item.quantity || item.quantity <= 0) continue
+    // Increment stock quantity — uses RPC if available, otherwise direct upsert
+    const { error: stockError } = await supabase.rpc('increment_stock', {
+      p_product_id: item.product_id,
+      p_quantity: item.quantity,
+    })
+    if (stockError) {
+      // Fallback: direct update on stock table
+      console.warn('[returns] increment_stock RPC failed, trying direct update:', stockError.message)
+      const { data: existing } = await supabase
+        .from('stock')
+        .select('quantity')
+        .eq('product_id', item.product_id)
+        .maybeSingle()
+      if (existing) {
+        await supabase
+          .from('stock')
+          .update({ quantity: (existing.quantity ?? 0) + item.quantity })
+          .eq('product_id', item.product_id)
+      }
+    }
+  }
+
   revalidatePath('/returns')
+  revalidatePath('/inventory/stock')
   return { success: true, data }
 }
 

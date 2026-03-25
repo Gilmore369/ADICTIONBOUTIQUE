@@ -800,50 +800,140 @@ export default function DashboardClient({
 
       </div>
 
-      {/* ── Ventas Recientes ────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-50 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
-        <SectionHead
-          title="Ventas Recientes"
-          subtitle="Últimas transacciones registradas"
-          action={
-            <Link href="/pos" className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 font-medium">
-              Ir al POS <ChevronRight className="h-3 w-3" />
-            </Link>
-          }
-        />
-        {recentSales.length === 0 ? (
-          <p className="text-sm text-gray-400 py-8 text-center">No hay ventas registradas</p>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {recentSales.map(sale => (
-              <Link
-                key={sale.id}
-                href="/sales"
-                className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-gray-50/60 -mx-2 px-2 rounded-xl transition-colors cursor-pointer"
-              >
-                <div
-                  className="w-1 h-9 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: sale.sale_type === 'CREDITO' ? C.amber : C.emerald }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-900">{sale.sale_number}</p>
-                  <p className="text-xs text-gray-400">
-                    {sale.sale_type === 'CREDITO' && sale.clients ? sale.clients.name : 'Venta al contado'}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-extrabold tabular-nums text-gray-900">S/ {fc(Number(sale.total))}</p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(sale.created_at).toLocaleString('es-PE', {
-                      day: '2-digit', month: '2-digit',
-                      hour: '2-digit', minute: '2-digit',
-                    })}
-                  </p>
-                </div>
+      {/* ── Row 4: Ventas Recientes + Resumen Ejecutivo ──────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* Ventas Recientes */}
+        <div className="bg-white rounded-2xl border border-gray-50 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
+          <SectionHead
+            title="Ventas Recientes"
+            subtitle="Últimas transacciones registradas"
+            action={
+              <Link href="/pos" className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 font-medium">
+                Ir al POS <ChevronRight className="h-3 w-3" />
               </Link>
-            ))}
+            }
+          />
+          {recentSales.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">No hay ventas registradas</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {recentSales.map(sale => (
+                <Link
+                  key={sale.id}
+                  href="/sales"
+                  className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-gray-50/60 -mx-2 px-2 rounded-xl transition-colors cursor-pointer"
+                >
+                  <div
+                    className="w-1 h-9 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: sale.sale_type === 'CREDITO' ? C.amber : C.emerald }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900">{sale.sale_number}</p>
+                    <p className="text-xs text-gray-400">
+                      {sale.sale_type === 'CREDITO' && sale.clients ? sale.clients.name : 'Venta al contado'}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-extrabold tabular-nums text-gray-900">S/ {fc(Number(sale.total))}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(sale.created_at).toLocaleString('es-PE', {
+                        day: '2-digit', month: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Resumen Ejecutivo */}
+        <div className="bg-white rounded-2xl border border-gray-50 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5 flex flex-col gap-4">
+          <SectionHead title="Resumen Ejecutivo" subtitle="Estado financiero actual" />
+
+          {/* Ventas hoy */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+            <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+              <ShoppingBag className="h-4.5 w-4.5 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400 font-medium">Ventas Hoy</p>
+              <p className="text-base font-extrabold text-gray-900 tabular-nums">S/ {fc(metrics.salesToday)}</p>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+              {fn(metrics.salesCountToday)} {metrics.salesCountToday === 1 ? 'venta' : 'ventas'}
+            </span>
           </div>
-        )}
+
+          {/* Cobros del mes */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50/60 border border-indigo-100">
+            <div className="h-9 w-9 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+              <Banknote className="h-4.5 w-4.5 text-indigo-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400 font-medium">Cobros del Mes</p>
+              <p className="text-base font-extrabold text-gray-900 tabular-nums">S/ {fc(metrics.paymentsThisMonth)}</p>
+            </div>
+            <Link href="/debt/plans" className="text-[11px] text-indigo-600 hover:underline font-medium">Ver →</Link>
+          </div>
+
+          {/* Deuda vencida */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-rose-50/60 border border-rose-100">
+            <div className="h-9 w-9 rounded-lg bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="h-4.5 w-4.5 text-rose-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400 font-medium">Deuda Vencida</p>
+              <p className="text-base font-extrabold text-rose-600 tabular-nums">S/ {fc(metrics.totalOverdueDebt)}</p>
+            </div>
+            <Link href="/collections/actions" className="text-[11px] text-rose-500 hover:underline font-medium">Cobrar →</Link>
+          </div>
+
+          {/* Contado vs Crédito (30d) */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/60 border border-amber-100">
+            <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+              <Wallet className="h-4.5 w-4.5 text-amber-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400 font-medium">Mix 30d (Contado / Crédito)</p>
+              <div className="flex gap-3 mt-0.5">
+                <span className="text-xs font-bold text-emerald-600">S/ {fc(cashTotal)}</span>
+                <span className="text-xs text-gray-300">/</span>
+                <span className="text-xs font-bold text-amber-600">S/ {fc(creditTotal)}</span>
+              </div>
+            </div>
+            <div className="w-16">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-emerald-400 transition-all"
+                  style={{ width: cashTotal + creditTotal > 0 ? `${(cashTotal / (cashTotal + creditTotal)) * 100}%` : '0%' }}
+                />
+              </div>
+              <p className="text-[9px] text-gray-400 mt-0.5 text-center">
+                {cashTotal + creditTotal > 0 ? Math.round((cashTotal / (cashTotal + creditTotal)) * 100) : 0}% contado
+              </p>
+            </div>
+          </div>
+
+          {/* Eficiencia cobranza */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-violet-50/60 border border-violet-100">
+            <div className="h-9 w-9 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+              <Activity className="h-4.5 w-4.5 text-violet-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-400 font-medium">Cobranza Hoy</p>
+              <p className="text-base font-extrabold text-gray-900">{fn(actCount)} {actCount === 1 ? 'acción' : 'acciones'}</p>
+            </div>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+              efficiencyRate >= 50 ? 'text-emerald-600 bg-emerald-100' : 'text-rose-500 bg-rose-100'
+            }`}>
+              {efficiencyRate.toFixed(0)}% efectivo
+            </span>
+          </div>
+        </div>
+
       </div>
 
     </div>
