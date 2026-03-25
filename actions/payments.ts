@@ -81,23 +81,27 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   const { client_id, amount, payment_date, receipt_url: validatedReceiptUrl, notes: validatedNotes } = validated.data
 
   // 3. Fetch client's unpaid installments
-  // Get installments with status PENDING, PARTIAL, or OVERDUE using join with credit_plans
+  // First get active plan IDs for this client (more reliable than cross-table filter)
+  const { data: clientPlans, error: plansError } = await supabase
+    .from('credit_plans')
+    .select('id')
+    .eq('client_id', client_id)
+    .in('status', ['ACTIVE'])
+
+  if (plansError) {
+    return { success: false, error: `Failed to fetch credit plans: ${plansError.message}` }
+  }
+
+  if (!clientPlans || clientPlans.length === 0) {
+    return { success: false, error: 'Este cliente no tiene planes de crédito activos' }
+  }
+
+  const planIds = clientPlans.map(p => p.id)
+
   const { data: clientInstallments, error: fetchError } = await supabase
     .from('installments')
-    .select(`
-      id,
-      plan_id,
-      installment_number,
-      amount,
-      due_date,
-      paid_amount,
-      status,
-      paid_at,
-      credit_plans!inner (
-        client_id
-      )
-    `)
-    .eq('credit_plans.client_id', client_id)
+    .select('id, plan_id, installment_number, amount, due_date, paid_amount, status, paid_at')
+    .in('plan_id', planIds)
     .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
 
   if (fetchError) {

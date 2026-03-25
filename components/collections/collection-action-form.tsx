@@ -63,9 +63,8 @@ const collectionActionFormSchema = z.object({
   client_name: z.string().min(1, 'Nombre del cliente es requerido'),
   action_type: z.enum([
     'LLAMADA',
-    'VISITA',
     'WHATSAPP',
-    'MENSAJE_SMS',
+    'MENSAJE_REDES',
     'EMAIL',
     'MOTORIZADO',
     'CARTA_NOTARIAL',
@@ -74,12 +73,10 @@ const collectionActionFormSchema = z.object({
     errorMap: () => ({ message: 'Tipo de acción es requerido' })
   }),
   result: z.enum([
-    'COMPROMISO_PAGO',
     'SE_NIEGA_PAGAR',
     'NO_CONTESTA',
     'TELEFONO_INVALIDO',
     'PAGO_REALIZADO',
-    'PAGO_PARCIAL',
     'SOLICITA_REFINANCIAMIENTO',
     'SOLICITA_DESCUENTO',
     'PROMETE_PAGAR_FECHA',
@@ -95,14 +92,14 @@ const collectionActionFormSchema = z.object({
   notes: z.string().max(1000, 'Las notas deben tener menos de 1000 caracteres').optional()
 }).refine(
   (data) => {
-    // If result is COMPROMISO_PAGO or PROMETE_PAGAR_FECHA, payment_promise_date is required
-    if (data.result === 'COMPROMISO_PAGO' || data.result === 'PROMETE_PAGAR_FECHA') {
+    // Solo PROMETE_PAGAR_FECHA requiere fecha
+    if (data.result === 'PROMETE_PAGAR_FECHA') {
       return !!data.payment_promise_date
     }
     return true
   },
   {
-    message: 'Fecha de promesa de pago es requerida cuando hay compromiso de pago',
+    message: 'Fecha de próximo pago es requerida',
     path: ['payment_promise_date']
   }
 )
@@ -243,9 +240,8 @@ export function CollectionActionForm({ onSuccess, onCancel }: CollectionActionFo
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="LLAMADA">📞 Llamada Telefónica</SelectItem>
-                      <SelectItem value="VISITA">🏠 Visita Domiciliaria</SelectItem>
                       <SelectItem value="WHATSAPP">💬 WhatsApp</SelectItem>
-                      <SelectItem value="MENSAJE_SMS">📱 Mensaje SMS</SelectItem>
+                      <SelectItem value="MENSAJE_REDES">📲 Mensaje por Redes Sociales</SelectItem>
                       <SelectItem value="EMAIL">📧 Correo Electrónico</SelectItem>
                       <SelectItem value="MOTORIZADO">🏍️ Envío de Motorizado</SelectItem>
                       <SelectItem value="CARTA_NOTARIAL">📄 Carta Notarial</SelectItem>
@@ -275,16 +271,14 @@ export function CollectionActionForm({ onSuccess, onCancel }: CollectionActionFo
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="COMPROMISO_PAGO">✅ Compromiso de Pago</SelectItem>
-                      <SelectItem value="PROMETE_PAGAR_FECHA">📅 Promete Pagar en Fecha</SelectItem>
                       <SelectItem value="PAGO_REALIZADO">💰 Pago Realizado</SelectItem>
-                      <SelectItem value="PAGO_PARCIAL">💵 Pago Parcial</SelectItem>
+                      <SelectItem value="PROMETE_PAGAR_FECHA">📅 Promete pagar en fecha</SelectItem>
                       <SelectItem value="CLIENTE_COLABORADOR">😊 Cliente Colaborador</SelectItem>
                       <SelectItem value="SOLICITA_REFINANCIAMIENTO">🔄 Solicita Refinanciamiento</SelectItem>
                       <SelectItem value="SOLICITA_DESCUENTO">💲 Solicita Descuento</SelectItem>
                       <SelectItem value="SE_NIEGA_PAGAR">❌ Se Niega a Pagar</SelectItem>
                       <SelectItem value="NO_CONTESTA">📵 No Contesta</SelectItem>
-                      <SelectItem value="TELEFONO_INVALIDO">☎️ Teléfono Inválido</SelectItem>
+                      <SelectItem value="TELEFONO_INVALIDO">☎️ Teléfono Inválido / N° Equivocado</SelectItem>
                       <SelectItem value="CLIENTE_MOLESTO">😠 Cliente Molesto</SelectItem>
                       <SelectItem value="DOMICILIO_INCORRECTO">🏚️ Domicilio Incorrecto</SelectItem>
                       <SelectItem value="CLIENTE_NO_UBICADO">🔍 Cliente No Ubicado</SelectItem>
@@ -297,14 +291,14 @@ export function CollectionActionForm({ onSuccess, onCancel }: CollectionActionFo
             />
           </div>
 
-          {/* Payment Promise Date - Conditional */}
-          {(resultValue === 'COMPROMISO_PAGO' || resultValue === 'PROMETE_PAGAR_FECHA') && (
+          {/* Payment Promise Date - Conditional: solo cuando promete pagar en fecha */}
+          {resultValue === 'PROMETE_PAGAR_FECHA' && (
             <FormField
               control={form.control}
               name="payment_promise_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Fecha de Compromiso de Pago *</FormLabel>
+                  <FormLabel>Fecha de próximo pago *</FormLabel>
                   <FormControl>
                     <Input
                       type="date"
