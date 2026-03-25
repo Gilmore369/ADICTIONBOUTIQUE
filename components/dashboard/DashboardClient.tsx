@@ -368,7 +368,7 @@ export default function DashboardClient({
             </Link>
           )}
           {m.birthdaysThisMonth > 0 && (
-            <Link href="/clients"
+            <Link href="/clients?birthday=true"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-full text-xs text-violet-700 font-medium hover:bg-violet-100 transition-colors">
               🎂 {fn(m.birthdaysThisMonth)} cumpleaños este mes
               <ChevronRight className="h-3 w-3 opacity-60" />
@@ -721,7 +721,7 @@ export default function DashboardClient({
             title="Clientes por Distrito"
             subtitle={locationDisplay.length > 0 ? `${fn(locationDisplay.reduce((s, l) => s + l.clients, 0))} clientes geolocalizados` : 'Sin datos de dirección'}
             action={
-              <Link href="/clients/map" className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+              <Link href="/map" className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium">
                 <MapPin className="h-3.5 w-3.5" /> Mapa
               </Link>
             }
@@ -816,9 +816,10 @@ export default function DashboardClient({
         ) : (
           <div className="divide-y divide-gray-50">
             {recentSales.map(sale => (
-              <div
+              <Link
                 key={sale.id}
-                className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-gray-50/60 -mx-2 px-2 rounded-xl transition-colors"
+                href="/sales"
+                className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 hover:bg-gray-50/60 -mx-2 px-2 rounded-xl transition-colors cursor-pointer"
               >
                 <div
                   className="w-1 h-9 rounded-full flex-shrink-0"
@@ -839,7 +840,7 @@ export default function DashboardClient({
                     })}
                   </p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
