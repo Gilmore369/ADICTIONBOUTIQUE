@@ -368,7 +368,7 @@ export default function DashboardClient({
             </Link>
           )}
           {m.birthdaysThisMonth > 0 && (
-            <Link href="/clients?birthday=true"
+            <Link href="/agenda"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-full text-xs text-violet-700 font-medium hover:bg-violet-100 transition-colors">
               🎂 {fn(m.birthdaysThisMonth)} cumpleaños este mes
               <ChevronRight className="h-3 w-3 opacity-60" />
