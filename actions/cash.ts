@@ -5,6 +5,65 @@ import { createServerClient } from '@/lib/supabase/server'
 import { logCashShiftOpened, logCashShiftClosed } from '@/lib/utils/audit'
 
 /**
+ * Get live breakdown of an open shift (ventas, cobros, gastos)
+ */
+export async function getCashShiftBreakdown(shiftId: string, storeId: string, openedAt: string) {
+  try {
+    const supabase = await createServerClient()
+    const now = new Date().toISOString()
+
+    // Ventas CONTADO durante el turno
+    const { data: sales } = await supabase
+      .from('sales')
+      .select('total, sale_type')
+      .eq('store_id', storeId)
+      .eq('voided', false)
+      .gte('created_at', openedAt)
+      .lte('created_at', now)
+
+    const cashSales = (sales || []).filter(s => s.sale_type === 'CONTADO')
+    const totalCashSales = cashSales.reduce((sum, s) => sum + parseFloat(s.total?.toString() || '0'), 0)
+    const creditSales = (sales || []).filter(s => s.sale_type === 'CREDITO')
+    const totalCreditSales = creditSales.reduce((sum, s) => sum + parseFloat(s.total?.toString() || '0'), 0)
+
+    // Cobros (pagos de crédito) durante el turno
+    const { data: collectionPayments } = await supabase
+      .from('payments')
+      .select('amount')
+      .gte('created_at', openedAt)
+      .lte('created_at', now)
+
+    const totalCollections = (collectionPayments || []).reduce(
+      (sum, p) => sum + parseFloat(p.amount?.toString() || '0'), 0
+    )
+
+    // Gastos del turno
+    const { data: expenses } = await supabase
+      .from('cash_expenses')
+      .select('id, amount, category, description, created_at')
+      .eq('shift_id', shiftId)
+      .order('created_at', { ascending: false })
+
+    const totalExpenses = (expenses || []).reduce(
+      (sum, e) => sum + parseFloat(e.amount?.toString() || '0'), 0
+    )
+
+    return {
+      success: true,
+      data: {
+        cashSales: totalCashSales,
+        creditSales: totalCreditSales,
+        collections: totalCollections,
+        expenses: totalExpenses,
+        expensesList: expenses || [],
+      }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al cargar cuadre' }
+  }
+}
+
+/**
  * Open a new cash shift
  */
 export async function openCashShift(storeId: string, openingAmount: number) {
@@ -76,17 +135,16 @@ export async function closeCashShift(shiftId: string, closingAmount: number) {
       return { success: false, error: 'No autenticado' }
     }
 
-    // Get shift details
+    // Get shift details (admin can close any open shift, not just their own)
     const { data: shift, error: shiftError } = await supabase
       .from('cash_shifts')
       .select('*')
       .eq('id', shiftId)
-      .eq('user_id', user.id)
       .eq('status', 'OPEN')
       .single()
 
     if (shiftError || !shift) {
-      return { success: false, error: 'Turno no encontrado' }
+      return { success: false, error: 'Turno no encontrado o ya cerrado' }
     }
 
     const now = new Date().toISOString()
@@ -166,6 +224,7 @@ export async function closeCashShift(shiftId: string, closingAmount: number) {
         expenses: totalExpenses,
         expected: expectedAmount,
         closing: closingAmount,
+        difference,
       }
     }
   } catch (error) {
