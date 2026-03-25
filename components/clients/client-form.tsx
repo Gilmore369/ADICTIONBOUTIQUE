@@ -64,11 +64,12 @@ import { MapPin, AlertTriangle } from 'lucide-react'
 
 // Configuración de ratings con rangos de crédito
 const RATING_CONFIG = {
-  A: { label: 'A — Excelente', range: 'S/ 2,000 a más', credit: 2500, color: 'bg-emerald-100 border-emerald-400 text-emerald-800', dot: 'bg-emerald-500' },
-  B: { label: 'B — Bueno',     range: 'S/ 1,001 – 2,000', credit: 1500, color: 'bg-blue-100 border-blue-400 text-blue-800', dot: 'bg-blue-500' },
-  C: { label: 'C — Regular',   range: 'S/ 751 – 1,000',   credit: 875,  color: 'bg-yellow-100 border-yellow-400 text-yellow-800', dot: 'bg-yellow-500' },
-  D: { label: 'D — Básico',    range: 'S/ 501 – 750',     credit: 625,  color: 'bg-orange-100 border-orange-400 text-orange-800', dot: 'bg-orange-500' },
-  E: { label: 'E — Nuevo/Riesgo', range: 'S/ 100 – 500',  credit: 300,  color: 'bg-red-100 border-red-400 text-red-800', dot: 'bg-red-500' },
+  S: { label: 'S — Especial',    range: 'S/ 5,000 a más',   credit: 5000, color: 'bg-purple-100 border-purple-400 text-purple-800', dot: 'bg-purple-500', symbol: '⭐' },
+  A: { label: 'A — Excelente',   range: 'S/ 2,000 – 4,999', credit: 2500, color: 'bg-emerald-100 border-emerald-400 text-emerald-800', dot: 'bg-emerald-500', symbol: '🏆' },
+  B: { label: 'B — Bueno',       range: 'S/ 1,001 – 2,000', credit: 1500, color: 'bg-blue-100 border-blue-400 text-blue-800', dot: 'bg-blue-500', symbol: '👍' },
+  C: { label: 'C — Regular',     range: 'S/ 751 – 1,000',   credit: 875,  color: 'bg-yellow-100 border-yellow-400 text-yellow-800', dot: 'bg-yellow-500', symbol: '🆗' },
+  D: { label: 'D — Básico',      range: 'S/ 501 – 750',     credit: 625,  color: 'bg-orange-100 border-orange-400 text-orange-800', dot: 'bg-orange-500', symbol: '⚠️' },
+  E: { label: 'E — Nuevo/Riesgo', range: 'S/ 100 – 500',    credit: 300,  color: 'bg-red-100 border-red-400 text-red-800', dot: 'bg-red-500', symbol: '🔴' },
 } as const
 
 type RatingKey = keyof typeof RATING_CONFIG
@@ -147,7 +148,7 @@ export function ClientForm({
     form.setValue('referred_by', client.id)
     // Auto-suggest initial rating based on referrer's rating
     if (mode === 'create') {
-      const suggestedRating: RatingKey = (client.rating === 'A' || client.rating === 'B') ? 'D' : 'E'
+      const suggestedRating: RatingKey = (client.rating === 'S' || client.rating === 'A' || client.rating === 'B') ? 'D' : 'E'
       setSelectedRating(suggestedRating)
       form.setValue('rating', suggestedRating)
       form.setValue('credit_limit', RATING_CONFIG[suggestedRating].credit)
@@ -399,6 +400,7 @@ export function ClientForm({
                   {referredBy.rating && (
                     <span className={[
                       'text-xs font-bold px-1.5 py-0.5 rounded',
+                      referredBy.rating === 'S' ? 'bg-purple-100 text-purple-800' :
                       referredBy.rating === 'A' ? 'bg-emerald-100 text-emerald-800' :
                       referredBy.rating === 'B' ? 'bg-blue-100 text-blue-800' :
                       referredBy.rating === 'C' ? 'bg-yellow-100 text-yellow-800' :
@@ -642,8 +644,8 @@ export function ClientForm({
           </div>
 
           {/* Selector visual de rating */}
-          <div className="grid grid-cols-5 gap-2">
-            {(Object.keys(RATING_CONFIG) as RatingKey[]).reverse().map((key) => {
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {(Object.keys(RATING_CONFIG) as RatingKey[]).map((key) => {
               const cfg = RATING_CONFIG[key]
               const isSelected = selectedRating === key
               return (
@@ -656,12 +658,13 @@ export function ClientForm({
                     form.setValue('credit_limit', cfg.credit)
                   }}
                   className={[
-                    'rounded-lg border-2 p-2 text-center transition-all',
-                    isSelected ? cfg.color + ' border-current shadow-sm' : 'border-gray-200 hover:border-gray-400 bg-white',
+                    'rounded-lg border-2 p-2.5 text-center transition-all flex flex-col items-center gap-1',
+                    isSelected ? cfg.color + ' border-current shadow-sm scale-105' : 'border-gray-200 hover:border-gray-400 bg-white',
                   ].join(' ')}
                 >
-                  <div className={['w-3 h-3 rounded-full mx-auto mb-1', cfg.dot].join(' ')} />
-                  <div className="font-bold text-base leading-none">{key}</div>
+                  <span className="text-lg leading-none">{cfg.symbol}</span>
+                  <span className="font-bold text-sm leading-none">{key}</span>
+                  <span className="text-[9px] leading-tight text-center opacity-70 hidden sm:block">{cfg.range}</span>
                 </button>
               )
             })}
@@ -677,9 +680,9 @@ export function ClientForm({
               </div>
               {mode === 'create' && (
                 <div className="text-xs mt-1 opacity-80">
-                  💡 {referredBy?.rating === 'A' || referredBy?.rating === 'B'
+                  💡 {referredBy?.rating === 'S' || referredBy?.rating === 'A' || referredBy?.rating === 'B'
                     ? `Referido por clase ${referredBy.rating} → inicia en clase D (S/ 625 crédito)`
-                    : 'Si el referidor es clase A o B, el cliente iniciará en clase D automáticamente.'}
+                    : 'Si el referidor es clase S, A o B, el cliente iniciará en clase D automáticamente.'}
                 </div>
               )}
             </div>

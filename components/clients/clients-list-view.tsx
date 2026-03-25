@@ -9,14 +9,16 @@ import { exportFilteredClients } from '@/actions/export'
 import { toast } from '@/lib/toast'
 import type { ClientFilters as ClientFiltersType } from '@/lib/types/crm'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
+
+const PAGE_SIZE = 50
 
 interface Client {
   id: string
   dni: string | null
   name: string
   phone: string | null
-  rating: 'A' | 'B' | 'C' | 'D' | 'E' | null
+  rating: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | null
   rating_score: number | null
   last_purchase_date: string | null
   credit_used: number
@@ -31,9 +33,10 @@ interface ClientsListViewProps {
 
 export function ClientsListView({ initialClients }: ClientsListViewProps) {
   const [clients, setClients] = useState<Client[]>(initialClients)
-  const [filters, setFilters] = useState<ClientFiltersType>({})
+  const [filters, setFilters] = useState<ClientFiltersType>({ status: 'ACTIVO' })
   const [isLoading, setIsLoading] = useState(false)
   const [showOnlyBlacklisted, setShowOnlyBlacklisted] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const blacklistedCount = useMemo(() => clients.filter(c => c.blacklisted).length, [clients])
 
@@ -100,9 +103,17 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
     })
   }, [clients, filters, showOnlyBlacklisted])
 
+  // Paginated slice of filteredClients
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE))
+  const paginatedClients = useMemo(
+    () => filteredClients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filteredClients, currentPage]
+  )
+
   const handleFilterChange = useCallback(async (newFilters: ClientFiltersType) => {
     setFilters(newFilters)
-    
+    setCurrentPage(1) // reset to page 1 on filter change
+
     // If filters are applied, fetch filtered clients from server
     if (Object.keys(newFilters).length > 0) {
       setIsLoading(true)
@@ -167,28 +178,27 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-bold">Clientes</h1>
-          <p className="text-muted-foreground">
-            Gestiona y filtra tu cartera de clientes
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="space-y-4">
+      {/* Compact header */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">Clientes</h1>
+          <span className="text-sm text-muted-foreground hidden sm:inline">
+            {filteredClients.length} resultado{filteredClients.length !== 1 ? 's' : ''}
+          </span>
           {blacklistedCount > 0 && (
             <Button
               variant={showOnlyBlacklisted ? 'destructive' : 'outline'}
               size="sm"
-              className="gap-2"
-              onClick={() => setShowOnlyBlacklisted(v => !v)}
+              className="gap-1 h-7 text-xs"
+              onClick={() => { setShowOnlyBlacklisted(v => !v); setCurrentPage(1) }}
             >
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle className="h-3 w-3" />
               Lista Negra ({blacklistedCount})
             </Button>
           )}
-          <CreateClientDialog onSuccess={handleClientCreated} />
         </div>
+        <CreateClientDialog onSuccess={handleClientCreated} />
       </div>
 
       <ClientFilters onFilterChange={handleFilterChange} />
@@ -198,10 +208,63 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
           <p className="text-muted-foreground">Cargando clientes...</p>
         </div>
       ) : (
-        <ClientsTableEnhanced 
-          clients={filteredClients} 
-          onExport={handleExport}
-        />
+        <>
+          <ClientsTableEnhanced
+            clients={paginatedClients}
+            onExport={handleExport}
+          />
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-xs text-muted-foreground">
+                Página {currentPage} de {totalPages} · {filteredClients.length} clientes
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                  .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                    acc.push(p)
+                    return acc
+                  }, [])
+                  .map((p, idx) =>
+                    p === '...' ? (
+                      <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={currentPage === p ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 min-w-[28px] px-2 text-xs"
+                        onClick={() => setCurrentPage(p as number)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

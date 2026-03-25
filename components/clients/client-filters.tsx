@@ -17,10 +17,11 @@ import type { ClientFilters as ClientFiltersType } from '@/lib/types/crm'
 
 interface ClientFiltersProps {
   onFilterChange: (filters: ClientFiltersType) => void
+  initialFilters?: ClientFiltersType
 }
 
-export function ClientFilters({ onFilterChange }: ClientFiltersProps) {
-  const [filters, setFilters] = useState<ClientFiltersType>({})
+export function ClientFilters({ onFilterChange, initialFilters }: ClientFiltersProps) {
+  const [filters, setFilters] = useState<ClientFiltersType>(initialFilters || { status: 'ACTIVO' })
   const [daysSinceLastPurchase, setDaysSinceLastPurchase] = useState('')
   
   // Debounce the days input
@@ -60,7 +61,7 @@ export function ClientFilters({ onFilterChange }: ClientFiltersProps) {
       const { rating, ...rest } = filters
       setFilters(rest)
     } else {
-      setFilters({ ...filters, rating: [value as 'A' | 'B' | 'C' | 'D'] })
+      setFilters({ ...filters, rating: [value as 'S' | 'A' | 'B' | 'C' | 'D' | 'E'] })
     }
   }
 
@@ -92,11 +93,12 @@ export function ClientFilters({ onFilterChange }: ClientFiltersProps) {
   }
 
   const clearFilters = () => {
-    setFilters({})
+    setFilters({ status: 'ACTIVO' })
     setDaysSinceLastPurchase('')
   }
 
-  const hasActiveFilters = Object.keys(filters).length > 0
+  // Has filters beyond the default (status=ACTIVO)
+  const hasActiveFilters = Object.keys(filters).some(k => !(k === 'status' && filters.status === 'ACTIVO'))
 
   return (
     <div className="flex flex-wrap items-end gap-2 p-3 bg-muted/40 border rounded-lg">
@@ -125,11 +127,12 @@ export function ClientFilters({ onFilterChange }: ClientFiltersProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="A">A - Excelente</SelectItem>
-            <SelectItem value="B">B - Bueno</SelectItem>
-            <SelectItem value="C">C - Regular</SelectItem>
-            <SelectItem value="D">D - Malo</SelectItem>
-            <SelectItem value="E">E - Riesgo</SelectItem>
+            <SelectItem value="S">⭐ S - Especial</SelectItem>
+            <SelectItem value="A">🏆 A - Excelente</SelectItem>
+            <SelectItem value="B">👍 B - Bueno</SelectItem>
+            <SelectItem value="C">🆗 C - Regular</SelectItem>
+            <SelectItem value="D">⚠️ D - Básico</SelectItem>
+            <SelectItem value="E">🔴 E - Riesgo</SelectItem>
           </SelectContent>
         </Select>
       </div>

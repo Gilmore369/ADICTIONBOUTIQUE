@@ -23,7 +23,7 @@ interface Client {
   dni: string | null
   name: string
   phone: string | null
-  rating: 'A' | 'B' | 'C' | 'D' | 'E' | null
+  rating: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | null
   rating_score: number | null
   last_purchase_date: string | null
   credit_used: number
@@ -43,6 +43,7 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
 
   const getRatingColor = (rating: string | null) => {
     switch (rating) {
+      case 'S': return 'bg-purple-100 text-purple-800 border-purple-200'
       case 'A': return 'bg-green-100 text-green-800 border-green-200'
       case 'B': return 'bg-blue-100 text-blue-800 border-blue-200'
       case 'C': return 'bg-yellow-100 text-yellow-800 border-yellow-200'

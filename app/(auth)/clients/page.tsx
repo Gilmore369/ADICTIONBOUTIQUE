@@ -47,9 +47,10 @@ async function ClientsData() {
   const { data: clientsWithBL, error: errorWithBL } = await supabase
     .from('clients')
     .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted')
+    .eq('active', true)
     .order('blacklisted', { ascending: false })
     .order('name')
-    .limit(200)
+    .limit(100)
 
   if (errorWithBL) {
     // Columna blacklisted aún no existe en BD — cargar sin ella
@@ -57,8 +58,9 @@ async function ClientsData() {
     const { data: clientsNoBL, error: errorNoBL } = await supabase
       .from('clients')
       .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason')
+      .eq('active', true)
       .order('name')
-      .limit(200)
+      .limit(100)
 
     if (errorNoBL) {
       console.error('Error loading clients:', errorNoBL)
@@ -75,7 +77,7 @@ async function ClientsData() {
 
 export default function ClientsPage() {
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-4">
       <Suspense fallback={<TableSkeleton rows={10} columns={9} />}>
         <ClientsData />
       </Suspense>

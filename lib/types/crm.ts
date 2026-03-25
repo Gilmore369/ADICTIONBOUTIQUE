@@ -50,6 +50,7 @@ export enum AlertPriority {
  * A=Excellent (90+), B=Good (75-89), C=Regular (60-74), D=Basic (40-59), E=New/Risk (<40)
  */
 export enum RatingCategory {
+  S = 'S',
   A = 'A',
   B = 'B',
   C = 'C',
