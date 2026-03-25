@@ -1,41 +1,82 @@
-# Adiction Boutique - Sistema de Gestión
+# 🛍️ Adiction Boutique - Sistema de Gestión Integral
 
-Sistema completo de gestión para boutique de ropa desarrollado con Next.js 16 y Supabase.
+Sistema completo de gestión para boutique de moda con punto de venta, inventario, CRM, cobranzas y reportes analíticos.
 
 ## 🚀 Características Principales
 
-### Módulos Implementados
+### 📦 Gestión de Inventario
+- **Catálogos Completos**: Líneas, Categorías, Marcas, Tallas y Proveedores
+- **Ingreso Masivo**: Registro rápido de productos con variantes por talla
+- **Control de Stock**: Seguimiento en tiempo real por tienda
+- **Movimientos**: Historial completo de entradas y salidas
+- **Kardex**: Valorización de inventario
 
-- **Dashboard**: Métricas en tiempo real del negocio
-- **Catálogos**: Gestión completa de productos, líneas, categorías, marcas, tallas y proveedores
-- **Inventario**: Control de stock, movimientos y entrada masiva de productos
-- **Punto de Venta (POS)**: Sistema de ventas con soporte para contado y crédito
-- **Clientes**: CRM con gestión de créditos, historial y calificación
-- **Cobranzas**: Sistema de seguimiento de pagos y acciones de cobranza
-- **Deuda**: Gestión de planes de crédito y cuotas
-- **Caja**: Control de turnos y movimientos de efectivo
-- **Reportes**: Análisis de ventas, inventario y clientes
-- **Mapa**: Visualización geográfica de clientes
+### 💰 Punto de Venta (POS)
+- Interfaz rápida y moderna
+- Ventas al contado y a crédito
+- Generación automática de tickets
+- Múltiples métodos de pago
+- Soporte para múltiples tiendas
 
-### Características Técnicas
+### 👥 CRM y Gestión de Clientes
+- Perfiles completos de clientes
+- Sistema de calificación (A, B, C, D)
+- Historial de compras y pagos
+- Geolocalización de clientes
+- Seguimiento de visitas
+- Sistema de referencias
 
-- ✅ **Next.js 16** con App Router
-- ✅ **Supabase** para base de datos y autenticación
-- ✅ **TypeScript** para type safety
-- ✅ **Tailwind CSS** para estilos
-- ✅ **React Query** para gestión de estado
-- ✅ **Zod** para validación de datos
-- ✅ **Row Level Security (RLS)** implementado
-- ✅ **Multi-tienda** con soporte para múltiples ubicaciones
-- ✅ **Sistema de roles** (Admin, Vendedor)
+### 💳 Gestión de Crédito y Cobranzas
+- Planes de pago personalizados
+- Calendario de cuotas
+- Acciones de cobranza automatizadas
+- Alertas de vencimiento
+- Reportes de morosidad
+- Gestión de devoluciones
+
+### 📊 Reportes y Analytics
+- Dashboard en tiempo real
+- Reportes de ventas por período
+- Análisis de productos más vendidos
+- Métricas de clientes
+- Reportes de cobranza
+- Exportación a Excel/PDF
+
+### 💵 Gestión de Caja
+- Apertura y cierre de turnos
+- Control de efectivo
+- Conciliación automática
+- Historial de movimientos
+- Soporte multi-tienda
+
+### 🗺️ Mapa de Clientes
+- Visualización geográfica
+- Rutas de cobranza optimizadas
+- Filtros por estado de deuda
+- Información contextual
+
+## 🛠️ Tecnologías
+
+- **Frontend**: Next.js 16, React 19, TypeScript
+- **Backend**: Next.js API Routes, Server Actions
+- **Base de Datos**: Supabase (PostgreSQL)
+- **Autenticación**: Supabase Auth
+- **Estilos**: Tailwind CSS 4
+- **UI Components**: Radix UI, shadcn/ui
+- **Mapas**: Google Maps API
+- **Gráficos**: Recharts
+- **PDF**: jsPDF, html2pdf
+- **Validación**: Zod
+- **Testing**: Playwright
 
 ## 📋 Requisitos Previos
 
 - Node.js 18 o superior
 - npm o yarn
 - Cuenta de Supabase
+- Cuenta de Google Cloud (para Maps API)
 
-## 🛠️ Instalación
+## 🔧 Instalación
 
 1. Clonar el repositorio:
 ```bash
@@ -53,16 +94,17 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Editar `.env.local` con tus credenciales de Supabase:
+Editar `.env.local` con tus credenciales:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
 NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
-SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=tu_google_maps_key
 ```
 
 4. Ejecutar migraciones de base de datos:
 ```bash
-# Conectar a tu proyecto de Supabase y ejecutar las migraciones en /supabase/migrations
+# Las migraciones están en /supabase/migrations/
+# Ejecutarlas en orden cronológico en tu proyecto de Supabase
 ```
 
 5. Iniciar el servidor de desarrollo:
@@ -70,97 +112,99 @@ SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 npm run dev
 ```
 
-6. Abrir [http://localhost:3000](http://localhost:3000)
+6. Abrir en el navegador:
+```
+http://localhost:3000
+```
 
 ## 📁 Estructura del Proyecto
 
 ```
-supa/
-├── actions/          # Server Actions de Next.js
-├── app/             # App Router de Next.js
-│   ├── (auth)/      # Rutas protegidas
-│   └── (public)/    # Rutas públicas
-├── components/      # Componentes React
-├── lib/            # Utilidades y servicios
-├── supabase/       # Migraciones y scripts SQL
-└── public/         # Archivos estáticos
+├── app/                      # App Router de Next.js
+│   ├── (auth)/              # Rutas protegidas
+│   │   ├── dashboard/       # Dashboard principal
+│   │   ├── catalogs/        # Gestión de catálogos
+│   │   ├── inventory/       # Inventario y stock
+│   │   ├── clients/         # CRM de clientes
+│   │   ├── pos/             # Punto de venta
+│   │   ├── cash/            # Gestión de caja
+│   │   ├── debt/            # Planes de crédito
+│   │   ├── collections/     # Cobranzas
+│   │   ├── reports/         # Reportes
+│   │   └── map/             # Mapa de clientes
+│   ├── (public)/            # Rutas públicas
+│   └── api/                 # API Routes
+├── components/              # Componentes React
+│   ├── ui/                  # Componentes base
+│   ├── catalogs/            # Componentes de catálogos
+│   ├── clients/             # Componentes de clientes
+│   ├── dashboard/           # Componentes del dashboard
+│   └── ...
+├── actions/                 # Server Actions
+├── lib/                     # Utilidades y helpers
+│   ├── supabase/           # Cliente de Supabase
+│   ├── services/           # Servicios de negocio
+│   ├── pdf/                # Generación de PDFs
+│   └── reports/            # Lógica de reportes
+├── supabase/               # Configuración de Supabase
+│   └── migrations/         # Migraciones SQL
+└── tests/                  # Tests E2E con Playwright
 ```
 
-## 🔐 Autenticación y Seguridad
+## 🔐 Seguridad
 
-- Sistema de autenticación con Supabase Auth
+- Autenticación mediante Supabase Auth
 - Row Level Security (RLS) en todas las tablas
-- Roles de usuario: Admin y Vendedor
-- Políticas de acceso por tienda
+- Validación de datos con Zod
+- Sanitización de inputs
+- Protección CSRF
+- Rate limiting en APIs críticas
 
-## 📊 Base de Datos
+## 📱 Características Responsive
 
-### Tablas Principales
+- Diseño adaptable a móviles, tablets y desktop
+- Optimizado para uso en tienda física
+- Interfaz táctil amigable
 
-- `users` - Usuarios del sistema
-- `stores` - Tiendas/ubicaciones
-- `clients` - Clientes
-- `suppliers` - Proveedores
-- `brands` - Marcas
-- `lines` - Líneas de productos
-- `categories` - Categorías
-- `sizes` - Tallas
-- `products` - Productos
-- `stock` - Inventario
-- `sales` - Ventas
-- `credit_plans` - Planes de crédito
-- `installments` - Cuotas
-- `payments` - Pagos
-- `collection_actions` - Acciones de cobranza
-- `cash_shifts` - Turnos de caja
+## 🧪 Testing
 
-## 🧪 Validación
+Ejecutar tests E2E:
+```bash
+npm run test:e2e
+```
 
-El sistema ha sido validado exhaustivamente con Playwright. Ver reportes:
-- `VALIDACION_CATALOGOS.md` - Análisis del código
-- `PLAN_PRUEBAS_PLAYWRIGHT.md` - Plan de pruebas
-- `REPORTE_VALIDACION_PLAYWRIGHT.md` - Resultados completos
+## 📈 Roadmap
 
-## 📝 Documentación Adicional
+- [ ] App móvil nativa (React Native)
+- [ ] Integración con pasarelas de pago
+- [ ] Sistema de facturación electrónica
+- [ ] Módulo de compras a proveedores
+- [ ] Dashboard de BI avanzado
+- [ ] Integración con WhatsApp Business
+- [ ] Sistema de fidelización
 
-- `ANALISIS_BASE_DATOS.md` - Análisis completo de la base de datos
-- `AUDITORIA_SEGURIDAD_COMPLETA.md` - Auditoría de seguridad
-- `COMO_EJECUTAR_SCRIPTS.md` - Guía para ejecutar scripts SQL
+## 🤝 Contribuir
 
-## 🚀 Despliegue
+Las contribuciones son bienvenidas. Por favor:
 
-### Vercel (Recomendado)
-
-1. Conectar el repositorio a Vercel
-2. Configurar variables de entorno
-3. Desplegar
-
-### Otras Plataformas
-
-El proyecto es compatible con cualquier plataforma que soporte Next.js:
-- Netlify
-- Railway
-- AWS Amplify
-- etc.
-
-## 🤝 Contribución
-
-Este es un proyecto privado. Para contribuir, contactar al propietario del repositorio.
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
 
 ## 📄 Licencia
 
-Todos los derechos reservados © 2026 Adiction Boutique
+Este proyecto es privado y propietario.
 
-## 👥 Autor
+## 👨‍💻 Autor
 
-- **Gilmore369** - [GitHub](https://github.com/Gilmore369)
+**Gilmore369**
 
-## 🆘 Soporte
+## 📞 Soporte
 
-Para soporte o preguntas, abrir un issue en el repositorio.
+Para soporte, por favor abre un issue en GitHub.
 
 ---
 
-**Última actualización**: Marzo 2026  
-**Versión**: 1.0.0  
-**Estado**: ✅ Producción
+⭐ Si este proyecto te resulta útil, considera darle una estrella en GitHub
