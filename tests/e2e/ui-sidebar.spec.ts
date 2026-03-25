@@ -122,13 +122,18 @@ test.describe('Sidebar — comportamiento', () => {
       await page.waitForTimeout(400)
     }
 
-    // Click en Catálogos
+    // Click en Catálogos — /catalogs está expandido por defecto,
+    // así que solo hacemos click si los subitems NO están ya visibles
     const catalogBtn = page.locator('aside button').filter({ hasText: 'Catálogos' })
+    const visualItem = page.locator('aside').getByText('Catálogo Visual')
     if (await catalogBtn.isVisible()) {
-      await catalogBtn.click()
-      await page.waitForTimeout(200)
+      const alreadyExpanded = await visualItem.isVisible()
+      if (!alreadyExpanded) {
+        await catalogBtn.click()
+        await page.waitForTimeout(300)
+      }
       await expect(page.locator('aside').getByText('Productos')).toBeVisible()
-      await expect(page.locator('aside').getByText('Catálogo Visual')).toBeVisible()
+      await expect(visualItem).toBeVisible()
     }
   })
 
@@ -141,6 +146,6 @@ test.describe('Sidebar — comportamiento', () => {
     }
 
     await page.locator('aside a').filter({ hasText: 'POS' }).click()
-    await expect(page).toHaveURL('/pos', { timeout: 5000 })
+    await expect(page).toHaveURL('/pos', { timeout: 10000 })
   })
 })

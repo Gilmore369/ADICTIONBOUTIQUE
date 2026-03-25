@@ -16,6 +16,8 @@ const PROTECTED_GET_ROUTES = [
   '/api/installments/overdue',
   '/api/installments/upcoming',
   '/api/collections/payment-preview?client_id=00000000-0000-0000-0000-000000000000&amount=100',
+  // FIX: PDF download must require auth (exposes sale + client data)
+  '/api/sales/V-0001/pdf',
 ]
 
 const PROTECTED_POST_ROUTES = [

@@ -39,5 +39,11 @@ export default defineConfig({
         storageState: AUTH_FILE,
       },
     },
+    // ── Dashboard visual tests (no auth dependency, skips gracefully) ────────
+    {
+      name: 'dashboard-visual',
+      testMatch: /ui-dashboard\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 })

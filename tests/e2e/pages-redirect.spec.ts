@@ -11,6 +11,7 @@ const PROTECTED_PAGES = [
   '/catalogs',
   '/catalogs/visual',
   '/inventory/stock',
+  '/inventory/bulk-entry-test', // admin-only test page
   '/collections',
   '/map',
   '/reports',

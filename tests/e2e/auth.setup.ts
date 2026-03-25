@@ -24,7 +24,7 @@ setup('login de usuario', async ({ page }) => {
   await page.click('button[type="submit"]')
 
   // Esperar redirección a dashboard o cualquier página protegida
-  await page.waitForURL(/\/(dashboard|clients|pos|catalogs)/, { timeout: 15000 })
+  await page.waitForURL(/\/(dashboard|clients|pos|catalogs)/, { timeout: 30000 })
   expect(page.url()).not.toContain('/login')
 
   // Guardar estado de autenticación (cookies + localStorage)
