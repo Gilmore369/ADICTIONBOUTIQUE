@@ -45,7 +45,13 @@ export async function GET(
         },
       }
     )
-    
+
+    // ── Auth check ──────────────────────────────────────────────────────
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { data: sale, error } = await supabase
       .from('sales')
       .select(`

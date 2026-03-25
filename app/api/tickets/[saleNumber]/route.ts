@@ -6,13 +6,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { saleNumber: string } }
+  context: { params: Promise<{ saleNumber: string }> }
 ) {
   try {
+    const params = await context.params
     const { saleNumber } = params
 
     if (!saleNumber) {
@@ -22,7 +23,8 @@ export async function GET(
       )
     }
 
-    const supabase = await createClient()
+    // Intentionally public: used by QR codes on printed receipts
+    const supabase = await createServerClient()
 
     // Obtener información de la venta
     const { data: sale, error: saleError } = await supabase

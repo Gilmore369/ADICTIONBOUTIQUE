@@ -8,20 +8,13 @@ const nextConfig: NextConfig = {
     // TODO: Generate proper database types from Supabase
     ignoreBuildErrors: true,
   },
+  // Externalize canvas for jsPDF on the server (works with both Turbopack and webpack)
+  serverExternalPackages: ['canvas'],
+  turbopack: {},
   experimental: {
     serverActions: {
       bodySizeLimit: '5mb', // Increased from default 1mb for bulk product entry with images
     },
-  },
-  webpack: (config, { isServer }) => {
-    // Configuración para jsPDF en el servidor
-    if (isServer) {
-      config.externals = config.externals || [];
-      config.externals.push({
-        canvas: 'canvas',
-      });
-    }
-    return config;
   },
   images: {
     remotePatterns: [
