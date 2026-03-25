@@ -157,7 +157,7 @@ export function CreditPlansView() {
         id, installment_number, amount, due_date, status,
         credit_plans!inner ( id, clients!inner ( id, name ) )
       `)
-      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+      .in('status', ['OVERDUE'])
       .lte('due_date', sevenDaysOut.toISOString().split('T')[0])
       .order('due_date', { ascending: true })
       .limit(15)
