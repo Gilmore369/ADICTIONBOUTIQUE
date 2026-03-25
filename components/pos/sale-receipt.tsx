@@ -79,41 +79,31 @@ export function SaleReceipt({
     style.textContent = `
       @media print {
         @page {
-          size: 80mm auto;
-          margin: 0;
+          size: auto;
+          margin: 8mm;
         }
-        
-        * {
-          margin: 0;
-          padding: 0;
-        }
-        
-        body {
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        
+
         body * {
           visibility: hidden;
         }
-        
+
         .receipt-content,
         .receipt-content * {
           visibility: visible;
         }
-        
+
         .receipt-content {
-          position: absolute;
+          position: fixed;
           left: 0;
           top: 0;
-          width: 80mm;
-          max-width: 80mm;
+          width: 100%;
+          max-width: 100%;
           margin: 0;
-          padding: 10mm;
+          padding: 0;
           font-size: 10pt;
           background: white;
         }
-        
+
         .print\\:hidden {
           display: none !important;
         }

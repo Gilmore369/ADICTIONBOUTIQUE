@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   Table,
@@ -11,9 +12,11 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Download, AlertTriangle } from 'lucide-react'
+import { Download, AlertTriangle, Eye, Pencil, UserX } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { EditClientDialog } from './edit-client-dialog'
+import { DeactivateClientDialog } from './deactivate-client-dialog'
 
 interface Client {
   id: string
@@ -35,6 +38,9 @@ interface ClientsTableEnhancedProps {
 }
 
 export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhancedProps) {
+  const [editClient, setEditClient] = useState<Client | null>(null)
+  const [deactivateClient, setDeactivateClient] = useState<{ id: string; name: string } | null>(null)
+
   const getRatingColor = (rating: string | null) => {
     switch (rating) {
       case 'A': return 'bg-green-100 text-green-800 border-green-200'
@@ -73,11 +79,10 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
               <TableHead>Nombre</TableHead>
               <TableHead>DNI</TableHead>
               <TableHead>Teléfono</TableHead>
-              <TableHead>Calificación</TableHead>
+              <TableHead>Calif.</TableHead>
               <TableHead>Última Compra</TableHead>
-              <TableHead>Estado Deuda</TableHead>
+              <TableHead>Deuda</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Lista Negra</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -85,7 +90,7 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
             {clients.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={9}
+                  colSpan={8}
                   className="text-center text-muted-foreground h-24"
                 >
                   No se encontraron clientes con los filtros aplicados
@@ -99,83 +104,85 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
                   <TableRow key={client.id} className="hover:bg-accent/50">
                     {/* Name */}
                     <TableCell className="font-medium">
-                      <Link 
-                        href={`/clients/${client.id}`}
-                        className="hover:underline"
-                      >
-                        {client.name}
-                      </Link>
+                      <div className="flex items-center gap-1">
+                        <Link href={`/clients/${client.id}`} className="hover:underline">
+                          {client.name}
+                        </Link>
+                        {client.blacklisted && (
+                          <AlertTriangle className="h-3 w-3 text-red-500 flex-shrink-0" title="Lista Negra" />
+                        )}
+                      </div>
                     </TableCell>
-                    
+
                     {/* DNI */}
-                    <TableCell className="font-mono text-sm">
-                      {client.dni || '-'}
-                    </TableCell>
-                    
+                    <TableCell className="font-mono text-sm">{client.dni || '-'}</TableCell>
+
                     {/* Phone */}
-                    <TableCell>
-                      {client.phone || '-'}
-                    </TableCell>
-                    
+                    <TableCell className="text-sm">{client.phone || '-'}</TableCell>
+
                     {/* Rating */}
                     <TableCell>
                       {client.rating ? (
-                        <Badge variant="outline" className={getRatingColor(client.rating)}>
-                          {client.rating} ({client.rating_score})
+                        <Badge variant="outline" className={`text-xs ${getRatingColor(client.rating)}`}>
+                          {client.rating} {client.rating_score != null ? `(${client.rating_score})` : ''}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
-                    
+
                     {/* Last Purchase */}
-                    <TableCell>
-                      {client.last_purchase_date ? (
-                        format(new Date(client.last_purchase_date), 'dd/MM/yyyy', { locale: es })
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
+                    <TableCell className="text-sm">
+                      {client.last_purchase_date
+                        ? format(new Date(client.last_purchase_date), 'dd/MM/yyyy', { locale: es })
+                        : <span className="text-muted-foreground">-</span>}
                     </TableCell>
-                    
+
                     {/* Debt Status */}
                     <TableCell>
-                      <Badge variant="outline" className={debtStatus.color}>
+                      <Badge variant="outline" className={`text-xs ${debtStatus.color}`}>
                         {debtStatus.label}
                       </Badge>
                     </TableCell>
-                    
+
                     {/* Status */}
                     <TableCell>
                       {client.active ? (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                          Activo
-                        </Badge>
+                        <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-200">Activo</Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
-                          Inactivo
-                        </Badge>
-                      )}
-                    </TableCell>
-                    
-                    {/* Blacklist */}
-                    <TableCell>
-                      {client.blacklisted ? (
-                        <Badge variant="destructive" className="gap-1 text-xs">
-                          <AlertTriangle className="h-3 w-3" />
-                          Lista Negra
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-200">Inactivo</Badge>
                       )}
                     </TableCell>
 
                     {/* Actions */}
                     <TableCell className="text-right">
-                      <Link href={`/clients/${client.id}`}>
-                        <Button variant="ghost" size="sm">
-                          Ver Perfil
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/clients/${client.id}`}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Ver perfil">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Editar cliente"
+                          onClick={() => setEditClient(client)}
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                      </Link>
+                        {client.active && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            title="Dar de baja"
+                            onClick={() => setDeactivateClient({ id: client.id, name: client.name })}
+                          >
+                            <UserX className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -184,6 +191,25 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
           </TableBody>
         </Table>
       </div>
+
+      {/* Edit Dialog */}
+      {editClient && (
+        <EditClientDialog
+          client={editClient}
+          open={!!editClient}
+          onOpenChange={(open) => { if (!open) setEditClient(null) }}
+        />
+      )}
+
+      {/* Deactivate Dialog */}
+      {deactivateClient && (
+        <DeactivateClientDialog
+          clientId={deactivateClient.id}
+          clientName={deactivateClient.name}
+          open={!!deactivateClient}
+          onOpenChange={(open) => { if (!open) setDeactivateClient(null) }}
+        />
+      )}
     </div>
   )
 }
