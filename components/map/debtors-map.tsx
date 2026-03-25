@@ -14,12 +14,13 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { GoogleMap, useLoadScript, Marker, InfoWindow } from '@react-google-maps/api'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils/currency'
-import { Navigation, Loader2, ListChecks, X } from 'lucide-react'
+import { Navigation, Loader2, ListChecks, X, CalendarDays } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { VisitPanel, type VisitEntry } from './visit-panel'
 
@@ -134,12 +135,16 @@ const DAYS_FILTERS = [
 ]
 
 export function DebtorsMap() {
+  const searchParams = useSearchParams()
+  const visitClientIds = searchParams.get('clients') // comma-separated UUIDs from Agenda
+
   const [filter, setFilter] = useState<FilterType>('overdue')
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
   const [generatingRoute, setGeneratingRoute] = useState(false)
   const [routeType, setRouteType] = useState<RouteType>('Cobranza')
+  const [visitBannerDismissed, setVisitBannerDismissed] = useState(false)
 
   // Visit panel state
   const MAP_VISITS_KEY = 'boutique_map_visits'
@@ -180,9 +185,32 @@ export function DebtorsMap() {
     preventGoogleFontsLoading: true,
   })
 
+  // If coming from Agenda with specific client IDs, load those directly
   useEffect(() => {
-    loadClients(filter)
-  }, [filter])
+    if (visitClientIds) {
+      loadClientsByIds(visitClientIds)
+    } else {
+      loadClients(filter)
+    }
+  }, [filter, visitClientIds])
+
+  const loadClientsByIds = async (ids: string) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/clients/by-ids?ids=${ids}`)
+      const { data } = await response.json()
+      setClients(data || [])
+      // Auto-add to visit panel
+      if (data && data.length > 0) {
+        setVisitEntries(data.map((c: Client) => ({ client: c as any })))
+        setPanelOpen(true)
+      }
+    } catch (error) {
+      console.error('Error loading clients by ids:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const loadClients = async (filterType: FilterType) => {
     setLoading(true)
@@ -358,6 +386,20 @@ export function DebtorsMap() {
 
   return (
     <div className="space-y-4">
+      {/* Banner: visita programada desde Agenda */}
+      {visitClientIds && !visitBannerDismissed && (
+        <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 text-sm text-indigo-700">
+          <CalendarDays className="h-4 w-4 flex-shrink-0" />
+          <div className="flex-1">
+            <span className="font-semibold">Visita programada desde Agenda</span>
+            <span className="ml-2 text-indigo-500">— {clients.length} cliente{clients.length !== 1 ? 's' : ''} seleccionado{clients.length !== 1 ? 's' : ''}</span>
+          </div>
+          <button onClick={() => setVisitBannerDismissed(true)} className="text-indigo-400 hover:text-indigo-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Filter Buttons */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2">

@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const events: {
     id: string
-    type: 'birthday' | 'installment_due' | 'installment_overdue'
+    type: 'birthday' | 'installment_due' | 'installment_overdue' | 'reminder' | 'scheduled_visit'
     date: string        // YYYY-MM-DD
     title: string
     subtitle?: string
@@ -166,6 +166,65 @@ export async function GET(req: NextRequest) {
     console.error('Error loading overdue installments:', e)
   }
 
+  // ── 4. Recordatorios ───────────────────────────────────────────────────────
+  try {
+    const { data: reminders } = await supabase
+      .from('agenda_reminders')
+      .select('*')
+      .gte('date', startStr)
+      .lte('date', endStr)
+
+    if (reminders) {
+      const colorMap: Record<string, string> = {
+        purple: '#8b5cf6', blue: '#3b82f6', green: '#22c55e',
+        orange: '#f97316', red: '#ef4444',
+      }
+      for (const r of reminders) {
+        events.push({
+          id: `reminder-${r.id}`,
+          type: 'reminder',
+          date: r.date,
+          title: r.title,
+          subtitle: r.note ? `📝 ${r.note}` : '📝 Recordatorio',
+          color: colorMap[r.color] || '#8b5cf6',
+          reminder_id: r.id,
+        } as any)
+      }
+    }
+  } catch (e) {
+    console.error('Error loading reminders:', e)
+  }
+
+  // ── 5. Visitas programadas ──────────────────────────────────────────────────
+  try {
+    const { data: visits } = await supabase
+      .from('agenda_scheduled_visits')
+      .select('*')
+      .gte('scheduled_date', startStr)
+      .lte('scheduled_date', endStr)
+      .not('status', 'eq', 'cancelled')
+
+    if (visits) {
+      for (const v of visits) {
+        const clientCount = (v.client_ids || []).length
+        events.push({
+          id: `svisit-${v.id}`,
+          type: 'scheduled_visit',
+          date: v.scheduled_date,
+          title: v.title,
+          subtitle: `🗓️ ${clientCount} cliente${clientCount !== 1 ? 's' : ''} · ${v.visit_type}`,
+          color: '#6366f1',
+          visit_id: v.id,
+          visit_type: v.visit_type,
+          client_ids: v.client_ids,
+          status: v.status,
+        } as any)
+      }
+    }
+  } catch (e) {
+    console.error('Error loading scheduled visits:', e)
+  }
+
   // Sort by date
   events.sort((a, b) => a.date.localeCompare(b.date))
 
@@ -179,6 +238,8 @@ export async function GET(req: NextRequest) {
       birthdays: events.filter(e => e.type === 'birthday').length,
       due: events.filter(e => e.type === 'installment_due').length,
       overdue: events.filter(e => e.type === 'installment_overdue').length,
+      reminders: events.filter(e => e.type === 'reminder').length,
+      visits: events.filter(e => e.type === 'scheduled_visit').length,
     },
   })
 }
