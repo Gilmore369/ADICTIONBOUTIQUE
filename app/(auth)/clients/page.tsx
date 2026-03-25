@@ -46,21 +46,21 @@ async function ClientsData() {
 
   const { data: clientsWithBL, error: errorWithBL } = await supabase
     .from('clients')
-    .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted')
+    .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted, birthday')
     .eq('active', true)
     .order('blacklisted', { ascending: false })
     .order('name')
-    .limit(100)
+    .limit(500)
 
   if (errorWithBL) {
     // Columna blacklisted aún no existe en BD — cargar sin ella
     console.warn('blacklisted column not available:', errorWithBL.message)
     const { data: clientsNoBL, error: errorNoBL } = await supabase
       .from('clients')
-      .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason')
+      .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, birthday')
       .eq('active', true)
       .order('name')
-      .limit(100)
+      .limit(500)
 
     if (errorNoBL) {
       console.error('Error loading clients:', errorNoBL)

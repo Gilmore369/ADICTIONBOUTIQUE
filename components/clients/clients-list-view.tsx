@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ClientFilters } from './client-filters'
 import { ClientsTableEnhanced } from './clients-table-enhanced'
 import { CreateClientDialog } from './create-client-dialog'
@@ -9,7 +10,7 @@ import { exportFilteredClients } from '@/actions/export'
 import { toast } from '@/lib/toast'
 import type { ClientFilters as ClientFiltersType } from '@/lib/types/crm'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Cake } from 'lucide-react'
 
 const PAGE_SIZE = 50
 
@@ -25,6 +26,7 @@ interface Client {
   active: boolean
   deactivation_reason: string | null
   blacklisted?: boolean | null
+  birthday?: string | null
 }
 
 interface ClientsListViewProps {
@@ -32,8 +34,16 @@ interface ClientsListViewProps {
 }
 
 export function ClientsListView({ initialClients }: ClientsListViewProps) {
+  const searchParams = useSearchParams()
+  const isBirthdayFilter = searchParams.get('filter') === 'birthday'
+  const currentMonth = new Date().getMonth() + 1
+
   const [clients, setClients] = useState<Client[]>(initialClients)
-  const [filters, setFilters] = useState<ClientFiltersType>({ status: 'ACTIVO' })
+  const [filters, setFilters] = useState<ClientFiltersType>(
+    isBirthdayFilter
+      ? { status: 'ACTIVO', birthdayMonth: currentMonth }
+      : { status: 'ACTIVO' }
+  )
   const [isLoading, setIsLoading] = useState(false)
   const [showOnlyBlacklisted, setShowOnlyBlacklisted] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -78,8 +88,9 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
 
       // Birthday month filter
       if (filters.birthdayMonth) {
-        // Would need birthday field on client
-        // Skipping for now
+        if (!client.birthday) return false
+        const bMonth = new Date(client.birthday).getUTCMonth() + 1
+        if (bMonth !== filters.birthdayMonth) return false
       }
 
       // Status filter
@@ -177,8 +188,22 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
     }, ...prev])
   }
 
+  const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
   return (
     <div className="space-y-4">
+      {/* Birthday filter banner */}
+      {isBirthdayFilter && (
+        <div className="flex items-center gap-2 bg-pink-50 border border-pink-200 rounded-xl px-4 py-2.5 text-sm text-pink-700">
+          <Cake className="h-4 w-4 flex-shrink-0" />
+          <span>Mostrando clientes con cumpleaños en <strong>{MONTH_NAMES[currentMonth - 1]}</strong></span>
+          <button
+            onClick={() => window.history.pushState({}, '', '/clients')}
+            className="ml-auto text-pink-400 hover:text-pink-700 text-xs underline"
+          >Quitar filtro</button>
+        </div>
+      )}
+
       {/* Compact header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-3">

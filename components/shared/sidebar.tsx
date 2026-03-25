@@ -18,7 +18,7 @@ import {
   LayoutDashboard, Package, Users, ShoppingCart, CreditCard, Wallet, Map,
   Menu, X, ChevronDown, ChevronRight, ChevronLeft, Box, Tag, Layers,
   Ruler, Truck, PackagePlus, Warehouse, BarChart3, DollarSign, Images,
-  PanelLeftClose, PanelLeftOpen, FileText, AlertTriangle, RotateCcw,
+  PanelLeftClose, PanelLeftOpen, FileText, AlertTriangle, RotateCcw, CalendarDays,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
   { title: 'Caja', href: '/cash', icon: DollarSign },
   { title: 'Deuda', href: '/debt', icon: CreditCard },
   { title: 'Cobranzas', href: '/collections', icon: Wallet },
+  { title: 'Agenda', href: '/agenda', icon: CalendarDays },
   
   // ── CLIENTES ──
   {

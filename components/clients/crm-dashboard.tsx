@@ -250,7 +250,10 @@ export function CrmDashboard() {
             <div className="text-xs text-gray-500">Clientes inactivos</div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm">
+        <div
+          onClick={() => router.push('/clients?filter=birthday')}
+          className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm cursor-pointer hover:border-pink-300 hover:shadow-md transition-all"
+        >
           <div className="p-2.5 rounded-lg bg-pink-100">
             <Users className="h-5 w-5 text-pink-500" />
           </div>
@@ -258,6 +261,7 @@ export function CrmDashboard() {
             <div className="text-xl font-bold text-gray-900">{metrics.birthdaysThisMonth}</div>
             <div className="text-xs text-gray-500">Cumpleaños este mes</div>
           </div>
+          <ChevronRight className="h-4 w-4 text-pink-300 ml-auto" />
         </div>
       </div>
 
