@@ -73,8 +73,15 @@ export function CreditPlansView() {
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
   const { selectedStore, storeId } = useStore()
 
-  // Reload data when store changes
-  useEffect(() => { loadData() }, [selectedStore])
+  // Esperar a que storeId esté disponible antes de cargar
+  // Evita race condition: selectedStore cambia, storeId llega después async
+  useEffect(() => {
+    if (selectedStore === 'ALL') {
+      loadData()  // sin filtro de tienda, cargar de inmediato
+    } else if (storeId !== null) {
+      loadData()  // con filtro, esperar el UUID de la tienda
+    }
+  }, [selectedStore, storeId])
 
   // ─── Data loading ──────────────────────────────────────────────────────────
 

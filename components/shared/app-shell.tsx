@@ -16,9 +16,10 @@ const SIDEBAR_KEY = 'sidebar_collapsed'
 interface AppShellProps {
   children: React.ReactNode
   user: { email: string; name?: string | null }
+  userStores?: string[]
 }
 
-export function AppShell({ children, user }: AppShellProps) {
+export function AppShell({ children, user, userStores }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   // Restore saved preference on mount
@@ -37,7 +38,7 @@ export function AppShell({ children, user }: AppShellProps) {
   }
 
   return (
-    <StoreProvider>
+    <StoreProvider userStores={userStores}>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         <Sidebar collapsed={collapsed} onToggleCollapse={handleToggle} />
 

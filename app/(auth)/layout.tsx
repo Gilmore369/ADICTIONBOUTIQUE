@@ -25,7 +25,7 @@ export default async function AuthenticatedLayout({
 
   const { data: profile } = await supabase
     .from('users')
-    .select('name, email, roles')
+    .select('name, email, roles, stores')
     .eq('id', user.id)
     .single()
 
@@ -35,6 +35,7 @@ export default async function AuthenticatedLayout({
         email: (profile as any)?.email || user.email || '',
         name:  (profile as any)?.name ?? null,
       }}
+      userStores={(profile as any)?.stores || []}
     >
       {children}
     </AppShell>
