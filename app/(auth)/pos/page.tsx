@@ -155,12 +155,11 @@ export default function POSPage() {
     )
   }
 
-  // Handle barcode scan — strict solo para usuarios con tienda fija
+  // Handle barcode scan — siempre filtrar por el warehouse seleccionado
   const handleBarcodeScan = async (barcode: string) => {
     try {
-      const strictParam = isStoreLocked ? '&strict=true' : ''
       const response = await fetch(
-        `/api/products/search?q=${encodeURIComponent(barcode)}&warehouse=${encodeURIComponent(warehouse)}&limit=1${strictParam}`
+        `/api/products/search?q=${encodeURIComponent(barcode)}&warehouse=${encodeURIComponent(warehouse)}&limit=1&strict=true`
       )
       const { data } = await response.json()
 
@@ -371,7 +370,7 @@ export default function POSPage() {
               onSelect={handleProductSelect}
               placeholder="Buscar por nombre o código de barras..."
               warehouse={warehouse}
-              strictWarehouse={isStoreLocked}
+              strictWarehouse={true}
             />
           </Card>
 
