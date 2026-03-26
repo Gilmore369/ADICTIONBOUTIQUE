@@ -210,17 +210,22 @@ export async function GET(req: NextRequest) {
     if (visits) {
       for (const v of visits) {
         const clientCount = (v.client_ids || []).length
+        // Construir subtitle con nota si existe
+        const baseSub = `🗓️ ${clientCount} cliente${clientCount !== 1 ? 's' : ''} · ${v.visit_type}`
+        const subtitle = v.note ? `${baseSub} — ${v.note}` : baseSub
+
         events.push({
           id: `svisit-${v.id}`,
           type: 'scheduled_visit',
           date: v.scheduled_date,
           title: v.title,
-          subtitle: `🗓️ ${clientCount} cliente${clientCount !== 1 ? 's' : ''} · ${v.visit_type}`,
+          subtitle,
           color: '#6366f1',
           visit_id: v.id,
           visit_type: v.visit_type,
           client_ids: v.client_ids,
           status: v.status,
+          note: v.note || null,
         } as any)
       }
     }

@@ -37,6 +37,7 @@ interface AgendaEvent {
   visit_type?: string
   client_ids?: string[]
   status?: string
+  note?: string | null
 }
 
 interface AgendaData {
@@ -499,6 +500,13 @@ function DetailPanel({
 
               {/* Subtitle */}
               {ev.subtitle && <div className="text-xs opacity-80">{ev.subtitle}</div>}
+
+              {/* Nota de visita programada */}
+              {ev.type === 'scheduled_visit' && ev.note && (
+                <div className="text-xs italic text-indigo-700 bg-indigo-50 rounded px-2 py-1 mt-1">
+                  📝 {ev.note}
+                </div>
+              )}
 
               {/* Visit: client list + map button */}
               {ev.type === 'scheduled_visit' && (
