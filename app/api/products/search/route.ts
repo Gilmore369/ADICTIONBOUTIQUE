@@ -79,33 +79,40 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get stock for each product from the specified warehouse.
-    // stock.warehouse_id is a TEXT field ('Tienda Mujeres' or 'Tienda Hombres').
-    // Use case-insensitive match to be robust against casing differences.
-    // Only fetch rows with quantity > 0 — products without stock in this
-    // store are excluded from results (strict store isolation).
-    const { data: stockData } = await supabase
+    // Get stock for ALL warehouses — no strict warehouse isolation in POS search.
+    // The warehouse param is used only for recording the sale, not for restricting
+    // which products appear. This avoids hiding valid products when stock was
+    // entered under a different warehouse name.
+    const { data: stockAll } = await supabase
       .from('stock')
-      .select('product_id, quantity')
-      .ilike('warehouse_id', warehouse)
+      .select('product_id, warehouse_id, quantity')
       .gt('quantity', 0)
 
-    // Build product_id → quantity map for the selected warehouse
-    const stockMap = new Map<string, number>()
-    if (stockData) {
-      stockData.forEach(s => {
-        const current = stockMap.get(s.product_id) || 0
-        stockMap.set(s.product_id, current + s.quantity)
-      })
+    // Build product_id → { total, warehouseQty } map
+    // warehouseQty = quantity in the selected warehouse (may be 0 if stock is elsewhere)
+    const stockMap = new Map<string, { total: number; warehouseQty: number }>()
+    if (stockAll) {
+      const warehouseLower = warehouse.toLowerCase()
+      for (const s of stockAll) {
+        const entry = stockMap.get(s.product_id) || { total: 0, warehouseQty: 0 }
+        entry.total += s.quantity
+        if (s.warehouse_id?.toLowerCase() === warehouseLower) {
+          entry.warehouseQty += s.quantity
+        }
+        stockMap.set(s.product_id, entry)
+      }
     }
 
-    // Return only products that have stock in the selected warehouse
+    // Return all products that have stock anywhere; show warehouseQty for context
     const data = (products || [])
       .filter(product => stockMap.has(product.id))
-      .map(product => ({
-        ...product,
-        stock: { quantity: stockMap.get(product.id) || 0 }
-      }))
+      .map(product => {
+        const entry = stockMap.get(product.id)!
+        return {
+          ...product,
+          stock: { quantity: entry.warehouseQty > 0 ? entry.warehouseQty : entry.total }
+        }
+      })
     
     return NextResponse.json({ data })
   } catch (error) {
