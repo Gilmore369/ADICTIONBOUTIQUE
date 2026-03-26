@@ -56,11 +56,12 @@ export default async function BlacklistPage() {
     console.error('Error fetching blacklisted clients:', error)
   }
 
-  // Fetch all active clients for adding to blacklist
+  // Fetch all clients (not blacklisted) for adding to blacklist
+  // Use neq instead of eq(active, true) para incluir registros con active=null
   const { data: allClients, error: allError } = await supabase
     .from('clients')
     .select('id, dni, name, phone, credit_used, blacklisted')
-    .eq('active', true)
+    .neq('active', false)
     .order('name')
 
   if (allError) {

@@ -774,15 +774,62 @@ export async function generateDatabaseBackup() {
   const supabase = await createServerClient()
 
   try {
-    const tables = ['products', 'categories', 'brands', 'lines', 'sizes', 'suppliers',
-      'warehouses', 'stock', 'movements', 'sales', 'sale_items',
-      'clients', 'credit_plans', 'installments', 'payments']
+    // Tablas de catálogo y configuración
+    const catalogTables = [
+      'stores', 'lines', 'line_stores', 'categories', 'brands', 'sizes', 'suppliers',
+      'warehouses', 'system_config'
+    ]
+    // Tablas de productos e inventario
+    const inventoryTables = [
+      'products', 'product_images', 'stock', 'movements'
+    ]
+    // Tablas de ventas
+    const salesTables = [
+      'sales', 'sale_items', 'returns'
+    ]
+    // Tablas de CRM y crédito
+    const crmTables = [
+      'clients', 'credit_plans', 'installments', 'payments', 'visits',
+      'collection_actions'
+    ]
+    // Tablas de caja y auditoría
+    const otherTables = [
+      'cash_shifts', 'cash_expenses'
+    ]
 
-    const backup: any = { timestamp: new Date().toISOString(), version: '1.0', data: {} }
+    const allTables = [
+      ...catalogTables,
+      ...inventoryTables,
+      ...salesTables,
+      ...crmTables,
+      ...otherTables
+    ]
 
-    for (const table of tables) {
-      const { data, error } = await supabase.from(table).select('*')
-      if (!error && data) backup.data[table] = data
+    const backup: any = {
+      timestamp: new Date().toISOString(),
+      version: '2.0',
+      tables: allTables,
+      data: {}
+    }
+
+    const errors: string[] = []
+
+    for (const table of allTables) {
+      try {
+        const { data, error } = await supabase.from(table).select('*')
+        if (error) {
+          console.warn(`[backup] Table ${table} error:`, error.message)
+          errors.push(`${table}: ${error.message}`)
+        } else if (data) {
+          backup.data[table] = data
+        }
+      } catch (e) {
+        errors.push(`${table}: ${e}`)
+      }
+    }
+
+    if (errors.length > 0) {
+      backup.errors = errors
     }
 
     return { success: true, data: backup }

@@ -53,44 +53,69 @@ async function captureChartsAsPng(
 
   for (const svg of svgs) {
     try {
-      const srcW = Math.round(svg.getBoundingClientRect().width) || 800
-      const srcH = Math.round(svg.getBoundingClientRect().height) || 400
+      const bbox = svg.getBoundingClientRect()
+      const srcW = Math.round(bbox.width) || 800
+      const srcH = Math.round(bbox.height) || 380
+
+      // Skip tiny/invisible SVGs (legend icons, etc.)
+      if (srcW < 50 || srcH < 50) continue
 
       const clone = svg.cloneNode(true) as SVGElement
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
       clone.setAttribute('width', String(srcW))
       clone.setAttribute('height', String(srcH))
+
+      // Fondo blanco
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
       rect.setAttribute('width', '100%')
       rect.setAttribute('height', '100%')
       rect.setAttribute('fill', 'white')
       clone.insertBefore(rect, clone.firstChild)
 
+      // Inline computed styles on all child elements (necesario para que SVG se vea igual fuera del DOM)
+      const allEls = Array.from(clone.querySelectorAll('*'))
+      const srcEls = Array.from(svg.querySelectorAll('*'))
+      for (let i = 0; i < Math.min(allEls.length, srcEls.length); i++) {
+        try {
+          const computed = window.getComputedStyle(srcEls[i] as Element)
+          const fill = computed.getPropertyValue('fill')
+          const stroke = computed.getPropertyValue('stroke')
+          const fontSize = computed.getPropertyValue('font-size')
+          const fontFamily = computed.getPropertyValue('font-family')
+          const el = allEls[i] as SVGElement
+          if (fill && fill !== 'none') el.style.fill = fill
+          if (stroke && stroke !== 'none') el.style.stroke = stroke
+          if (fontSize) el.style.fontSize = fontSize
+          if (fontFamily) el.style.fontFamily = fontFamily
+        } catch { /* skip */ }
+      }
+
       const svgStr = new XMLSerializer().serializeToString(clone)
-      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
+      // Usar data URL base64 en vez de blob URL (más compatible con CSP)
+      const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)))
 
       const imgData = await new Promise<string | null>((resolve) => {
         const img = new window.Image()
+        const timeout = setTimeout(() => resolve(null), 5000)
         img.onload = () => {
-          const scale = 2
+          clearTimeout(timeout)
+          const scale = 1.5
           const canvas = document.createElement('canvas')
           canvas.width = srcW * scale
           canvas.height = srcH * scale
           const ctx = canvas.getContext('2d')!
           ctx.scale(scale, scale)
-          ctx.fillStyle = '#fff'
+          ctx.fillStyle = '#ffffff'
           ctx.fillRect(0, 0, srcW, srcH)
           ctx.drawImage(img, 0, 0, srcW, srcH)
-          URL.revokeObjectURL(url)
-          resolve(canvas.toDataURL('image/png', 0.95))
+          resolve(canvas.toDataURL('image/png', 0.9))
         }
-        img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
-        img.src = url
+        img.onerror = () => { clearTimeout(timeout); resolve(null) }
+        img.src = svgB64
       })
       if (imgData) images.push({ data: imgData, w: srcW, h: srcH })
     } catch {
-      // Skip failed captures
+      // Skip failed captures silently
     }
   }
   return images
@@ -245,117 +270,238 @@ export function ReportsGenerator() {
     }
   }
 
-  // Exportar PDF con graficos capturados
+  // Exportar PDF — informe profesional con gráficos y tabla de datos
   const exportPDF = async () => {
     if (!reportData.length || !currentReport) {
       toast.warning('No hay datos para exportar')
       return
     }
     setLoading(true)
+    const toastId = toast.loading('Generando PDF...')
     try {
       const doc = new jsPDF('p', 'mm', 'a4')
+      const pageW = doc.internal.pageSize.getWidth()
+      const pageH = doc.internal.pageSize.getHeight()
       const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
-      let yPos = 15
 
-      // Encabezado
-      doc.setFontSize(16)
-      doc.setTextColor(26, 26, 26)
-      doc.text(currentReport.name, 14, yPos)
-      yPos += 6
-      doc.setFontSize(8)
-      doc.setTextColor(100, 100, 100)
-      doc.text(`Generado: ${fecha}`, 14, yPos)
-      yPos += 4
-      doc.text(`Periodo: ${filters.startDate || 'N/A'} — ${filters.endDate || 'N/A'}`, 14, yPos)
-      yPos += 3
-      doc.setDrawColor(16, 185, 129)
-      doc.setLineWidth(0.5)
-      doc.line(14, yPos, 196, yPos)
-      yPos += 6
+      // ── Encabezado con banda de color ──────────────────────────────────────
+      doc.setFillColor(17, 24, 39)        // gray-900
+      doc.rect(0, 0, pageW, 28, 'F')
 
-      // Capturar graficos si el tab de graficos esta activo
-      if (chartContainerRef.current) {
-        toast.info('Capturando graficos...')
-        const images = await captureChartsAsPng(chartContainerRef.current)
+      doc.setFontSize(14)
+      doc.setTextColor(16, 185, 129)      // emerald
+      doc.setFont('helvetica', 'bold')
+      doc.text('ADICTION BOUTIQUE', 14, 11)
 
-        for (const chart of images) {
-          const maxW = 182
-          const aspect = chart.h / chart.w
-          const imgW = maxW
-          const imgH = Math.min(Math.round(aspect * imgW), 120)
-          if (yPos + imgH > 280) {
-            doc.addPage()
-            yPos = 12
+      doc.setFontSize(9)
+      doc.setTextColor(200, 200, 200)
+      doc.setFont('helvetica', 'normal')
+      doc.text('Sistema de Gestión · Reporte', 14, 17)
+
+      doc.setFontSize(11)
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.text(currentReport.name, 14, 24)
+
+      // Fecha y periodo (derecha)
+      doc.setFontSize(7)
+      doc.setTextColor(180, 180, 180)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Generado: ${fecha}`, pageW - 14, 17, { align: 'right' })
+      doc.text(`Periodo: ${filters.startDate || 'N/A'} — ${filters.endDate || 'N/A'}`, pageW - 14, 22, { align: 'right' })
+
+      let yPos = 36
+
+      // ── Gráficos capturados ────────────────────────────────────────────────
+      let chartsCaptured = 0
+      if (chartContainerRef.current && activeTab === 'stats') {
+        toast.loading('Capturando gráficos...', { id: toastId })
+        try {
+          const images = await captureChartsAsPng(chartContainerRef.current)
+          if (images.length > 0) {
+            doc.setFontSize(9)
+            doc.setTextColor(55, 65, 81)
+            doc.setFont('helvetica', 'bold')
+            doc.text('VISUALIZACIONES', 14, yPos)
+            yPos += 2
+            doc.setDrawColor(16, 185, 129)
+            doc.setLineWidth(0.3)
+            doc.line(14, yPos, pageW - 14, yPos)
+            yPos += 5
           }
-          doc.addImage(chart.data, 'PNG', 14, yPos, imgW, imgH)
-          yPos += imgH + 6
-        }
-        if (images.length > 0) {
-          doc.addPage()
-          yPos = 15
-          doc.setFontSize(12)
-          doc.setTextColor(26, 26, 26)
-          doc.text(`${currentReport.name} — Datos detallados`, 14, yPos)
-          yPos += 5
+
+          for (const chart of images) {
+            const maxW = pageW - 28
+            const aspect = chart.h / chart.w
+            const imgH = Math.min(Math.round(aspect * maxW), 110)
+
+            if (yPos + imgH > pageH - 20) {
+              doc.addPage()
+              yPos = 15
+            }
+            doc.addImage(chart.data, 'PNG', 14, yPos, maxW, imgH)
+            yPos += imgH + 8
+            chartsCaptured++
+          }
+        } catch {
+          // Si falla la captura, continuar sin gráficos
         }
       }
 
-      // Tabla de datos
-      const headers = Object.keys(reportData[0])
-      const data = reportData.map(r => headers.map(h => {
+      // ── Sección de datos tabulados ────────────────────────────────────────
+      if (chartsCaptured > 0 || yPos > pageH - 60) {
+        doc.addPage()
+        yPos = 15
+      }
+
+      doc.setFontSize(9)
+      doc.setTextColor(55, 65, 81)
+      doc.setFont('helvetica', 'bold')
+      doc.text('DATOS DETALLADOS', 14, yPos)
+      yPos += 2
+      doc.setDrawColor(16, 185, 129)
+      doc.setLineWidth(0.3)
+      doc.line(14, yPos, pageW - 14, yPos)
+      yPos += 5
+
+      // Formatear headers (legibles)
+      const rawHeaders = Object.keys(reportData[0])
+      const friendlyHeaders = rawHeaders.map(h =>
+        h.replace(/([A-Z])/g, ' $1')
+          .replace(/_/g, ' ')
+          .replace(/^\w/, c => c.toUpperCase())
+          .trim()
+      )
+
+      const tableData = reportData.map(r => rawHeaders.map(h => {
         const v = r[h]
-        if (typeof v === 'number' && !Number.isInteger(v)) {
-          return v.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        if (typeof v === 'number') {
+          // Distinguir montos de cantidades: si el key incluye palabras de monto
+          const isMonetary = /total|monto|precio|ingreso|ganancia|deuda|pago|credito|contado/i.test(h)
+          if (isMonetary && !Number.isInteger(v)) {
+            return `S/ ${v.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          }
+          return v.toLocaleString('es-PE')
         }
-        return v != null ? String(v) : ''
+        return v != null ? String(v) : '—'
       }))
 
       autoTable(doc, {
-        head: [headers],
-        body: data,
+        head: [friendlyHeaders],
+        body: tableData,
         startY: yPos,
-        styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
-        headStyles: { fillColor: [26, 26, 26], textColor: [16, 185, 129], fontStyle: 'bold', fontSize: 8 },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
+        styles: {
+          fontSize: 7,
+          cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+          overflow: 'linebreak',
+          textColor: [55, 65, 81]
+        },
+        headStyles: {
+          fillColor: [17, 24, 39],
+          textColor: [16, 185, 129],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+          cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        tableLineColor: [229, 231, 235],
+        tableLineWidth: 0.1,
         margin: { right: 14, left: 14 },
-        didDrawPage: () => {
-          const total = (doc as any).internal.getNumberOfPages()
-          const cur = (doc as any).internal.getCurrentPageInfo().pageNumber
-          doc.setFontSize(7)
-          doc.setTextColor(150)
-          doc.text(`Pagina ${cur} de ${total} — ${currentReport.name}`,
-            doc.internal.pageSize.getWidth() / 2,
-            doc.internal.pageSize.getHeight() - 8,
+        didDrawPage: (hookData: any) => {
+          const totalPages = (doc as any).internal.getNumberOfPages()
+          const curPage = hookData.pageNumber
+          // Footer en cada página
+          doc.setFillColor(17, 24, 39)
+          doc.rect(0, pageH - 10, pageW, 10, 'F')
+          doc.setFontSize(6.5)
+          doc.setTextColor(150, 150, 150)
+          doc.setFont('helvetica', 'normal')
+          doc.text(
+            `${currentReport.name}  ·  Página ${curPage} de ${totalPages}  ·  ${fecha}`,
+            pageW / 2,
+            pageH - 4,
             { align: 'center' }
           )
         }
       })
 
-      doc.save(`${currentReport.id}-${new Date().toISOString().split('T')[0]}.pdf`)
-      toast.success('PDF exportado con graficos y datos')
+      // ── Guardar / descargar ────────────────────────────────────────────────
+      const fileName = `${currentReport.id}-${new Date().toISOString().split('T')[0]}.pdf`
+
+      // Método 1: doc.save() (descarga directa)
+      try {
+        doc.save(fileName)
+        toast.success(`PDF exportado: ${fileName}`, { id: toastId })
+      } catch {
+        // Método 2: URL de datos como fallback
+        const pdfBlob = doc.output('blob')
+        const url = URL.createObjectURL(pdfBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 200)
+        toast.success(`PDF exportado: ${fileName}`, { id: toastId })
+      }
     } catch (e) {
-      toast.error(`Error al exportar PDF: ${e instanceof Error ? e.message : 'Error'}`)
+      console.error('[exportPDF]', e)
+      toast.error(`Error al exportar PDF: ${e instanceof Error ? e.message : 'Error desconocido'}`, { id: toastId })
     } finally {
       setLoading(false)
     }
   }
 
-  // Backup BD
+  // Backup BD — completo con todas las tablas del sistema
   const handleDatabaseBackup = async () => {
     try {
       setLoading(true)
+      const toastId = toast.loading('Generando backup completo...')
       const result = await generateDatabaseBackup()
       if (result.success && result.data) {
         const wb = XLSX.utils.book_new()
         const backupData = (result.data as any).data || result.data
+        const errors = (result.data as any).errors || []
+        let tablesExported = 0
+
         Object.entries(backupData).forEach(([tableName, tableData]: [string, any]) => {
-          if (Array.isArray(tableData) && tableData.length > 0) {
-            const ws = XLSX.utils.json_to_sheet(tableData)
+          if (Array.isArray(tableData)) {
+            // Incluir hoja aunque esté vacía (importante para verificar estructura)
+            const ws = tableData.length > 0
+              ? XLSX.utils.json_to_sheet(tableData)
+              : XLSX.utils.aoa_to_sheet([['(tabla vacía)']])
             XLSX.utils.book_append_sheet(wb, ws, tableName.substring(0, 31))
+            tablesExported++
           }
         })
-        XLSX.writeFile(wb, `backup-${new Date().toISOString().split('T')[0]}.xlsx`)
-        toast.success('Backup generado exitosamente en formato Excel')
+
+        // Hoja de índice con metadata
+        const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
+        const indexData = [
+          ['BACKUP — ADICTION BOUTIQUE'],
+          [`Fecha: ${fecha}`],
+          [`Versión: ${(result.data as any).version || '2.0'}`],
+          [`Tablas exportadas: ${tablesExported}`],
+          [],
+          ['TABLA', 'REGISTROS', 'ESTADO'],
+          ...Object.entries(backupData).map(([t, d]: [string, any]) => [
+            t,
+            Array.isArray(d) ? d.length : 0,
+            errors.some((e: string) => e.startsWith(t)) ? '⚠ Error' : '✓ OK'
+          ])
+        ]
+        const wsIdx = XLSX.utils.aoa_to_sheet(indexData)
+        wsIdx['!cols'] = [{ wch: 30 }, { wch: 12 }, { wch: 10 }]
+        XLSX.utils.book_append_sheet(wb, wsIdx, '_INDICE')
+
+        const fileName = `backup-adiction-${new Date().toISOString().split('T')[0]}.xlsx`
+        XLSX.writeFile(wb, fileName)
+
+        if (errors.length > 0) {
+          toast.warning(`Backup generado con advertencias (${errors.length} tablas con error)`, { id: toastId })
+        } else {
+          toast.success(`Backup completo: ${tablesExported} tablas exportadas`, { id: toastId })
+        }
       } else {
         toast.error(`Error al crear backup: ${result.error || 'Error'}`)
       }

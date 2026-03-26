@@ -72,26 +72,52 @@ export function SaleReceipt({
   const [email, setEmail] = useState(clientEmail || '')
   const [sendingEmail, setSendingEmail] = useState(false)
 
-  // Cargar configuración real desde localStorage (guardada en /settings)
+  // Cargar configuración: primero API (Supabase), luego localStorage como fallback
   useEffect(() => {
-    try {
-      const savedConfig = localStorage.getItem('store_config')
-      if (savedConfig) {
-        const parsed = JSON.parse(savedConfig)
-        setStoreConfig(prev => ({
-          ...prev,
-          name:    parsed.name    || prev.name,
-          address: parsed.address || prev.address,
-          phone:   parsed.phone   || prev.phone,
-          ruc:     parsed.ruc     || prev.ruc,
-        }))
-      }
-      const savedLogo = localStorage.getItem('store_logo')
-      if (savedLogo) {
-        setLogoUrl(savedLogo)
-        setStoreConfig(prev => ({ ...prev, logo: savedLogo }))
-      }
-    } catch { /* ignorar errores de localStorage */ }
+    const loadConfig = async () => {
+      try {
+        const res = await fetch('/api/settings')
+        if (res.ok) {
+          const data = await res.json()
+          const hasData = data.address || data.phone || data.ruc
+          if (hasData) {
+            setStoreConfig(prev => ({
+              ...prev,
+              name:    data.name    || prev.name,
+              address: data.address || prev.address,
+              phone:   data.phone   || prev.phone,
+              ruc:     data.ruc     || prev.ruc,
+            }))
+            if (data.logo) {
+              setLogoUrl(data.logo)
+              setStoreConfig(prev => ({ ...prev, logo: data.logo }))
+            }
+            return
+          }
+        }
+      } catch { /* fallback a localStorage */ }
+
+      // Fallback: localStorage
+      try {
+        const savedConfig = localStorage.getItem('store_config')
+        if (savedConfig) {
+          const parsed = JSON.parse(savedConfig)
+          setStoreConfig(prev => ({
+            ...prev,
+            name:    parsed.name    || prev.name,
+            address: parsed.address || prev.address,
+            phone:   parsed.phone   || prev.phone,
+            ruc:     parsed.ruc     || prev.ruc,
+          }))
+        }
+        const savedLogo = localStorage.getItem('store_logo')
+        if (savedLogo) {
+          setLogoUrl(savedLogo)
+          setStoreConfig(prev => ({ ...prev, logo: savedLogo }))
+        }
+      } catch { /* ignorar errores de localStorage */ }
+    }
+    loadConfig()
   }, [])
 
   useEffect(() => {

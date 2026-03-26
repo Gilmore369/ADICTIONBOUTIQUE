@@ -448,68 +448,200 @@ function SalesByPeriodCharts({ data }: { data: any[] }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// VENTAS POR MES (agrupado por mes)
+// VENTAS POR MES — Grafico de tendencias con área + línea de cantidad
 // ────────────────────────────────────────────────────────────────────────────
 function SalesByMonthCharts({ data }: { data: any[] }) {
   const totalRevenue = data.reduce((s, d) => s + (d.total || 0), 0)
-  const bestMonth = data.reduce((a, b) => (b.total || 0) > (a.total || 0) ? b : a, data[0] || {})
-  const avgMonthly = data.length > 0 ? totalRevenue / data.length : 0
+  const totalVentas  = data.reduce((s, d) => s + (d.cantidadVentas || 0), 0)
+  const bestMonth    = data.reduce((a, b) => (b.total || 0) > (a.total || 0) ? b : a, data[0] || {})
+  const avgMonthly   = data.length > 0 ? totalRevenue / data.length : 0
 
   const chartData = data.map(d => ({
-    mes: d.mes || 'N/A',
+    mes:     d.mes || 'N/A',
     contado: d.totalContado || 0,
     credito: d.totalCredito || 0,
-    total: d.total || 0,
-    ventas: d.cantidadVentas || 0
+    total:   d.total || 0,
+    ventas:  d.cantidadVentas || 0
   }))
 
-  const pieData = chartData.map(d => ({ name: d.mes, value: d.total }))
+  // Variación mensual (crecimiento vs mes anterior)
+  const growth = data.length >= 2
+    ? (((data[data.length - 1]?.total || 0) - (data[data.length - 2]?.total || 0)) /
+        Math.max(data[data.length - 2]?.total || 1, 1) * 100)
+    : 0
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Total del periodo" value={fCur(totalRevenue)} color={C.emerald} />
-        <StatCard label="Mejor mes" value={bestMonth.mes || 'N/A'} sub={fCur(bestMonth.total)} color={C.blue} />
-        <StatCard label="Promedio mensual" value={fCur(avgMonthly)} color={C.violet} />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Total del periodo"  value={fCur(totalRevenue)} color={C.emerald} />
+        <StatCard label="Mejor mes"          value={bestMonth.mes || 'N/A'} sub={fCur(bestMonth.total)} color={C.blue} />
+        <StatCard label="Promedio mensual"   value={fCur(avgMonthly)} color={C.violet} />
+        <StatCard
+          label="Último mes vs anterior"
+          value={`${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`}
+          sub={`${totalVentas} ventas totales`}
+          color={growth >= 0 ? C.emerald : C.rose}
+        />
       </div>
 
-      <ChartCard title="Evolucion Mensual de Ventas">
-        <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="mes" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={55} />
-            <YAxis yAxisId="left" tick={{ fontSize: 10 }} tickFormatter={fK} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
-            <Tooltip content={<CustomTooltipCur />} />
-            <Legend />
-            <Bar yAxisId="left" dataKey="contado" fill={C.emerald} name="Contado" stackId="a" />
-            <Bar yAxisId="left" dataKey="credito" fill={C.amber} name="Credito" stackId="a" radius={[4, 4, 0, 0]} />
-            <Line yAxisId="right" type="monotone" dataKey="ventas" stroke={C.blue} strokeWidth={2} name="# Ventas" dot={{ r: 3 }} />
-          </ComposedChart>
+      {/* Gráfico de tendencia — área apilada con línea de cantidad */}
+      <ChartCard title="Tendencia de Ingresos Mensuales (Contado + Crédito)">
+        <ResponsiveContainer width="100%" height={320}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 40 }}>
+            <defs>
+              <linearGradient id={GRADIENT_ID('mcont')} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={C.emerald} stopOpacity={0.45} />
+                <stop offset="95%" stopColor={C.emerald} stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id={GRADIENT_ID('mcred')} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={C.amber} stopOpacity={0.45} />
+                <stop offset="95%" stopColor={C.amber} stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+            <XAxis
+              dataKey="mes"
+              tick={{ fontSize: 11, fill: '#6b7280' }}
+              angle={-30}
+              textAnchor="end"
+              height={55}
+              tickLine={false}
+              axisLine={{ stroke: '#e5e7eb' }}
+            />
+            <YAxis
+              tickFormatter={fK}
+              tick={{ fontSize: 10, fill: '#9ca3af' }}
+              tickLine={false}
+              axisLine={false}
+              width={60}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null
+                return (
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-xs">
+                    <p className="font-bold text-gray-800 mb-2">{label}</p>
+                    {payload.map((p: any, i: number) => (
+                      <p key={i} style={{ color: p.color }} className="flex justify-between gap-4">
+                        <span>{p.name}</span>
+                        <span className="font-semibold tabular-nums">{fCur(p.value)}</span>
+                      </p>
+                    ))}
+                    <p className="text-gray-500 mt-1 pt-1 border-t">
+                      Total: {fCur((payload[0]?.value || 0) + (payload[1]?.value || 0))}
+                    </p>
+                  </div>
+                )
+              }}
+            />
+            <Legend
+              iconType="circle"
+              iconSize={8}
+              wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="contado"
+              stackId="1"
+              stroke={C.emerald}
+              strokeWidth={2}
+              fill={`url(#${GRADIENT_ID('mcont')})`}
+              name="Contado"
+              dot={{ r: 3, fill: C.emerald, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="credito"
+              stackId="1"
+              stroke={C.amber}
+              strokeWidth={2}
+              fill={`url(#${GRADIENT_ID('mcred')})`}
+              name="Crédito"
+              dot={{ r: 3, fill: C.amber, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+          </AreaChart>
         </ResponsiveContainer>
       </ChartCard>
 
+      {/* Gráfico de línea — cantidad de ventas */}
+      <ChartCard title="Cantidad de Ventas por Mes">
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 40 }}>
+            <defs>
+              <linearGradient id={GRADIENT_ID('mvnt')} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={C.blue} stopOpacity={0.2} />
+                <stop offset="95%" stopColor={C.blue} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+            <XAxis
+              dataKey="mes"
+              tick={{ fontSize: 11, fill: '#6b7280' }}
+              angle={-30}
+              textAnchor="end"
+              height={55}
+              tickLine={false}
+              axisLine={{ stroke: '#e5e7eb' }}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fontSize: 10, fill: '#9ca3af' }}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+            <Tooltip
+              formatter={(v: any) => [fNum(v), '# Ventas']}
+              labelStyle={{ fontWeight: 600 }}
+              contentStyle={{ borderRadius: 10, fontSize: 12, border: '1px solid #e5e7eb' }}
+            />
+            <ReferenceLine
+              y={totalVentas / Math.max(data.length, 1)}
+              stroke={C.gray}
+              strokeDasharray="4 4"
+              label={{ value: 'Promedio', fontSize: 9, fill: C.gray }}
+            />
+            <Line
+              type="monotone"
+              dataKey="ventas"
+              stroke={C.blue}
+              strokeWidth={2.5}
+              name="# Ventas"
+              dot={{ r: 4, fill: C.blue, stroke: '#fff', strokeWidth: 2 }}
+              activeDot={{ r: 6, strokeWidth: 0 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {/* Gráfico de participación — pie */}
       {data.length > 1 && (
-        <ChartCard title="Participacion por Mes (% del Total Anual)">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={95}
-                innerRadius={40}
-                label={({ percent }: any) => percent >= 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
-                labelLine={false}
-              >
-                {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={fCur} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+        <ChartCard title="Participación por Mes (% del Total Anual)">
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie
+                  data={chartData.map(d => ({ name: d.mes, value: d.total }))}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={95}
+                  innerRadius={50}
+                  paddingAngle={2}
+                  label={({ percent }: any) => percent >= 0.06 ? `${(percent * 100).toFixed(0)}%` : ''}
+                  labelLine={false}
+                >
+                  {chartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: any) => fCur(v)} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </ChartCard>
       )}
     </>

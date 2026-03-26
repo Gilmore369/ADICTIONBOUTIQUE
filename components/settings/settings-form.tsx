@@ -33,9 +33,9 @@ interface StoreConfig {
 export function SettingsForm() {
   const [config, setConfig] = useState<StoreConfig>({
     name: 'ADICTION BOUTIQUE',
-    address: 'Av. Principal 123, Trujillo',
-    phone: '(044) 555-9999',
-    ruc: '20123456789',
+    address: '',
+    phone: '',
+    ruc: '',
     logo: ''
   })
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -44,24 +44,50 @@ export function SettingsForm() {
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Load logo and config from localStorage on mount
+  // Load config: primero desde la API (Supabase), luego localStorage como fallback
   useEffect(() => {
-    const savedLogo = localStorage.getItem('store_logo')
-    const savedConfig = localStorage.getItem('store_config')
-    
-    if (savedLogo) {
-      setLogoPreview(savedLogo)
-      setConfig(prev => ({ ...prev, logo: savedLogo }))
-    }
-    
-    if (savedConfig) {
+    const loadConfig = async () => {
       try {
-        const parsed = JSON.parse(savedConfig)
-        setConfig(prev => ({ ...prev, ...parsed }))
-      } catch (error) {
-        console.error('Error loading config:', error)
+        // 1. Intentar cargar desde la API (Supabase — persiste entre dispositivos)
+        const res = await fetch('/api/settings')
+        if (res.ok) {
+          const data = await res.json()
+          const hasRealData = data.address || data.phone || data.ruc
+          if (hasRealData) {
+            setConfig(prev => ({
+              ...prev,
+              name:    data.name    || prev.name,
+              address: data.address || prev.address,
+              phone:   data.phone   || prev.phone,
+              ruc:     data.ruc     || prev.ruc,
+              logo:    data.logo    || prev.logo,
+            }))
+            if (data.logo) setLogoPreview(data.logo)
+            // Sync to localStorage
+            localStorage.setItem('store_config', JSON.stringify(data))
+            if (data.logo) localStorage.setItem('store_logo', data.logo)
+            return
+          }
+        }
+      } catch { /* fallback a localStorage */ }
+
+      // 2. Fallback: localStorage
+      const savedLogo = localStorage.getItem('store_logo')
+      const savedConfig = localStorage.getItem('store_config')
+      if (savedLogo) {
+        setLogoPreview(savedLogo)
+        setConfig(prev => ({ ...prev, logo: savedLogo }))
+      }
+      if (savedConfig) {
+        try {
+          const parsed = JSON.parse(savedConfig)
+          setConfig(prev => ({ ...prev, ...parsed }))
+        } catch (error) {
+          console.error('Error loading config:', error)
+        }
       }
     }
+    loadConfig()
   }, [])
 
   const processLogoFile = async (file: File) => {
@@ -183,12 +209,26 @@ export function SettingsForm() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Save to localStorage
-      localStorage.setItem('store_config', JSON.stringify(config))
-      
-      if (logoPreview) {
-        localStorage.setItem('store_logo', logoPreview)
+      const configToSave = { ...config, logo: logoPreview || '' }
+
+      // 1. Guardar en Supabase vía API (persiste entre dispositivos/navegadores)
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(configToSave)
+        })
+        if (!res.ok) console.warn('[Settings] API save failed:', await res.text())
+      } catch (apiErr) {
+        console.warn('[Settings] API save error:', apiErr)
       }
+
+      // 2. Guardar en localStorage como cache local
+      localStorage.setItem('store_config', JSON.stringify(configToSave))
+      if (logoPreview) localStorage.setItem('store_logo', logoPreview)
+
+      // Disparar evento para que otros componentes se actualicen
+      window.dispatchEvent(new Event('storage'))
 
       toast.success('Configuración guardada exitosamente')
     } catch (error) {
