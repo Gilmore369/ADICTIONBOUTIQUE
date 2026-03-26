@@ -169,6 +169,7 @@ export default async function DashboardPage({
       storeFilter={storeFilter}
       isAdmin={isAdmin}
       activeStoreParam={params.store ?? null}
+      userStores={userStores}
     />
   )
 }

@@ -72,6 +72,7 @@ export interface DashboardClientProps {
   storeFilter?: string | null
   isAdmin?: boolean
   activeStoreParam?: string | null
+  userStores?: string[]
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -286,8 +287,24 @@ export default function DashboardClient({
   storeFilter,
   isAdmin,
   activeStoreParam,
+  userStores,
 }: DashboardClientProps) {
   const [chartRange, setChartRange] = useState<'7D' | '30D'>('30D')
+
+  // ── Store options filtered by user's allowed stores ──────────────────────
+  const ALL_STORE_OPTS = [
+    { label: 'Todas', value: 'ALL' },
+    { label: 'Mujeres', value: 'MUJERES' },
+    { label: 'Hombres', value: 'HOMBRES' },
+  ]
+  const normalizedUserStores = (userStores ?? []).map(s => s.toUpperCase())
+  const storeOptions = ALL_STORE_OPTS.filter(opt => {
+    if (!normalizedUserStores.length) return true          // sin restricción
+    if (opt.value === 'ALL') return normalizedUserStores.length > 1  // "Todas" solo si tiene 2+
+    return normalizedUserStores.includes(opt.value)
+  })
+  // Mostrar el selector solo si es admin Y tiene más de 1 opción disponible
+  const showStoreFilter = isAdmin && storeOptions.length > 1
 
   // ── Chart data ──────────────────────────────────────────────────────────
   const chartData = useMemo(() => {
@@ -349,14 +366,10 @@ export default function DashboardClient({
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Admin: store filter links */}
-          {isAdmin && (
+          {/* Admin con múltiples tiendas: filter links */}
+          {showStoreFilter && (
             <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
-              {[
-                { label: 'Todas', value: 'ALL' },
-                { label: 'Mujeres', value: 'MUJERES' },
-                { label: 'Hombres', value: 'HOMBRES' },
-              ].map(opt => {
+              {storeOptions.map(opt => {
                 const isActive = (activeStoreParam ?? 'ALL') === opt.value
                 return (
                   <Link
