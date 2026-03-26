@@ -39,13 +39,16 @@ interface Sale {
 
 interface SalesHistoryViewProps {
   initialSales: Sale[]
+  lockedStore?: string | null
 }
 
-export function SalesHistoryView({ initialSales }: SalesHistoryViewProps) {
+export function SalesHistoryView({ initialSales, lockedStore }: SalesHistoryViewProps) {
   const [sales] = useState<Sale[]>(initialSales)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'ALL' | 'CONTADO' | 'CREDITO'>('ALL')
-  const [filterStore, setFilterStore] = useState<'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>('ALL')
+  const [filterStore, setFilterStore] = useState<'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>(
+    (lockedStore as any) || 'ALL'
+  )
   const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'ALL'>('ALL')
 
   // Calculate metrics
@@ -246,16 +249,22 @@ export function SalesHistoryView({ initialSales }: SalesHistoryViewProps) {
             <option value="CREDITO">Crédito</option>
           </select>
 
-          {/* Store Filter */}
-          <select
-            value={filterStore}
-            onChange={(e) => setFilterStore(e.target.value as any)}
-            className="px-3 py-2 border rounded-lg text-sm"
-          >
-            <option value="ALL">Todas las tiendas</option>
-            <option value="Tienda Mujeres">Tienda Mujeres</option>
-            <option value="Tienda Hombres">Tienda Hombres</option>
-          </select>
+          {/* Store Filter — hidden when user is restricted to one store */}
+          {!lockedStore ? (
+            <select
+              value={filterStore}
+              onChange={(e) => setFilterStore(e.target.value as any)}
+              className="px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="ALL">Todas las tiendas</option>
+              <option value="Tienda Mujeres">Tienda Mujeres</option>
+              <option value="Tienda Hombres">Tienda Hombres</option>
+            </select>
+          ) : (
+            <span className="px-3 py-2 border rounded-lg text-sm bg-muted text-muted-foreground">
+              {lockedStore}
+            </span>
+          )}
         </div>
 
         <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
@@ -267,7 +276,7 @@ export function SalesHistoryView({ initialSales }: SalesHistoryViewProps) {
               onClick={() => {
                 setSearchTerm('')
                 setFilterType('ALL')
-                setFilterStore('ALL')
+                setFilterStore((lockedStore as any) || 'ALL')
                 setFilterPeriod('ALL')
               }}
             >

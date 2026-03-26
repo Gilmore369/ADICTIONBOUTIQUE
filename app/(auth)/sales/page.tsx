@@ -14,17 +14,39 @@ export const metadata = {
   description: 'Historial completo de ventas con indicadores y filtros'
 }
 
+const STORE_KEY_MAP: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
+
 export default async function SalesHistoryPage() {
   const supabase = await createServerClient()
-  
+
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     redirect('/login')
   }
 
-  // Fetch sales with related data
-  const { data: sales, error } = await supabase
+  // Get user profile to enforce store isolation
+  const { data: profile } = await supabase
+    .from('users')
+    .select('roles, stores')
+    .eq('id', user.id)
+    .single()
+
+  const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+  const isAdmin = userRoles.includes('admin')
+  const userStores: string[] = (profile as any)?.stores || []
+
+  // Resolve locked store for non-admin with a single store
+  let lockedStore: string | null = null
+  if (!isAdmin && userStores.length === 1) {
+    lockedStore = STORE_KEY_MAP[userStores[0]] ?? userStores[0]
+  }
+
+  // Build query — filter by store if restricted
+  let query = supabase
     .from('sales')
     .select(`
       id,
@@ -55,9 +77,15 @@ export default async function SalesHistoryPage() {
     .order('created_at', { ascending: false })
     .limit(200)
 
+  if (lockedStore) {
+    query = query.eq('store_id', lockedStore) as typeof query
+  }
+
+  const { data: sales, error } = await query
+
   if (error) {
     console.error('Error fetching sales:', error)
   }
 
-  return <SalesHistoryView initialSales={sales || []} />
+  return <SalesHistoryView initialSales={sales || []} lockedStore={lockedStore} />
 }
