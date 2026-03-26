@@ -1886,18 +1886,6 @@ export function VisualCatalog() {
                   <List className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Lista</span>
                 </button>
-                <button
-                  onClick={() => setViewMode('pos')}
-                  className={`h-7 px-2.5 rounded flex items-center gap-1.5 text-xs transition-colors ${
-                    viewMode === 'pos'
-                      ? 'bg-background shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  title="Vista POS"
-                >
-                  <Store className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">POS</span>
-                </button>
               </div>
 
               {/* Sort dropdown */}
