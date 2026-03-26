@@ -97,10 +97,10 @@ export function ProductFormMultiSize({ onSuccess, onCancel }: ProductFormMultiSi
         suppliersRes.json()
       ])
 
-      setLines(linesData.data || [])
-      setCategories(categoriesData.data || [])
-      setBrands(brandsData.data || [])
-      setSuppliers(suppliersData.data || [])
+      setLines(Array.isArray(linesData) ? linesData : (linesData.data || []))
+      setCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData.data || []))
+      setBrands(Array.isArray(brandsData) ? brandsData : (brandsData.data || []))
+      setSuppliers(Array.isArray(suppliersData) ? suppliersData : (suppliersData.data || []))
     } catch (error) {
       console.error('Error loading catalogs:', error)
       toast.error('Error al cargar catálogos')
