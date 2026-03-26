@@ -8,10 +8,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 
+const STORE_KEY_MAP: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
+
 export async function GET(req: NextRequest) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // ── Resolver filtro de tienda según perfil del usuario ──────────────────────
+  const { data: profile } = await supabase
+    .from('users')
+    .select('roles, stores')
+    .eq('id', user.id)
+    .single()
+
+  const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+  const isAdmin = userRoles.includes('admin')
+  const userStores: string[] = (profile as any)?.stores || []
+  let storeFilter: string | null = null
+  if (!isAdmin && userStores.length === 1) {
+    storeFilter = STORE_KEY_MAP[userStores[0]] ?? userStores[0]
+  }
+
+  // Pre-fetch plan IDs for the store (used to filter installments)
+  let planIds: string[] | null = null
+  if (storeFilter) {
+    const { data: plans } = await supabase
+      .from('credit_plans')
+      .select('id, sales!inner(store_id)')
+      .eq('sales.store_id', storeFilter as string)
+    planIds = (plans || []).map((p: any) => p.id)
+  }
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
@@ -75,7 +105,7 @@ export async function GET(req: NextRequest) {
 
   // ── 2. Installments due this month ──────────────────────────────────────────
   try {
-    const { data: installments } = await supabase
+    let instQuery = supabase
       .from('installments')
       .select(`
         id,
@@ -88,6 +118,16 @@ export async function GET(req: NextRequest) {
       .gte('due_date', startStr)
       .lte('due_date', endStr)
       .not('status', 'eq', 'PAID')
+
+    if (planIds !== null) {
+      if (planIds.length === 0) {
+        instQuery = instQuery.in('plan_id', ['00000000-0000-0000-0000-000000000000'])
+      } else {
+        instQuery = instQuery.in('plan_id', planIds)
+      }
+    }
+
+    const { data: installments } = await instQuery
 
     if (installments) {
       for (const inst of installments as any[]) {
@@ -120,9 +160,11 @@ export async function GET(req: NextRequest) {
     console.error('Error loading installments:', e)
   }
 
-  // ── 3. Overdue installments from previous months (show on day 1) ────────────
+  // ── 3. Overdue installments from previous months ────────────────────────────
+  //    Grouped by client, pinned to the same day-of-month as their latest due_date
+  //    (clamped to the last day of the current month)
   try {
-    const { data: overdue } = await supabase
+    let overdueQuery = supabase
       .from('installments')
       .select(`
         id,
@@ -135,26 +177,51 @@ export async function GET(req: NextRequest) {
       .lt('due_date', startStr)
       .not('status', 'eq', 'PAID')
 
+    if (planIds !== null) {
+      if (planIds.length === 0) {
+        overdueQuery = overdueQuery.in('plan_id', ['00000000-0000-0000-0000-000000000000'])
+      } else {
+        overdueQuery = overdueQuery.in('plan_id', planIds)
+      }
+    }
+
+    const { data: overdue } = await overdueQuery
+
     if (overdue) {
-      // Group by client to avoid flooding the calendar
-      const byClient: Record<string, { name: string; phone: string | null; count: number; total: number }> = {}
+      // Group by client — track count, total, and latest day-of-month
+      const byClient: Record<string, {
+        name: string; phone: string | null
+        count: number; total: number; latestDay: number
+      }> = {}
+
       for (const inst of overdue as any[]) {
         const plan   = inst.credit_plans
         const client = plan?.clients
         if (!client) continue
         const remaining = (inst.amount || 0) - (inst.paid_amount || 0)
+        // Extract day number from due_date (YYYY-MM-DD)
+        const dueDayStr = (inst.due_date as string).split('T')[0]
+        const dueDay = parseInt(dueDayStr.split('-')[2], 10)
+
         if (!byClient[client.id]) {
-          byClient[client.id] = { name: client.name, phone: client.phone, count: 0, total: 0 }
+          byClient[client.id] = { name: client.name, phone: client.phone, count: 0, total: 0, latestDay: dueDay }
         }
         byClient[client.id].count++
         byClient[client.id].total += remaining
+        // Keep the highest day number seen (most recent day-of-month pattern)
+        if (dueDay > byClient[client.id].latestDay) {
+          byClient[client.id].latestDay = dueDay
+        }
       }
-      // Pin these to day 1 of the viewed month
+
+      // Pin each group to the same day-of-month as their due date, within current month
       for (const [clientId, info] of Object.entries(byClient)) {
+        const pinnedDay = Math.min(info.latestDay, lastDay)
+        const dateStr = `${year}-${pad(month)}-${pad(pinnedDay)}`
         events.push({
           id: `overdue-prev-${clientId}`,
           type: 'installment_overdue',
-          date: startStr,
+          date: dateStr,
           title: info.name,
           subtitle: `🔴 ${info.count} cuota${info.count > 1 ? 's' : ''} atrasada${info.count > 1 ? 's' : ''}: S/ ${info.total.toFixed(2)}`,
           client_id: clientId,
