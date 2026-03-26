@@ -81,7 +81,8 @@ export function CreditPlansView() {
   const loadData = async () => {
     const supabase = createBrowserClient()
 
-    // Fetch all active plans with client + sale + installments
+    // Fetch all active/overdue plans with client + sale + installments
+    // Incluir ACTIVE y OVERDUE (planes con cuotas vencidas cambian su status a OVERDUE)
     let query = supabase
       .from('credit_plans')
       .select(`
@@ -95,7 +96,7 @@ export function CreditPlansView() {
         client:clients ( id, name, phone, dni, credit_limit, credit_used ),
         installments ( id, installment_number, amount, paid_amount, due_date, status )
       `)
-      .in('status', ['ACTIVE'])
+      .in('status', ['ACTIVE', 'OVERDUE'])
       .order('created_at', { ascending: false })
 
     const { data: plans } = await query
@@ -132,7 +133,16 @@ export function CreditPlansView() {
 
       const paidAmt = insts.reduce((s, i) => s + Number(i.paid_amount || 0), 0)
       const pendingAmt = Number(plan.total_amount) - paidAmt
-      const overdueInsts = insts.filter(i => i.status === 'OVERDUE')
+
+      // Vencidas: por fecha real (due_date < hoy) sin depender del campo status en BD
+      const todayDateStr = (() => {
+        const n = new Date()
+        return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
+      })()
+      const overdueInsts = insts.filter(i =>
+        i.status !== 'PAID' &&
+        (i.due_date as string).split('T')[0] < todayDateStr
+      )
       const overdueAmt = overdueInsts.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0)
       const sale = plan.sale as any
 
@@ -564,8 +574,10 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
               <tbody className="divide-y divide-gray-100">
                 {plan.installments.map(inst => {
                   const balance = Number(inst.amount) - Number(inst.paid_amount)
-                  const isOverdue = inst.status === 'OVERDUE'
-                  const isPaid = inst.status === 'PAID'
+                  const isPaid = inst.status === 'PAID' || balance <= 0
+                  // Vencida por fecha real (due_date < hoy) sin importar status en BD
+                  const todayStr2 = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })()
+                  const isOverdue = !isPaid && (inst.due_date as string).split('T')[0] < todayStr2
                   return (
                     <tr
                       key={inst.id}
