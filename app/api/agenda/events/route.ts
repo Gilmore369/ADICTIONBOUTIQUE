@@ -18,12 +18,13 @@ export async function GET(req: NextRequest) {
   const year  = parseInt(searchParams.get('year')  || String(now.getFullYear()))
   const month = parseInt(searchParams.get('month') || String(now.getMonth() + 1))
 
-  // Range for the month
-  const startDate = new Date(year, month - 1, 1)
-  const endDate   = new Date(year, month, 0) // last day of month
-  const startStr  = startDate.toISOString().split('T')[0]
-  const endStr    = endDate.toISOString().split('T')[0]
-  const todayStr  = now.toISOString().split('T')[0]
+  // ── Usar fecha LOCAL (no UTC) para evitar desfase de zona horaria (Perú UTC-5)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const lastDay = new Date(year, month, 0).getDate()
+  const startStr = `${year}-${pad(month)}-01`
+  const endStr   = `${year}-${pad(month)}-${pad(lastDay)}`
+  // Fecha de hoy en hora local del servidor (no UTC)
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 
   const events: {
     id: string
@@ -96,13 +97,15 @@ export async function GET(req: NextRequest) {
         if (!client) continue
 
         const remaining = (inst.amount || 0) - (inst.paid_amount || 0)
-        const isPast    = inst.due_date < todayStr
+        // Comparar strings YYYY-MM-DD directamente (sin new Date() para evitar desfase)
+        const dueDateStr = (inst.due_date as string).split('T')[0]
+        const isPast    = dueDateStr < todayStr
         const type = isPast ? 'installment_overdue' : 'installment_due'
 
         events.push({
           id: `installment-${inst.id}`,
           type,
-          date: inst.due_date,
+          date: dueDateStr,
           title: client.name,
           subtitle: isPast ? `⚠️ Vencida: S/ ${remaining.toFixed(2)}` : `💰 Cuota: S/ ${remaining.toFixed(2)}`,
           client_id: client.id,
