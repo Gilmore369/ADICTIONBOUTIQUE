@@ -105,38 +105,61 @@ export function AddToBlacklistDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Client Selection */}
+          {/* Client Selection — combobox con lista filtrada visible */}
           <div className="space-y-2">
-            <Label htmlFor="client-search">Buscar Cliente</Label>
-            <input
-              id="client-search"
-              type="text"
-              placeholder="Buscar por nombre o DNI..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="client">Cliente *</Label>
-            <select
-              id="client"
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-              required
-            >
-              <option value="">Seleccionar cliente...</option>
-              {filteredClients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name} {client.dni ? `- DNI: ${client.dni}` : ''} 
-                  {client.credit_used > 0 ? ` - Deuda: S/ ${client.credit_used.toFixed(2)}` : ''}
-                </option>
-              ))}
-            </select>
-            {filteredClients.length === 0 && searchTerm && (
-              <p className="text-xs text-gray-500">No se encontraron clientes</p>
+            <Label>Cliente *</Label>
+            {/* Si ya hay uno seleccionado, mostrarlo con opción de cambiar */}
+            {selectedClientId ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border border-primary rounded-lg bg-primary/5">
+                <span className="text-sm font-medium text-gray-800">
+                  ✓ {availableClients.find(c => c.id === selectedClientId)?.name || ''}
+                  {(() => {
+                    const c = availableClients.find(cl => cl.id === selectedClientId)
+                    return c?.dni ? ` — DNI: ${c.dni}` : ''
+                  })()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedClientId(''); setSearchTerm('') }}
+                  className="text-xs text-red-500 hover:text-red-700 underline flex-shrink-0"
+                >
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o DNI..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                {/* Lista de resultados visible */}
+                <div className="border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                  {filteredClients.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-gray-500 text-center">
+                      {searchTerm ? 'No se encontraron clientes' : 'Escribe para buscar...'}
+                    </p>
+                  ) : (
+                    filteredClients.slice(0, 30).map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        onClick={() => { setSelectedClientId(client.id); setSearchTerm('') }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0 flex items-center justify-between gap-2"
+                      >
+                        <span className="font-medium">{client.name}</span>
+                        <span className="text-gray-400 text-xs flex-shrink-0">
+                          {client.dni ? `DNI: ${client.dni}` : ''}
+                          {client.credit_used > 0 ? ` · S/ ${client.credit_used.toFixed(0)}` : ''}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
             )}
           </div>
 

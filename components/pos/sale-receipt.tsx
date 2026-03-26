@@ -66,11 +66,33 @@ export function SaleReceipt({
   onClose
 }: SaleReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null)
-  const [storeConfig] = useState(DEFAULT_STORE_CONFIG)
-  const [logoUrl] = useState<string | null>('/images/logo.png')
+  const [storeConfig, setStoreConfig] = useState(DEFAULT_STORE_CONFIG)
+  const [logoUrl, setLogoUrl] = useState<string | null>('/images/logo.png')
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [email, setEmail] = useState(clientEmail || '')
   const [sendingEmail, setSendingEmail] = useState(false)
+
+  // Cargar configuración real desde localStorage (guardada en /settings)
+  useEffect(() => {
+    try {
+      const savedConfig = localStorage.getItem('store_config')
+      if (savedConfig) {
+        const parsed = JSON.parse(savedConfig)
+        setStoreConfig(prev => ({
+          ...prev,
+          name:    parsed.name    || prev.name,
+          address: parsed.address || prev.address,
+          phone:   parsed.phone   || prev.phone,
+          ruc:     parsed.ruc     || prev.ruc,
+        }))
+      }
+      const savedLogo = localStorage.getItem('store_logo')
+      if (savedLogo) {
+        setLogoUrl(savedLogo)
+        setStoreConfig(prev => ({ ...prev, logo: savedLogo }))
+      }
+    } catch { /* ignorar errores de localStorage */ }
+  }, [])
 
   useEffect(() => {
     // Agregar estilos de impresión para formato compacto 80mm
