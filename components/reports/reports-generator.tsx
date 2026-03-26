@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useContext, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -36,13 +37,15 @@ import {
   CheckCircle,
   Info,
   XCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Store
 } from 'lucide-react'
 import { ReportCharts } from './report-charts'
 import {
   generateReport,
   generateDatabaseBackup
 } from '@/actions/reports'
+import { StoreContext } from '@/contexts/store-context'
 
 // ─── Captura SVG de recharts como imagen PNG ──────────────────────────────────
 async function captureChartsAsPng(
@@ -153,6 +156,23 @@ export function ReportsGenerator() {
 
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const currentReport = Object.values(REPORT_TYPES).find(r => r.id === selectedReport)
+
+  // Obtener contexto de tienda — si el usuario está bloqueado a 1 tienda
+  const storeCtx = useContext(StoreContext)
+  const isLocked = storeCtx?.isStoreLocked ?? false
+  const lockedStoreName = isLocked ? storeCtx?.selectedStore : null
+
+  // Pre-setear el warehouse filter cuando el usuario está bloqueado a 1 tienda
+  useEffect(() => {
+    if (isLocked && lockedStoreName && lockedStoreName !== 'ALL') {
+      const storeMap: Record<string, string> = {
+        'MUJERES': 'Tienda Mujeres',
+        'HOMBRES': 'Tienda Hombres',
+      }
+      const storeName = storeMap[lockedStoreName] || lockedStoreName
+      setFilters(f => ({ ...f, warehouse: storeName }))
+    }
+  }, [isLocked, lockedStoreName])
 
   // Cambio de reporte con fechas inteligentes
   const handleReportChange = (value: string) => {
@@ -571,18 +591,26 @@ export function ReportsGenerator() {
           </div>
 
           {selectedReport && (
-            <div className="flex items-end gap-2">
-              <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="flex-1" size="sm">
-                <Filter className="h-4 w-4 mr-2" />
-                {showFilters ? 'Ocultar' : 'Filtros'}
-              </Button>
-              <Button onClick={handleGenerateReport} disabled={loading} className="flex-1" size="sm">
-                {loading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generando...</>
-                ) : (
-                  <><FileText className="h-4 w-4 mr-2" />Generar</>
-                )}
-              </Button>
+            <div className="flex flex-col gap-2">
+              {isLocked && lockedStoreName && lockedStoreName !== 'ALL' && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-700">
+                  <Store className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>Mostrando datos de: <strong>{filters.warehouse || lockedStoreName}</strong></span>
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="flex-1" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  {showFilters ? 'Ocultar' : 'Filtros'}
+                </Button>
+                <Button onClick={handleGenerateReport} disabled={loading} className="flex-1" size="sm">
+                  {loading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generando...</>
+                  ) : (
+                    <><FileText className="h-4 w-4 mr-2" />Generar</>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -609,18 +637,32 @@ export function ReportsGenerator() {
               />
             </div>
             <div>
-              <Label className="text-xs">Tienda</Label>
-              <Select
-                value={filters.warehouse || 'all'}
-                onValueChange={(v) => setFilters({ ...filters, warehouse: v === 'all' ? undefined : v })}
-              >
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="Tienda Hombres">Tienda Hombres</SelectItem>
-                  <SelectItem value="Tienda Mujeres">Tienda Mujeres</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs flex items-center gap-1.5">
+                Tienda
+                {isLocked && (
+                  <Badge variant="outline" className="text-[9px] py-0 h-4 bg-blue-50 text-blue-700 border-blue-200 gap-1">
+                    <Store className="h-2.5 w-2.5" />
+                    Restringida
+                  </Badge>
+                )}
+              </Label>
+              {isLocked ? (
+                <div className="h-9 px-3 flex items-center border rounded-md bg-gray-50 text-sm text-gray-700">
+                  {filters.warehouse || 'Tu tienda'}
+                </div>
+              ) : (
+                <Select
+                  value={filters.warehouse || 'all'}
+                  onValueChange={(v) => setFilters({ ...filters, warehouse: v === 'all' ? undefined : v })}
+                >
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las tiendas</SelectItem>
+                    <SelectItem value="Tienda Hombres">Tienda Hombres</SelectItem>
+                    <SelectItem value="Tienda Mujeres">Tienda Mujeres</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             {selectedReport === 'low-stock' && (
               <div>

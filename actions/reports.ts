@@ -3,9 +3,60 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { ReportFilters, ReportTypeId } from '@/lib/reports/report-types'
 
+// Mapa de clave de tienda del usuario → nombre en BD
+const STORE_KEY_MAP: Record<string, string> = {
+  'MUJERES':        'Tienda Mujeres',
+  'HOMBRES':        'Tienda Hombres',
+  'Tienda Mujeres': 'Tienda Mujeres',
+  'Tienda Hombres': 'Tienda Hombres',
+  'mujeres':        'Tienda Mujeres',
+  'hombres':        'Tienda Hombres',
+}
+
+/**
+ * Resuelve el filtro de tienda efectivo:
+ * - Si el usuario no es admin y tiene solo 1 tienda asignada → fuerza ese filtro
+ * - Si el usuario seleccionó un filtro manual → usa ese
+ * - Si el usuario es admin y no seleccionó → sin filtro (ve todo)
+ */
+async function resolveStoreFilter(filters: ReportFilters): Promise<string | undefined> {
+  // Si hay un filtro manual de warehouse, úsalo siempre
+  if (filters.warehouse) return filters.warehouse
+
+  // Leer perfil del usuario actual
+  try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return undefined
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('roles, stores')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) return undefined
+
+    const roles: string[] = ((profile as any).roles || []).map((r: string) => r.toLowerCase())
+    const userStores: string[] = (profile as any).stores || []
+
+    // Admin ve todo sin restricción
+    if (roles.includes('admin')) return undefined
+
+    // Si el usuario tiene exactamente 1 tienda asignada, aplicar automáticamente
+    if (userStores.length === 1) {
+      const mapped = STORE_KEY_MAP[userStores[0]]
+      if (mapped) return mapped
+    }
+  } catch { /* silenciar errores */ }
+
+  return undefined
+}
+
 /**
  * Funcion unificada para generar reportes.
  * Enruta cada reportId a su funcion de consulta directa correspondiente.
+ * Aplica automáticamente el filtro de tienda según el rol del usuario.
  */
 export async function generateReport(reportId: ReportTypeId, filters: ReportFilters) {
   try {
@@ -15,58 +66,62 @@ export async function generateReport(reportId: ReportTypeId, filters: ReportFilt
       }
     }
 
+    // Resolver filtro de tienda con aislamiento de usuario
+    const effectiveWarehouse = await resolveStoreFilter(filters)
+    const effectiveFilters: ReportFilters = { ...filters, warehouse: effectiveWarehouse }
+
     let data: any[] = []
 
     switch (reportId) {
       // Inventario
       case 'inventory-rotation':
-      case 'stock-rotation':            // legacy alias
-        data = await generateStockRotationReport(filters); break
+      case 'stock-rotation':
+        data = await generateStockRotationReport(effectiveFilters); break
       case 'inventory-valuation':
-      case 'stock-valuation':           // legacy alias
-        data = await generateStockValuationReport(filters); break
+      case 'stock-valuation':
+        data = await generateStockValuationReport(effectiveFilters); break
       case 'low-stock':
-        data = await generateLowStockReport(filters); break
+        data = await generateLowStockReport(effectiveFilters); break
       case 'kardex':
-        data = await generateKardexReport(filters); break
+        data = await generateKardexReport(effectiveFilters); break
 
       // Ventas
       case 'sales-timeline':
-      case 'sales-by-period':           // legacy alias
-        data = await generateSalesByPeriodReport(filters); break
+      case 'sales-by-period':
+        data = await generateSalesByPeriodReport(effectiveFilters); break
       case 'sales-by-month':
-        data = await generateSalesByMonthReport(filters); break
+        data = await generateSalesByMonthReport(effectiveFilters); break
       case 'sales-summary':
-        data = await generateSalesSummaryReport(filters); break
+        data = await generateSalesSummaryReport(effectiveFilters); break
       case 'sales-by-product':
-        data = await generateSalesByProductReport(filters); break
+        data = await generateSalesByProductReport(effectiveFilters); break
       case 'sales-by-category':
-        data = await generateSalesByCategoryReport(filters); break
+        data = await generateSalesByCategoryReport(effectiveFilters); break
       case 'credit-vs-cash':
-        data = await generateCreditVsCashReport(filters); break
+        data = await generateCreditVsCashReport(effectiveFilters); break
       case 'sales-by-store':
-        data = await generateSalesByStoreReport(filters); break
+        data = await generateSalesByStoreReport(effectiveFilters); break
 
       // Compras
       case 'purchases-by-supplier':
-        data = await generatePurchasesBySupplierReport(filters); break
+        data = await generatePurchasesBySupplierReport(effectiveFilters); break
       case 'purchases-by-period':
-        data = await generatePurchasesByPeriodReport(filters); break
+        data = await generatePurchasesByPeriodReport(effectiveFilters); break
 
       // Clientes
       case 'clients-debt':
-      case 'clients-with-debt':         // legacy alias
-        data = await generateClientsWithDebtReport(filters); break
+      case 'clients-with-debt':
+        data = await generateClientsWithDebtReport(effectiveFilters); break
       case 'overdue-installments':
-        data = await generateOverdueInstallmentsReport(filters); break
+        data = await generateOverdueInstallmentsReport(effectiveFilters); break
       case 'collection-effectiveness':
-        data = await generateCollectionEffectivenessReport(filters); break
+        data = await generateCollectionEffectivenessReport(effectiveFilters); break
 
       // Financiero
       case 'profit-margin':
-        data = await generateProfitMarginReport(filters); break
+        data = await generateProfitMarginReport(effectiveFilters); break
       case 'cash-flow':
-        data = await generateCashFlowReport(filters); break
+        data = await generateCashFlowReport(effectiveFilters); break
 
       default:
         return { success: false, error: `Reporte '${reportId}' no reconocido`, data: null }
@@ -264,6 +319,7 @@ export async function generateSalesByMonthReport(filters: ReportFilters) {
 
   query = query.gte('created_at', filters.startDate || defaultStart.toISOString())
   query = query.lte('created_at', filters.endDate || now.toISOString())
+  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
 
@@ -308,6 +364,7 @@ export async function generateSalesSummaryReport(filters: ReportFilters) {
   let query = supabase.from('sales').select('*').eq('voided', false)
   query = query.gte('created_at', filters.startDate || firstDay.toISOString())
   query = query.lte('created_at', filters.endDate || lastDay.toISOString())
+  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
 
@@ -422,6 +479,7 @@ export async function generateCreditVsCashReport(filters: ReportFilters) {
   let query = supabase.from('sales').select('*').eq('voided', false)
   query = query.gte('created_at', filters.startDate || firstDay.toISOString())
   query = query.lte('created_at', filters.endDate || lastDay.toISOString())
+  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
   const cashSales = (sales || []).filter((s: any) => s.sale_type === 'CONTADO')
@@ -453,6 +511,7 @@ export async function generateSalesByStoreReport(filters: ReportFilters) {
   let query = supabase.from('sales').select('*').eq('voided', false)
   query = query.gte('created_at', filters.startDate || firstDay.toISOString())
   query = query.lte('created_at', filters.endDate || lastDay.toISOString())
+  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
 
@@ -686,12 +745,14 @@ export async function generateProfitMarginReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  const { data: items } = await supabase
+  let profitQuery = supabase
     .from('sale_items')
-    .select('quantity, unit_price, subtotal, sales!inner(created_at, voided), products(name, barcode, purchase_price)')
+    .select('quantity, unit_price, subtotal, sales!inner(created_at, voided, store_id), products(name, barcode, purchase_price)')
     .eq('sales.voided', false)
     .gte('sales.created_at', filters.startDate || firstDay.toISOString())
     .lte('sales.created_at', filters.endDate || lastDay.toISOString())
+  if (filters.warehouse) profitQuery = profitQuery.eq('sales.store_id', filters.warehouse)
+  const { data: items } = await profitQuery
 
   const byProduct = (items || []).reduce((acc: any, item: any) => {
     const key = item.products?.barcode || 'unknown'
@@ -733,23 +794,28 @@ export async function generateCashFlowReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
+  let salesQ = supabase
+    .from('sales')
+    .select('total, created_at, sale_type, store_id')
+    .eq('voided', false)
+    .gte('created_at', filters.startDate || firstDay.toISOString())
+    .lte('created_at', filters.endDate || lastDay.toISOString())
+  if (filters.warehouse) salesQ = salesQ.eq('store_id', filters.warehouse)
+
+  let cashExpQ = supabase
+    .from('cash_expenses')
+    .select('amount, description, created_at')
+    .gte('created_at', filters.startDate || firstDay.toISOString())
+    .lte('created_at', filters.endDate || lastDay.toISOString())
+
   const [{ data: sales }, { data: payments }, { data: expenses }] = await Promise.all([
-    supabase
-      .from('sales')
-      .select('total, created_at, sale_type')
-      .eq('voided', false)
-      .gte('created_at', filters.startDate || firstDay.toISOString())
-      .lte('created_at', filters.endDate || lastDay.toISOString()),
+    salesQ,
     supabase
       .from('payments')
       .select('amount, payment_date')
       .gte('payment_date', filters.startDate || firstDay.toISOString().split('T')[0])
       .lte('payment_date', filters.endDate || lastDay.toISOString().split('T')[0]),
-    supabase
-      .from('cash_expenses')
-      .select('amount, description, created_at')
-      .gte('created_at', filters.startDate || firstDay.toISOString())
-      .lte('created_at', filters.endDate || lastDay.toISOString())
+    cashExpQ
   ])
 
   const cashSales = (sales || []).filter((s: any) => s.sale_type === 'CONTADO').reduce((a: number, s: any) => a + Number(s.total), 0)
