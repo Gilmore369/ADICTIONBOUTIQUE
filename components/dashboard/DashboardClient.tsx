@@ -69,6 +69,9 @@ export interface DashboardClientProps {
   actCount: number
   recentSales: RecentSale[]
   locationData: LocationPoint[]
+  storeFilter?: string | null
+  isAdmin?: boolean
+  activeStoreParam?: string | null
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -280,6 +283,9 @@ export default function DashboardClient({
   actCount,
   recentSales,
   locationData,
+  storeFilter,
+  isAdmin,
+  activeStoreParam,
 }: DashboardClientProps) {
   const [chartRange, setChartRange] = useState<'7D' | '30D'>('30D')
 
@@ -342,10 +348,43 @@ export default function DashboardClient({
             })}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full text-[11px] font-semibold text-emerald-700 flex-shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          En vivo
-        </span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Admin: store filter links */}
+          {isAdmin && (
+            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+              {[
+                { label: 'Todas', value: 'ALL' },
+                { label: 'Mujeres', value: 'MUJERES' },
+                { label: 'Hombres', value: 'HOMBRES' },
+              ].map(opt => {
+                const isActive = (activeStoreParam ?? 'ALL') === opt.value
+                return (
+                  <Link
+                    key={opt.value}
+                    href={opt.value === 'ALL' ? '/dashboard' : `/dashboard?store=${opt.value}`}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                      isActive
+                        ? 'bg-white text-emerald-700 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {opt.label}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+          {/* Restricted user: store badge */}
+          {!isAdmin && storeFilter && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 border border-sky-100 rounded-full text-[11px] font-semibold text-sky-700">
+              {storeFilter}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full text-[11px] font-semibold text-emerald-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            En vivo
+          </span>
+        </div>
       </div>
 
       {/* ── Alert pills ─────────────────────────────────────────────────── */}

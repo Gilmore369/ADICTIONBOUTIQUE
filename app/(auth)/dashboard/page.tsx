@@ -17,7 +17,16 @@ interface TrendPoint {
   credito: number
 }
 
-export default async function DashboardPage() {
+const STORE_KEY_MAP: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ store?: string }>
+}) {
   const supabase  = await createServerClient()
   const today     = new Date().toISOString().split('T')[0]
   const yesterday = new Date()
@@ -26,44 +35,70 @@ export default async function DashboardPage() {
   const thirtyAgo = new Date()
   thirtyAgo.setDate(thirtyAgo.getDate() - 30)
 
+  // ── Resolver tienda según perfil del usuario ────────────────────────────
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = user ? await supabase
+    .from('users').select('roles,stores').eq('id', user.id).single() : { data: null }
+
+  const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
+  const isAdmin = userRoles.includes('admin')
+  const userStores: string[] = (profile as any)?.stores || []
+
+  // Admin puede filtrar via URL param; no-admin con 1 tienda queda bloqueado
+  const params = await (searchParams ?? Promise.resolve({}))
+  let storeFilter: string | null = null
+  if (!isAdmin && userStores.length === 1) {
+    storeFilter = STORE_KEY_MAP[userStores[0]] ?? userStores[0]
+  } else if (isAdmin && params.store && params.store !== 'ALL') {
+    storeFilter = STORE_KEY_MAP[params.store] ?? params.store
+  }
+
   // ── All queries in parallel ─────────────────────────────────────────────
-  const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes] =
+  // Helper para agregar filtro de tienda a queries de sales
+  const buildSalesQuery = (q: any) => storeFilter ? q.eq('store_id', storeFilter) : q
+
+  const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
+         salesTodayRes, salesMonthRes] =
     await Promise.all([
       supabase.rpc('get_dashboard_metrics', { p_inactivity_days: 90 }),
-      // 30 days for richer charts (was 7)
-      supabase.rpc('get_sales_by_period', { p_period: 'day', p_limit: 30 }),
-      supabase
-        .from('sales')
-        .select('total')
-        .gte('created_at', yStr)
-        .lt('created_at', today)
-        .eq('voided', false),
-      supabase
-        .from('sales')
+      supabase.rpc('get_sales_by_period', {
+        p_period: 'day',
+        p_limit: 30,
+        ...(storeFilter ? { p_store_id: storeFilter } : {})
+      }),
+      buildSalesQuery(supabase.from('sales').select('total')
+        .gte('created_at', yStr).lt('created_at', today).eq('voided', false)),
+      buildSalesQuery(supabase.from('sales')
         .select('id,sale_number,total,sale_type,created_at,clients(name)')
-        .order('created_at', { ascending: false })
-        .limit(6),
-      supabase
-        .from('collection_actions')
-        .select('result')
-        .gte('created_at', today),
-      supabase
-        .from('sales')
-        .select('total,sale_type')
-        .gte('created_at', thirtyAgo.toISOString())
-        .eq('voided', false),
-      // Real district data — extract from client addresses
-      supabase
-        .from('clients')
-        .select('address')
-        .eq('active', true)
-        .not('address', 'is', null),
+        .order('created_at', { ascending: false }).limit(6)),
+      supabase.from('collection_actions').select('result').gte('created_at', today),
+      buildSalesQuery(supabase.from('sales').select('total,sale_type')
+        .gte('created_at', thirtyAgo.toISOString()).eq('voided', false)),
+      supabase.from('clients').select('address').eq('active', true).not('address', 'is', null),
+      // Ventas hoy filtradas por tienda (override RPC)
+      buildSalesQuery(supabase.from('sales').select('total')
+        .gte('created_at', today).eq('voided', false)),
+      // Ventas este mes filtradas por tienda (override RPC)
+      buildSalesQuery(supabase.from('sales').select('total')
+        .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+        .eq('voided', false)),
     ])
 
   // ── Compute derived values ──────────────────────────────────────────────
   const raw       = (metricsRes.data ?? {}) as Record<string, number>
   const trend     = ((trendRes.data ?? []) as TrendPoint[]).reverse()
   const yTotal    = (yRes.data ?? []).reduce((s: number, r: any) => s + Number(r.total), 0)
+
+  // When a store filter is active, override sales figures with filtered queries
+  const filteredSalesToday   = storeFilter
+    ? (salesTodayRes.data ?? []).reduce((s: number, r: any) => s + Number(r.total), 0)
+    : (raw.salesToday ?? 0)
+  const filteredSalesMonth   = storeFilter
+    ? (salesMonthRes.data ?? []).reduce((s: number, r: any) => s + Number(r.total), 0)
+    : (raw.salesThisMonth ?? 0)
+  const filteredCountToday   = storeFilter
+    ? (salesTodayRes.data ?? []).length
+    : (raw.salesCountToday ?? 0)
 
   const metrics: DashboardMetrics = {
     totalActiveClients:       raw.totalActiveClients       ?? 0,
@@ -75,9 +110,9 @@ export default async function DashboardPage() {
     pendingCollectionActions: raw.pendingCollectionActions ?? 0,
     totalOutstandingDebt:     raw.totalOutstandingDebt     ?? 0,
     totalOverdueDebt:         raw.totalOverdueDebt         ?? 0,
-    salesToday:               raw.salesToday               ?? 0,
-    salesCountToday:          raw.salesCountToday          ?? 0,
-    salesThisMonth:           raw.salesThisMonth           ?? 0,
+    salesToday:               filteredSalesToday,
+    salesCountToday:          filteredCountToday,
+    salesThisMonth:           filteredSalesMonth,
     lowStockProducts:         raw.lowStockProducts         ?? 0,
     paymentsThisMonth:        raw.paymentsThisMonth        ?? 0,
   }
@@ -131,6 +166,9 @@ export default async function DashboardPage() {
       actCount={actCount}
       recentSales={recentSales}
       locationData={locationData}
+      storeFilter={storeFilter}
+      isAdmin={isAdmin}
+      activeStoreParam={params.store ?? null}
     />
   )
 }
