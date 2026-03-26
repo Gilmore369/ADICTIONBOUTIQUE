@@ -46,17 +46,23 @@ export async function GET(request: NextRequest) {
   ])
 
   const today = new Date()
+  today.setHours(0, 0, 0, 0) // comparar solo fecha, sin hora
+
   const installments = (installmentsRes.data || []).map((inst: any) => {
     const due = new Date(inst.due_date)
-    const daysOverdue = inst.status === 'OVERDUE'
+    due.setHours(0, 0, 0, 0)
+    // Vencida si la fecha ya pasó, sin importar el status en BD
+    const isOverdue = due < today
+    const daysOverdue = isOverdue
       ? Math.floor((today.getTime() - due.getTime()) / 86400000)
       : 0
-    return { ...inst, days_overdue: daysOverdue }
+    return { ...inst, days_overdue: daysOverdue, is_overdue: isOverdue }
   })
 
   const totalDebt = installments.reduce((s: number, i: any) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0)
+  // "Vencida" = cuotas cuya fecha de vencimiento ya pasó (criterio por fecha, no por campo status)
   const overdueDebt = installments
-    .filter((i: any) => i.status === 'OVERDUE')
+    .filter((i: any) => i.is_overdue)
     .reduce((s: number, i: any) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0)
 
   return NextResponse.json({

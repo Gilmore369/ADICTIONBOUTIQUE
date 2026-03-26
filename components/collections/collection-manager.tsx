@@ -34,7 +34,7 @@ interface DebtorRow {
 
 interface ClientInstallment {
   id: string; installment_number: number; amount: number; due_date: string
-  paid_amount: number; status: string; days_overdue: number
+  paid_amount: number; status: string; days_overdue: number; is_overdue: boolean
 }
 
 interface ActionRecord {
@@ -368,11 +368,11 @@ export function CollectionManager() {
                     <div key={inst.id} className="flex items-center justify-between text-xs gap-2 py-1">
                       <span className="text-gray-500">#{inst.installment_number} · {formatSafeDate(inst.due_date, 'dd/MM/yy')}</span>
                       <span className={cn('font-medium',
-                        inst.status === 'OVERDUE' ? 'text-red-600' :
+                        inst.is_overdue ? 'text-red-600' :
                         inst.status === 'PARTIAL' ? 'text-yellow-600' : 'text-gray-600'
                       )}>
                         {formatCurrency(Number(inst.amount) - Number(inst.paid_amount || 0))}
-                        {inst.status === 'OVERDUE' && inst.days_overdue > 0 && <span className="text-red-400 ml-1">({inst.days_overdue}d)</span>}
+                        {inst.is_overdue && inst.days_overdue > 0 && <span className="text-red-400 ml-1">({inst.days_overdue}d)</span>}
                       </span>
                     </div>
                   ))}

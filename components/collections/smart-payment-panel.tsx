@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface ClientOption { id: string; name: string; dni?: string; phone?: string; credit_used: number; credit_limit: number }
-interface Installment { id: string; installment_number: number; amount: number; due_date: string; paid_amount: number; status: string; days_overdue?: number; amount_to_apply?: number }
+interface Installment { id: string; installment_number: number; amount: number; due_date: string; paid_amount: number; status: string; days_overdue?: number; is_overdue?: boolean; amount_to_apply?: number }
 interface ClientDetail { id: string; name: string; dni: string; phone: string; rating: string; totalDebt: number; overdueDebt: number; pendingCount: number }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -40,8 +40,9 @@ const RATING_COLORS: Record<string, string> = {
   E: 'bg-red-100 text-red-700',
 }
 
-function StatusBadge({ status, days }: { status: string; days?: number }) {
-  if (status === 'OVERDUE') return (
+function StatusBadge({ status, days, isOverdue }: { status: string; days?: number; isOverdue?: boolean }) {
+  // Vencida: por fecha real (is_overdue) O por status en BD
+  if (isOverdue || status === 'OVERDUE') return (
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
       <AlertTriangle className="h-3 w-3" />
       Vencida {days ? `${days}d` : ''}
@@ -340,7 +341,7 @@ export function SmartPaymentPanel() {
                         <span className="text-gray-600 text-xs truncate">
                           {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}
                         </span>
-                        <StatusBadge status={inst.status} days={inst.days_overdue} />
+                        <StatusBadge status={inst.status} days={inst.days_overdue} isOverdue={inst.is_overdue} />
                       </div>
                       <span className="font-semibold text-gray-900 flex-shrink-0">{formatCurrency(pending)}</span>
                     </div>
