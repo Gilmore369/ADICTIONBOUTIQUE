@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useContext, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -45,7 +45,7 @@ import {
   generateReport,
   generateDatabaseBackup
 } from '@/actions/reports'
-import { StoreContext } from '@/contexts/store-context'
+import { useStore } from '@/contexts/store-context'
 
 // ─── Captura SVG de recharts como imagen PNG ──────────────────────────────────
 async function captureChartsAsPng(
@@ -158,7 +158,7 @@ export function ReportsGenerator() {
   const currentReport = Object.values(REPORT_TYPES).find(r => r.id === selectedReport)
 
   // Obtener contexto de tienda — si el usuario está bloqueado a 1 tienda
-  const storeCtx = useContext(StoreContext)
+  const storeCtx = useStore()
   const isLocked = storeCtx?.isStoreLocked ?? false
   const lockedStoreName = isLocked ? storeCtx?.selectedStore : null
 
