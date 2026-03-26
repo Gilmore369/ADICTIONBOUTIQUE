@@ -131,7 +131,7 @@ export function CrmDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const params = storeId && selectedStore !== 'ALL' ? `?store_id=${storeId}` : ''
+      const params = selectedStore !== 'ALL' ? `?store_code=${selectedStore}` : ''
       const res = await fetch(`/api/crm/dashboard${params}`, { cache: 'no-store' })
       if (!res.ok) throw new Error('Error al cargar dashboard')
       const json = await res.json()

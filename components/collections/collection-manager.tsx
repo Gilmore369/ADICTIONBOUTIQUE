@@ -146,7 +146,7 @@ export function CollectionManager() {
   const loadDebtors = useCallback(async () => {
     setLoadingDebtors(true)
     try {
-      const params = storeId && selectedStore !== 'ALL' ? `?store_id=${storeId}` : ''
+      const params = selectedStore !== 'ALL' ? `?store_code=${selectedStore}` : ''
       const res = await fetch(`/api/collections/priority${params}`)
       const data = await res.json()
       setDebtors(data.data || [])

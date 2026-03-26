@@ -19,18 +19,27 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const storeId = searchParams.get('store_id')
+  // Acepta store_code (MUJERES|HOMBRES) — las ventas guardan texto, no UUID
+  const storeCode = (searchParams.get('store_code') || '').toUpperCase()
   const limit = Math.min(parseInt(searchParams.get('limit') || '25'), 50)
+
+  // Mapeo código → texto tal como está guardado en sales.store_id
+  const STORE_TEXT: Record<string, string> = {
+    MUJERES: 'Tienda Mujeres',
+    HOMBRES: 'Tienda Hombres',
+  }
 
   // ── Step 1: si hay filtro de tienda, obtener plan_ids de esa tienda ──────────
   let allowedPlanIds: string[] | null = null   // null = sin restricción
 
-  if (storeId) {
-    // Ventas de esa tienda
+  if (storeCode && STORE_TEXT[storeCode]) {
+    const storeText = STORE_TEXT[storeCode]
+
+    // Ventas de esa tienda (por texto)
     const { data: salesData } = await supabase
       .from('sales')
       .select('id')
-      .eq('store_id', storeId)
+      .eq('store_id', storeText)
 
     const saleIds = (salesData || []).map((s: any) => s.id)
 

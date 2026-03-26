@@ -116,9 +116,15 @@ export function CreditPlansView() {
       if (!c) continue
 
       // Filter by store: skip plans from other stores
-      if (selectedStore !== 'ALL' && storeId) {
+      // sales.store_id guarda texto ("Tienda Mujeres"), no UUID
+      if (selectedStore !== 'ALL') {
+        const STORE_TEXT: Record<string, string> = {
+          MUJERES: 'Tienda Mujeres',
+          HOMBRES: 'Tienda Hombres',
+        }
+        const expectedText = STORE_TEXT[selectedStore]
         const saleStoreId = (plan.sale as any)?.store_id
-        if (saleStoreId && saleStoreId !== storeId) continue
+        if (expectedText && saleStoreId && saleStoreId !== expectedText) continue
       }
 
       if (!byClient[c.id]) {

@@ -8,7 +8,13 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const storeId = searchParams.get('store_id') || null
+  // sales.store_id guarda texto ("Tienda Mujeres"), no UUID
+  const storeCode = (searchParams.get('store_code') || '').toUpperCase() || null
+  const STORE_TEXT: Record<string, string> = {
+    MUJERES: 'Tienda Mujeres',
+    HOMBRES: 'Tienda Hombres',
+  }
+  const storeId = storeCode && STORE_TEXT[storeCode] ? STORE_TEXT[storeCode] : null
 
   try {
     // 1. Base metrics via RPC
