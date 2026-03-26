@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Download, Search, Calendar, DollarSign, ShoppingCart, TrendingUp } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
+import { useStore } from '@/contexts/store-context'
 import { formatSafeDate } from '@/lib/utils/date'
 import { toast } from 'sonner'
 
@@ -42,6 +43,12 @@ interface SalesHistoryViewProps {
   lockedStore?: string | null
 }
 
+const STORE_CTX_MAP: Record<string, 'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+  ALL: 'ALL',
+}
+
 export function SalesHistoryView({ initialSales, lockedStore }: SalesHistoryViewProps) {
   const [sales] = useState<Sale[]>(initialSales)
   const [searchTerm, setSearchTerm] = useState('')
@@ -50,6 +57,14 @@ export function SalesHistoryView({ initialSales, lockedStore }: SalesHistoryView
     (lockedStore as any) || 'ALL'
   )
   const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'ALL'>('ALL')
+
+  // Sincronizar con el selector global de tienda del header
+  const { selectedStore } = useStore()
+  useEffect(() => {
+    if (!lockedStore) {
+      setFilterStore(STORE_CTX_MAP[selectedStore] ?? 'ALL')
+    }
+  }, [selectedStore, lockedStore])
 
   // Calculate metrics
   const metrics = useMemo(() => {

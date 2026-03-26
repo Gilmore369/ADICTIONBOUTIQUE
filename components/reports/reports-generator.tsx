@@ -162,17 +162,21 @@ export function ReportsGenerator() {
   const isLocked = storeCtx?.isStoreLocked ?? false
   const lockedStoreName = isLocked ? storeCtx?.selectedStore : null
 
-  // Pre-setear el warehouse filter cuando el usuario está bloqueado a 1 tienda
+  const STORE_NAME_MAP: Record<string, string> = {
+    'MUJERES': 'Tienda Mujeres',
+    'HOMBRES': 'Tienda Hombres',
+  }
+
+  // Sincronizar warehouse filter con el selector global de tienda del header
   useEffect(() => {
-    if (isLocked && lockedStoreName && lockedStoreName !== 'ALL') {
-      const storeMap: Record<string, string> = {
-        'MUJERES': 'Tienda Mujeres',
-        'HOMBRES': 'Tienda Hombres',
-      }
-      const storeName = storeMap[lockedStoreName] || lockedStoreName
+    const ctx = storeCtx?.selectedStore
+    if (!ctx || ctx === 'ALL') {
+      if (!isLocked) setFilters(f => ({ ...f, warehouse: undefined }))
+    } else {
+      const storeName = STORE_NAME_MAP[ctx] || ctx
       setFilters(f => ({ ...f, warehouse: storeName }))
     }
-  }, [isLocked, lockedStoreName])
+  }, [storeCtx?.selectedStore, isLocked])
 
   // Cambio de reporte con fechas inteligentes
   const handleReportChange = (value: string) => {
@@ -305,23 +309,26 @@ export function ReportsGenerator() {
       const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
 
       // ── Encabezado con banda de color ──────────────────────────────────────
-      doc.setFillColor(17, 24, 39)        // gray-900
-      doc.rect(0, 0, pageW, 28, 'F')
+      doc.setFillColor(16, 185, 129)      // emerald-500
+      doc.rect(0, 0, pageW, 26, 'F')
+      // Línea inferior del header
+      doc.setFillColor(5, 150, 105)       // emerald-600
+      doc.rect(0, 24, pageW, 2, 'F')
 
       doc.setFontSize(14)
-      doc.setTextColor(16, 185, 129)      // emerald
+      doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
       doc.text('ADICTION BOUTIQUE', 14, 11)
 
       doc.setFontSize(9)
-      doc.setTextColor(200, 200, 200)
+      doc.setTextColor(236, 253, 245)     // emerald-50
       doc.setFont('helvetica', 'normal')
       doc.text('Sistema de Gestión · Reporte', 14, 17)
 
       doc.setFontSize(11)
       doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
-      doc.text(currentReport.name, 14, 24)
+      doc.text(currentReport.name, 14, 22)
 
       // Fecha y periodo (derecha)
       doc.setFontSize(7)
@@ -417,29 +424,30 @@ export function ReportsGenerator() {
           textColor: [55, 65, 81]
         },
         headStyles: {
-          fillColor: [17, 24, 39],
-          textColor: [16, 185, 129],
+          fillColor: [16, 185, 129],     // emerald-500
+          textColor: [255, 255, 255],
           fontStyle: 'bold',
           fontSize: 7.5,
           cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }
         },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
+        alternateRowStyles: { fillColor: [240, 253, 244] },  // green-50
         tableLineColor: [229, 231, 235],
         tableLineWidth: 0.1,
         margin: { right: 14, left: 14 },
         didDrawPage: (hookData: any) => {
           const totalPages = (doc as any).internal.getNumberOfPages()
           const curPage = hookData.pageNumber
-          // Footer en cada página
-          doc.setFillColor(17, 24, 39)
-          doc.rect(0, pageH - 10, pageW, 10, 'F')
+          // Footer en cada página — línea gris clara
+          doc.setDrawColor(209, 213, 219)  // gray-300
+          doc.setLineWidth(0.3)
+          doc.line(14, pageH - 10, pageW - 14, pageH - 10)
           doc.setFontSize(6.5)
-          doc.setTextColor(150, 150, 150)
+          doc.setTextColor(107, 114, 128)  // gray-500
           doc.setFont('helvetica', 'normal')
           doc.text(
             `${currentReport.name}  ·  Página ${curPage} de ${totalPages}  ·  ${fecha}`,
             pageW / 2,
-            pageH - 4,
+            pageH - 5,
             { align: 'center' }
           )
         }
