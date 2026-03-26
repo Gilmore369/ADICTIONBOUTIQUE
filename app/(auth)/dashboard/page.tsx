@@ -48,9 +48,12 @@ export default async function DashboardPage({
   const params = await (searchParams ?? Promise.resolve({}))
   let storeFilter: string | null = null
   if (!isAdmin && userStores.length === 1) {
-    storeFilter = STORE_KEY_MAP[userStores[0]] ?? userStores[0]
+    // Normalize store key to uppercase before mapping (handles 'mujeres', 'MUJERES', etc.)
+    const storeKey = (userStores[0] ?? '').toUpperCase()
+    storeFilter = STORE_KEY_MAP[storeKey] ?? userStores[0]
   } else if (isAdmin && params.store && params.store !== 'ALL') {
-    storeFilter = STORE_KEY_MAP[params.store] ?? params.store
+    const storeKey = (params.store ?? '').toUpperCase()
+    storeFilter = STORE_KEY_MAP[storeKey] ?? params.store
   }
 
   // ── All queries in parallel ─────────────────────────────────────────────
