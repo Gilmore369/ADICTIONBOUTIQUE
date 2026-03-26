@@ -52,13 +52,17 @@ interface ProductSearchProps {
   placeholder?: string
   className?: string
   warehouse?: string
+  /** Si true, solo muestra productos con stock en ese warehouse específico (usuarios con tienda fija).
+   *  Si false (admin), muestra todos los productos con stock en cualquier almacén. */
+  strictWarehouse?: boolean
 }
 
 export function ProductSearch({
   onSelect,
   placeholder = 'Buscar por nombre o código de barras...',
   className = '',
-  warehouse = 'Tienda Mujeres'
+  warehouse = 'Tienda Mujeres',
+  strictWarehouse = false
 }: ProductSearchProps) {
   const [search, setSearch] = useState('')
   const [products, setProducts] = useState<Product[]>([])
@@ -82,8 +86,9 @@ export function ProductSearch({
       
       setLoading(true)
       try {
+        const strictParam = strictWarehouse ? '&strict=true' : ''
         const response = await fetch(
-          `/api/products/search?q=${encodeURIComponent(debouncedSearch)}&limit=50&warehouse=${warehouse}`
+          `/api/products/search?q=${encodeURIComponent(debouncedSearch)}&limit=50&warehouse=${encodeURIComponent(warehouse)}${strictParam}`
         )
         
         if (!response.ok) {
@@ -103,7 +108,7 @@ export function ProductSearch({
     }
     
     fetchProducts()
-  }, [debouncedSearch, warehouse])
+  }, [debouncedSearch, warehouse, strictWarehouse])
   
   // Close results when clicking outside
   useEffect(() => {

@@ -67,7 +67,7 @@ const POS_SESSION_KEY = 'boutique_pos_session'
 
 export default function POSPage() {
   const { cart, addItem, removeItem, updateQuantity, updateDiscount, clearCart } = useCart()
-  const { selectedStore, storeName } = useStore() // Get global store selection
+  const { selectedStore, storeName, isStoreLocked } = useStore() // Get global store selection
   const [saleType, setSaleType] = useState<SaleType>('CONTADO')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [installments, setInstallments] = useState<number>(1)
@@ -155,11 +155,12 @@ export default function POSPage() {
     )
   }
 
-  // Handle barcode scan — must filter by current warehouse
+  // Handle barcode scan — strict solo para usuarios con tienda fija
   const handleBarcodeScan = async (barcode: string) => {
     try {
+      const strictParam = isStoreLocked ? '&strict=true' : ''
       const response = await fetch(
-        `/api/products/search?q=${encodeURIComponent(barcode)}&warehouse=${encodeURIComponent(warehouse)}&limit=1`
+        `/api/products/search?q=${encodeURIComponent(barcode)}&warehouse=${encodeURIComponent(warehouse)}&limit=1${strictParam}`
       )
       const { data } = await response.json()
 
@@ -370,6 +371,7 @@ export default function POSPage() {
               onSelect={handleProductSelect}
               placeholder="Buscar por nombre o código de barras..."
               warehouse={warehouse}
+              strictWarehouse={isStoreLocked}
             />
           </Card>
 

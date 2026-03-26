@@ -79,17 +79,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get stock for ALL warehouses — no strict warehouse isolation in POS search.
-    // The warehouse param is used only for recording the sale, not for restricting
-    // which products appear. This avoids hiding valid products when stock was
-    // entered under a different warehouse name.
+    // strict=true → solo productos con stock en ese warehouse (usuarios con tienda fija)
+    // strict=false (default) → todos los productos con stock en cualquier almacén (admin)
+    const strict = searchParams.get('strict') === 'true'
+
     const { data: stockAll } = await supabase
       .from('stock')
       .select('product_id, warehouse_id, quantity')
       .gt('quantity', 0)
 
     // Build product_id → { total, warehouseQty } map
-    // warehouseQty = quantity in the selected warehouse (may be 0 if stock is elsewhere)
     const stockMap = new Map<string, { total: number; warehouseQty: number }>()
     if (stockAll) {
       const warehouseLower = warehouse.toLowerCase()
@@ -103,14 +102,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Return all products that have stock anywhere; show warehouseQty for context
+    // strict: solo productos con stock en el warehouse exacto
+    // no strict (admin): todos los productos con stock en cualquier almacén
     const data = (products || [])
-      .filter(product => stockMap.has(product.id))
+      .filter(product => {
+        const entry = stockMap.get(product.id)
+        if (!entry) return false
+        return strict ? entry.warehouseQty > 0 : entry.total > 0
+      })
       .map(product => {
         const entry = stockMap.get(product.id)!
         return {
           ...product,
-          stock: { quantity: entry.warehouseQty > 0 ? entry.warehouseQty : entry.total }
+          stock: { quantity: strict ? entry.warehouseQty : entry.total }
         }
       })
     
