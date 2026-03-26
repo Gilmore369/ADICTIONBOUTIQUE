@@ -44,14 +44,15 @@ export default async function DashboardPage({
   const isAdmin = userRoles.includes('admin')
   const userStores: string[] = (profile as any)?.stores || []
 
-  // Admin puede filtrar via URL param; no-admin con 1 tienda queda bloqueado
+  // Si tiene 1 sola tienda → siempre bloqueado a esa tienda (sin importar rol)
+  // Si tiene 2+ tiendas Y es admin → puede filtrar via URL param
   const params = await (searchParams ?? Promise.resolve({}))
+  const canSwitchStore = isAdmin && userStores.length > 1
   let storeFilter: string | null = null
-  if (!isAdmin && userStores.length === 1) {
-    // Normalize store key to uppercase before mapping (handles 'mujeres', 'MUJERES', etc.)
+  if (userStores.length === 1) {
     const storeKey = (userStores[0] ?? '').toUpperCase()
     storeFilter = STORE_KEY_MAP[storeKey] ?? userStores[0]
-  } else if (isAdmin && params.store && params.store !== 'ALL') {
+  } else if (canSwitchStore && params.store && params.store !== 'ALL') {
     const storeKey = (params.store ?? '').toUpperCase()
     storeFilter = STORE_KEY_MAP[storeKey] ?? params.store
   }
@@ -170,7 +171,7 @@ export default async function DashboardPage({
       recentSales={recentSales}
       locationData={locationData}
       storeFilter={storeFilter}
-      isAdmin={isAdmin}
+      isAdmin={canSwitchStore}
       activeStoreParam={params.store ?? null}
       userStores={userStores}
     />
