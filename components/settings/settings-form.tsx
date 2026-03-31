@@ -52,7 +52,8 @@ export function SettingsForm() {
         const res = await fetch('/api/settings')
         if (res.ok) {
           const data = await res.json()
-          const hasRealData = data.address || data.phone || data.ruc
+          const hasRealData = data.logo || data.address || data.phone || data.ruc ||
+            (data.name && data.name !== 'ADICTION BOUTIQUE')
           if (hasRealData) {
             setConfig(prev => ({
               ...prev,

@@ -36,6 +36,7 @@ export default async function AuthenticatedLayout({
         name:  (profile as any)?.name ?? null,
       }}
       userStores={(profile as any)?.stores || []}
+      userRoles={(profile as any)?.roles || []}
     >
       {children}
     </AppShell>

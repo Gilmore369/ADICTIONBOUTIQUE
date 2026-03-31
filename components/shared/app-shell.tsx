@@ -17,17 +17,23 @@ interface AppShellProps {
   children: React.ReactNode
   user: { email: string; name?: string | null }
   userStores?: string[]
+  userRoles?: string[]
 }
 
-export function AppShell({ children, user, userStores }: AppShellProps) {
+export function AppShell({ children, user, userStores, userRoles }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
 
-  // Restore saved preference on mount
+  // Restore saved preference on mount + sync roles to localStorage for sidebar
   useEffect(() => {
     try {
       if (localStorage.getItem(SIDEBAR_KEY) === 'true') setCollapsed(true)
     } catch { /* ignore */ }
-  }, [])
+    try {
+      if (userRoles && userRoles.length > 0) {
+        localStorage.setItem('user_roles', JSON.stringify(userRoles))
+      }
+    } catch { /* ignore */ }
+  }, [userRoles])
 
   const handleToggle = () => {
     setCollapsed(prev => {

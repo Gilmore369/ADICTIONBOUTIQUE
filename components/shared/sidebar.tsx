@@ -112,7 +112,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const effectiveCollapsed = collapsed && !hovered
 
   useEffect(() => {
-    const load = () => {
+    // Load from localStorage first (instant)
+    const loadLocal = () => {
       const logo   = localStorage.getItem('store_logo')
       const config = localStorage.getItem('store_config')
       if (logo) setStoreLogo(logo)
@@ -123,9 +124,29 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
         } catch { /* ignore */ }
       }
     }
-    load()
-    window.addEventListener('storage', load)
-    return () => window.removeEventListener('storage', load)
+    loadLocal()
+
+    // Then fetch from API to get latest (syncs across all accounts)
+    fetch('/api/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        if (data.logo) {
+          setStoreLogo(data.logo)
+          try { localStorage.setItem('store_logo', data.logo) } catch { /* ignore */ }
+        }
+        if (data.name) {
+          setStoreName(data.name)
+          try {
+            const cfg = JSON.parse(localStorage.getItem('store_config') || '{}')
+            localStorage.setItem('store_config', JSON.stringify({ ...cfg, ...data }))
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => { /* ignore — already have localStorage fallback */ })
+
+    window.addEventListener('storage', loadLocal)
+    return () => window.removeEventListener('storage', loadLocal)
   }, [])
 
   const toggleExpand = (href: string) =>
