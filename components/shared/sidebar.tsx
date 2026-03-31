@@ -19,6 +19,7 @@ import {
   Menu, X, ChevronDown, ChevronRight, ChevronLeft, Box, Tag, Layers,
   Ruler, Truck, PackagePlus, Warehouse, BarChart3, DollarSign, Images,
   PanelLeftClose, PanelLeftOpen, FileText, AlertTriangle, RotateCcw, CalendarDays,
+  UserCog,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -87,6 +88,9 @@ const navItems: NavItem[] = [
   
   // ── REPORTES ──
   { title: 'Reportes', href: '/reports', icon: BarChart3 },
+
+  // ── ADMIN ──
+  { title: 'Admin Usuarios', href: '/admin/users', icon: UserCog, adminOnly: true },
 ]
 
 interface SidebarProps {
@@ -129,9 +133,19 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       prev.includes(href) ? prev.filter(i => i !== href) : [...prev, href]
     )
 
+  // ── Detect admin from localStorage (set at login) ────────────────────────
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('user_roles') || '[]'
+      const roles: string[] = JSON.parse(raw).map((r: string) => r.toLowerCase())
+      setIsAdmin(roles.includes('admin'))
+    } catch { /* ignore */ }
+  }, [])
+
   // ── Nav items renderer ────────────────────────────────────────────────────
   const renderNavItems = () =>
-    navItems.map(item => {
+    navItems.filter(item => !(item as any).adminOnly || isAdmin).map(item => {
       const Icon        = item.icon
       const isActive    = pathname.startsWith(item.href)
       const isExpanded  = expandedItems.includes(item.href)
