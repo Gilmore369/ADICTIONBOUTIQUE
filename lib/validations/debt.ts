@@ -18,8 +18,8 @@ import { z } from 'zod'
  * Requirements: 6.1
  */
 export const creditPlanSchema = z.object({
-  sale_id: z.string().uuid('Invalid sale ID'),
-  client_id: z.string().uuid('Invalid client ID'),
+  sale_id: z.string().min(1, 'Sale ID required'),
+  client_id: z.string().min(1, 'Client ID required'),
   total_amount: z.number().positive('Total amount must be positive'),
   installments_count: z.number()
     .int('Installments count must be an integer')
@@ -43,19 +43,19 @@ export const creditPlanSchema = z.object({
  * Requirements: 6.2, 6.3, 10.4
  */
 export const installmentSchema = z.object({
-  plan_id: z.string().uuid('Invalid plan ID'),
+  plan_id: z.string().min(1, 'Plan ID required'),
   installment_number: z.number()
     .int('Installment number must be an integer')
     .positive('Installment number must be positive'),
   amount: z.number().positive('Amount must be positive'),
-  due_date: z.string().datetime('Invalid due date format'),
+  due_date: z.string().min(1, 'Due date required'),
   paid_amount: z.number()
     .nonnegative('Paid amount must be non-negative')
     .default(0),
   status: z.enum(['PENDING', 'PARTIAL', 'PAID', 'OVERDUE'], {
     errorMap: () => ({ message: 'Status must be PENDING, PARTIAL, PAID, or OVERDUE' })
   }).default('PENDING'),
-  paid_at: z.string().datetime('Invalid paid at format').optional()
+  paid_at: z.string().optional()
 }).refine(
   (data) => {
     // Validate due_date is a valid ISO date string
@@ -88,10 +88,10 @@ export const installmentSchema = z.object({
  * Requirements: 10.4, 10.5
  */
 export const paymentSchema = z.object({
-  client_id: z.string().uuid('Invalid client ID'),
+  client_id: z.string().min(1, 'Client ID required'),
   amount: z.number().positive('Amount must be positive'),
   payment_date: z.string().min(1, 'Payment date is required'),
-  user_id: z.string().uuid('Invalid user ID'),
+  user_id: z.string().min(1, 'User ID required'),
   receipt_url: z.string().optional().or(z.literal('')),
   notes: z.string().max(500, 'Notes must be less than 500 characters').optional()
 }).refine(
@@ -116,7 +116,7 @@ export const paymentSchema = z.object({
  * Requirements: 10.6
  */
 export const collectionActionSchema = z.object({
-  client_id: z.string().uuid('Invalid client ID'),
+  client_id: z.string().min(1, 'Client ID required'),
   client_name: z.string().min(1, 'Client name is required'),
   action_type: z.enum([
     'LLAMADA', 
@@ -151,9 +151,9 @@ export const collectionActionSchema = z.object({
   ], {
     errorMap: () => ({ message: 'Invalid result' })
   }),
-  payment_promise_date: z.string().datetime('Invalid payment promise date format').optional(),
+  payment_promise_date: z.string().optional(),
   notes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
-  user_id: z.string().uuid('Invalid user ID')
+  user_id: z.string().min(1, 'User ID required')
 }).refine(
   (data) => {
     // If payment_promise_date is provided, validate it's a valid ISO date string
