@@ -115,7 +115,7 @@ export function ProductForm({
       presentation: initialData?.presentation || '',
       purchase_price: initialData?.purchase_price || undefined,
       price: initialData?.price || undefined,
-      min_stock: initialData?.min_stock || 0,
+      min_stock: initialData?.min_stock ?? 1,
       entry_date: initialData?.entry_date || new Date().toISOString().split('T')[0],
       image_url: initialData?.image_url || '',
       active: initialData?.active ?? true,

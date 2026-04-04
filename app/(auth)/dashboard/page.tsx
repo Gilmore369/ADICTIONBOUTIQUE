@@ -57,12 +57,24 @@ export default async function DashboardPage({
     storeFilter = STORE_KEY_MAP[storeKey] ?? params.store
   }
 
+  // ── Get warehouse IDs for store filter (needed for low stock count) ──────
+  let filteredWarehouseIds: string[] = []
+  if (storeFilter) {
+    const { data: storeData } = await supabase
+      .from('stores').select('id').eq('name', storeFilter).maybeSingle()
+    if (storeData?.id) {
+      const { data: whData } = await supabase
+        .from('warehouses').select('id').eq('store_id', storeData.id)
+      filteredWarehouseIds = (whData || []).map((w: any) => w.id)
+    }
+  }
+
   // ── All queries in parallel ─────────────────────────────────────────────
   // Helper para agregar filtro de tienda a queries de sales
   const buildSalesQuery = (q: any) => storeFilter ? q.eq('store_id', storeFilter) : q
 
   const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
-         salesTodayRes, salesMonthRes] =
+         salesTodayRes, salesMonthRes, lowStockFilteredRes] =
     await Promise.all([
       supabase.rpc('get_dashboard_metrics', { p_inactivity_days: 90 }),
       supabase.rpc('get_sales_by_period', {
@@ -86,7 +98,28 @@ export default async function DashboardPage({
       buildSalesQuery(supabase.from('sales').select('total')
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
         .eq('voided', false)),
+      // Stock bajo filtrado por tienda
+      filteredWarehouseIds.length > 0
+        ? supabase.from('stock')
+            .select('product_id, quantity, products!inner(min_stock, active)')
+            .in('warehouse_id', filteredWarehouseIds)
+        : Promise.resolve({ data: null, error: null }),
     ])
+
+  // ── Compute filtered low stock count ───────────────────────────────────
+  let filteredLowStock: number | null = null
+  if (filteredWarehouseIds.length > 0 && lowStockFilteredRes?.data) {
+    const byProduct: Record<string, { qty: number; min: number }> = {}
+    for (const row of lowStockFilteredRes.data as any[]) {
+      const prod = row.products as any
+      if (!prod) continue
+      if (!byProduct[row.product_id]) {
+        byProduct[row.product_id] = { qty: 0, min: Number(prod.min_stock) || 0 }
+      }
+      byProduct[row.product_id].qty += Number(row.quantity) || 0
+    }
+    filteredLowStock = Object.values(byProduct).filter(p => p.qty <= p.min).length
+  }
 
   // ── Compute derived values ──────────────────────────────────────────────
   const raw       = (metricsRes.data ?? {}) as Record<string, number>
@@ -117,7 +150,7 @@ export default async function DashboardPage({
     salesToday:               filteredSalesToday,
     salesCountToday:          filteredCountToday,
     salesThisMonth:           filteredSalesMonth,
-    lowStockProducts:         raw.lowStockProducts         ?? 0,
+    lowStockProducts:         filteredLowStock ?? raw.lowStockProducts ?? 0,
     paymentsThisMonth:        raw.paymentsThisMonth        ?? 0,
   }
 

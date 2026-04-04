@@ -978,7 +978,7 @@ export async function createProduct(formData: FormData): Promise<ActionResponse>
     presentation: formData.get('presentation') || undefined,
     purchase_price: purchasePrice ? Number(purchasePrice) : undefined,
     price: price ? Number(price) : undefined,
-    min_stock: minStock ? Number(minStock) : 0,
+    min_stock: minStock ? Number(minStock) : 1,
     entry_date: formData.get('entry_date') || undefined,
     image_url: formData.get('image_url') || undefined,
     active: active === 'true' || active === true
