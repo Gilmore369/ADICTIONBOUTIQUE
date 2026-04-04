@@ -75,7 +75,12 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   })
 
   if (!validated.success) {
-    return { success: false, error: validated.error.flatten().fieldErrors }
+    const fieldErrors = validated.error.flatten().fieldErrors
+    console.error('[processPayment] Validation failed:', JSON.stringify(fieldErrors))
+    const firstError = Object.entries(fieldErrors)
+      .map(([field, errs]) => `${field}: ${(errs as string[]).join(', ')}`)
+      .join(' | ')
+    return { success: false, error: `Datos inválidos — ${firstError}` }
   }
 
   const { client_id, amount, payment_date, receipt_url: validatedReceiptUrl, notes: validatedNotes } = validated.data

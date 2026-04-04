@@ -90,18 +90,17 @@ export const installmentSchema = z.object({
 export const paymentSchema = z.object({
   client_id: z.string().uuid('Invalid client ID'),
   amount: z.number().positive('Amount must be positive'),
-  payment_date: z.string().datetime('Invalid payment date format'),
+  payment_date: z.string().min(1, 'Payment date is required'),
   user_id: z.string().uuid('Invalid user ID'),
-  receipt_url: z.string().url('Invalid receipt URL').optional().or(z.literal('')),
+  receipt_url: z.string().optional().or(z.literal('')),
   notes: z.string().max(500, 'Notes must be less than 500 characters').optional()
 }).refine(
   (data) => {
-    // Validate payment_date is a valid ISO date string
     const date = new Date(data.payment_date)
     return !isNaN(date.getTime())
   },
   {
-    message: 'Payment date must be a valid ISO date string',
+    message: 'Payment date must be a valid date string',
     path: ['payment_date']
   }
 )
