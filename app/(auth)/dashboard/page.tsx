@@ -58,20 +58,10 @@ export default async function DashboardPage({
     storeFilter = STORE_KEY_MAP[storeCode] ?? params.store
   }
 
-  // ── Get warehouse IDs + store UUID for store filter ───────────────────────
-  let filteredWarehouseIds: string[] = []
-  let filteredStoreUUID: string | null = null
-  if (storeCode) {
-    // Use 'code' column (MUJERES/HOMBRES) — reliable, not display name
-    const { data: storeData } = await supabase
-      .from('stores').select('id').eq('code', storeCode).maybeSingle()
-    if (storeData?.id) {
-      filteredStoreUUID = storeData.id
-      const { data: whData } = await supabase
-        .from('warehouses').select('id').eq('store_id', storeData.id)
-      filteredWarehouseIds = (whData || []).map((w: any) => w.id)
-    }
-  }
+  // NOTE: stock.warehouse_id and movements.warehouse_id store display names
+  // ('Tienda Mujeres' / 'Tienda Hombres'), NOT UUIDs from the warehouses table.
+  // storeFilter already holds the correct value ('Tienda Mujeres') for filtering.
+  const filteredWarehouseIds: string[] = storeFilter ? [storeFilter] : []
 
   // ── All queries in parallel ─────────────────────────────────────────────
   // Helper para agregar filtro de tienda a queries de sales
@@ -117,10 +107,12 @@ export default async function DashboardPage({
         .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
         .eq('voided', false)),
       // Stock bajo filtrado por tienda
+      // filteredWarehouseIds[0] = 'Tienda Mujeres' or 'Tienda Hombres' (not UUID)
       filteredWarehouseIds.length > 0
         ? supabase.from('stock')
             .select('product_id, quantity, products!inner(min_stock, active)')
             .in('warehouse_id', filteredWarehouseIds)
+            .eq('products.active', true)
         : Promise.resolve({ data: null, error: null }),
       // Clientes con deuda activa filtrados por tienda (plans + installments pending)
       storeClientIds && storeClientIds.length > 0

@@ -8,6 +8,13 @@ export const metadata = {
   description: 'Historial de movimientos de inventario',
 }
 
+// stock.warehouse_id and movements.warehouse_id store the store display name
+// ('Tienda Mujeres' / 'Tienda Hombres'), NOT UUIDs.
+const STORE_NAME_MAP: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
+
 async function MovementsData() {
   const supabase = await createServerClient()
 
@@ -19,17 +26,9 @@ async function MovementsData() {
 
   const userStores: string[] = (profile as any)?.stores || []
 
-  // Get warehouse IDs for user's store(s)
-  let warehouseFilter: string[] | null = null
-  if (userStores.length === 1) {
-    const { data: storeData } = await supabase
-      .from('stores').select('id').eq('code', userStores[0].toUpperCase()).maybeSingle()
-    if (storeData?.id) {
-      const { data: whData } = await supabase
-        .from('warehouses').select('id').eq('store_id', storeData.id)
-      warehouseFilter = (whData || []).map((w: any) => w.id)
-    }
-  }
+  const hasAllAccess = userStores.length >= 2 &&
+    userStores.map(s => s.toUpperCase()).includes('MUJERES') &&
+    userStores.map(s => s.toUpperCase()).includes('HOMBRES')
 
   let query = supabase
     .from('movements')
@@ -37,8 +36,10 @@ async function MovementsData() {
     .order('created_at', { ascending: false })
     .limit(200)
 
-  if (warehouseFilter && warehouseFilter.length > 0) {
-    query = query.in('warehouse_id', warehouseFilter) as typeof query
+  if (!hasAllAccess && userStores.length > 0) {
+    const storeCode = userStores[0].toUpperCase()
+    const warehouseName = STORE_NAME_MAP[storeCode] ?? userStores[0]
+    query = query.eq('warehouse_id', warehouseName) as typeof query
   }
 
   const { data: movements, error } = await query

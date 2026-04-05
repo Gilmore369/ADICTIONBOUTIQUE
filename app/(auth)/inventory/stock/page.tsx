@@ -8,6 +8,13 @@ export const metadata = {
   description: 'Gestión de inventario por tienda',
 }
 
+// stock.warehouse_id and movements.warehouse_id store the store display name
+// ('Tienda Mujeres' / 'Tienda Hombres'), NOT UUIDs.
+const STORE_NAME_MAP: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
+
 async function StockData() {
   const supabase = await createServerClient()
 
@@ -19,29 +26,22 @@ async function StockData() {
 
   const userStores: string[] = (profile as any)?.stores || []
 
-  // Get warehouse IDs for user's accessible stores
-  let allowedWarehouseIds: string[] | null = null
-  if (userStores.length > 0 && !(userStores.length === 2 && userStores.includes('MUJERES') && userStores.includes('HOMBRES'))) {
-    // Not all-access: filter to specific stores
-    const { data: storeData } = await supabase
-      .from('stores')
-      .select('id')
-      .in('code', userStores.map(s => s.toUpperCase()))
-    if (storeData && storeData.length > 0) {
-      const storeIds = storeData.map((s: any) => s.id)
-      const { data: whData } = await supabase
-        .from('warehouses').select('id').in('store_id', storeIds)
-      allowedWarehouseIds = (whData || []).map((w: any) => w.id)
-    }
-  }
+  // Determine if user is restricted to a specific store
+  // Users with exactly 1 store (or not both stores) are restricted
+  const hasAllAccess = userStores.length >= 2 &&
+    userStores.map(s => s.toUpperCase()).includes('MUJERES') &&
+    userStores.map(s => s.toUpperCase()).includes('HOMBRES')
 
   let stockQuery = supabase
     .from('stock')
     .select('*, products(id, name, barcode, min_stock)')
     .order('warehouse_id')
 
-  if (allowedWarehouseIds && allowedWarehouseIds.length > 0) {
-    stockQuery = stockQuery.in('warehouse_id', allowedWarehouseIds) as typeof stockQuery
+  if (!hasAllAccess && userStores.length > 0) {
+    // Filter by the store name used in warehouse_id column
+    const storeCode = userStores[0].toUpperCase()
+    const warehouseName = STORE_NAME_MAP[storeCode] ?? userStores[0]
+    stockQuery = stockQuery.eq('warehouse_id', warehouseName) as typeof stockQuery
   }
 
   const [stockRes, storesRes] = await Promise.all([
