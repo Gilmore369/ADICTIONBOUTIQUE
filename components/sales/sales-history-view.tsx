@@ -41,6 +41,7 @@ interface Sale {
 interface SalesHistoryViewProps {
   initialSales: Sale[]
   lockedStore?: string | null
+  initialPeriod?: 'TODAY' | 'WEEK' | 'MONTH' | 'ALL'
 }
 
 const STORE_CTX_MAP: Record<string, 'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'> = {
@@ -49,14 +50,14 @@ const STORE_CTX_MAP: Record<string, 'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>
   ALL: 'ALL',
 }
 
-export function SalesHistoryView({ initialSales, lockedStore }: SalesHistoryViewProps) {
+export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'ALL' }: SalesHistoryViewProps) {
   const [sales] = useState<Sale[]>(initialSales)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'ALL' | 'CONTADO' | 'CREDITO'>('ALL')
   const [filterStore, setFilterStore] = useState<'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>(
     (lockedStore as any) || 'ALL'
   )
-  const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'ALL'>('ALL')
+  const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'ALL'>(initialPeriod)
 
   // Sincronizar con el selector global de tienda del header
   const { selectedStore } = useStore()

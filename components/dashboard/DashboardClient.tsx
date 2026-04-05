@@ -407,7 +407,7 @@ export default function DashboardClient({
             <Link href="/collections/actions"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-xs text-amber-700 font-medium hover:bg-amber-100 transition-colors">
               <AlertCircle className="h-3.5 w-3.5" />
-              {fn(m.pendingCollectionActions)} cobros vencidos pendientes
+              {fn(m.pendingCollectionActions)} acciones de cobranza pendientes
               <ChevronRight className="h-3 w-3 opacity-60" />
             </Link>
           )}
@@ -441,7 +441,7 @@ export default function DashboardClient({
           icon={<DollarSign />}
           accent={C.emerald}
           spark={sparkTotals}
-          href="/sales"
+          href="/sales?period=TODAY"
         />
         <KPICard
           label="Ventas del Mes"
@@ -450,7 +450,7 @@ export default function DashboardClient({
           icon={<TrendingUp />}
           accent={C.sky}
           spark={sparkTotals}
-          href="/reports"
+          href="/sales?period=MONTH"
         />
         <KPICard
           label="Cobros del Mes"

@@ -118,7 +118,9 @@ export default async function DashboardPage({
       }
       byProduct[row.product_id].qty += Number(row.quantity) || 0
     }
-    filteredLowStock = Object.values(byProduct).filter(p => p.qty <= p.min).length
+    // "Bajo" = sin stock (qty=0) OR (min_stock>0 AND qty<=min_stock)
+    // Excludes products with min_stock=0 and qty>0 (no minimum configured)
+    filteredLowStock = Object.values(byProduct).filter(p => p.qty === 0 || (p.min > 0 && p.qty <= p.min)).length
   }
 
   // ── Compute derived values ──────────────────────────────────────────────

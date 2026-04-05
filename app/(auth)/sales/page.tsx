@@ -19,7 +19,11 @@ const STORE_KEY_MAP: Record<string, string> = {
   HOMBRES: 'Tienda Hombres',
 }
 
-export default async function SalesHistoryPage() {
+export default async function SalesHistoryPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ period?: string }>
+}) {
   const supabase = await createServerClient()
 
   // Check authentication
@@ -87,5 +91,11 @@ export default async function SalesHistoryPage() {
     console.error('Error fetching sales:', error)
   }
 
-  return <SalesHistoryView initialSales={sales || []} lockedStore={lockedStore} />
+  const params = await (searchParams ?? Promise.resolve({}))
+  const validPeriods = ['TODAY', 'WEEK', 'MONTH', 'ALL'] as const
+  const initialPeriod = validPeriods.includes((params.period?.toUpperCase() as any))
+    ? (params.period!.toUpperCase() as 'TODAY' | 'WEEK' | 'MONTH' | 'ALL')
+    : 'ALL'
+
+  return <SalesHistoryView initialSales={sales || []} lockedStore={lockedStore} initialPeriod={initialPeriod} />
 }
