@@ -49,7 +49,14 @@ const navItems: NavItem[] = [
   // ── FINANZAS ──
   { title: 'Caja', href: '/cash', icon: DollarSign },
   { title: 'Deuda', href: '/debt', icon: CreditCard },
-  { title: 'Cobranzas', href: '/collections', icon: Wallet },
+  {
+    title: 'Cobranzas', href: '/collections', icon: Wallet,
+    subItems: [
+      { title: 'Registrar Cobro', href: '/collections/payments', icon: Wallet },
+      { title: 'Historial de Cobros', href: '/collections/history', icon: FileText },
+      { title: 'Acciones de Cobranza', href: '/collections/actions', icon: CalendarDays },
+    ],
+  },
   { title: 'Agenda', href: '/agenda', icon: CalendarDays },
   
   // ── CLIENTES ──

@@ -459,7 +459,7 @@ export default function DashboardClient({
           icon={<Wallet />}
           accent={C.teal}
           spark={sparkPaymt}
-          href="/debt/plans"
+          href="/collections/history?period=MONTH"
         />
         <KPICard
           label="Deuda Total"
@@ -928,7 +928,7 @@ export default function DashboardClient({
               <p className="text-xs text-gray-400 font-medium">Cobros del Mes</p>
               <p className="text-base font-extrabold text-gray-900 tabular-nums">S/ {fc(m.paymentsThisMonth)}</p>
             </div>
-            <Link href="/debt/plans" className="text-[11px] text-indigo-600 hover:underline font-medium">Ver →</Link>
+            <Link href="/collections/history?period=MONTH" className="text-[11px] text-indigo-600 hover:underline font-medium">Ver →</Link>
           </div>
 
           {/* Deuda vencida */}
