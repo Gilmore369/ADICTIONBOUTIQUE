@@ -45,7 +45,7 @@ test.describe('Dashboard — validación visual', () => {
     await expect(page.locator('h1')).toContainText('Dashboard')
 
     // KPI section (at least one value card should be visible)
-    const kpiLinks = page.locator('a[href="/sales"], a[href="/reports"], a[href="/debt/plans"]')
+    const kpiLinks = page.locator('a[href="/sales?period=TODAY"], a[href="/sales?period=MONTH"], a[href="/collections/history?period=MONTH"]')
     await expect(kpiLinks.first()).toBeVisible({ timeout: 10000 })
 
     // Main chart section (renamed in redesign to "Ventas, Contado y Crédito")
@@ -131,7 +131,13 @@ test.describe('Dashboard — validación visual', () => {
     if (page.url().includes('/login')) { test.skip() }
 
     // Check key hrefs exist
-    const links = ['/sales', '/reports', '/debt/plans', '/inventory/stock', '/clients']
+    const links = [
+      '/sales?period=TODAY',
+      '/sales?period=MONTH',
+      '/collections/history?period=MONTH',
+      '/inventory/stock',
+      '/clients',
+    ]
     for (const href of links) {
       const link = page.locator(`a[href="${href}"]`).first()
       await expect(link).toBeVisible()
