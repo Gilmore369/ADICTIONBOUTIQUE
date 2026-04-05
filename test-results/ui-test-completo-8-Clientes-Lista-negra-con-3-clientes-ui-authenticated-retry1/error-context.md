@@ -1,0 +1,231 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]: AB
+        - generic [ref=e7]: ADICTION BOUTIQUE
+      - navigation [ref=e8]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Dashboard" [ref=e11] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e12]
+              - text: Dashboard
+          - listitem [ref=e17]:
+            - link "POS" [ref=e18] [cursor=pointer]:
+              - /url: /pos
+              - img [ref=e19]
+              - text: POS
+          - listitem [ref=e23]:
+            - link "Catálogo Visual" [ref=e24] [cursor=pointer]:
+              - /url: /catalogs/visual
+              - img [ref=e25]
+              - text: Catálogo Visual
+          - listitem [ref=e30]:
+            - link "Historial de Ventas" [ref=e31] [cursor=pointer]:
+              - /url: /sales
+              - img [ref=e32]
+              - text: Historial de Ventas
+          - listitem [ref=e35]:
+            - link "Devoluciones" [ref=e36] [cursor=pointer]:
+              - /url: /returns
+              - img [ref=e37]
+              - text: Devoluciones
+          - listitem [ref=e40]:
+            - link "Caja" [ref=e41] [cursor=pointer]:
+              - /url: /cash
+              - img [ref=e42]
+              - text: Caja
+          - listitem [ref=e44]:
+            - link "Deuda" [ref=e45] [cursor=pointer]:
+              - /url: /debt
+              - img [ref=e46]
+              - text: Deuda
+          - listitem [ref=e48]:
+            - button "Cobranzas" [ref=e49]:
+              - generic [ref=e50]:
+                - img [ref=e51]
+                - generic [ref=e54]: Cobranzas
+              - img [ref=e55]
+          - listitem [ref=e57]:
+            - link "Agenda" [ref=e58] [cursor=pointer]:
+              - /url: /agenda
+              - img [ref=e59]
+              - text: Agenda
+          - listitem [ref=e61]:
+            - button "Clientes" [ref=e62]:
+              - generic [ref=e63]:
+                - img [ref=e64]
+                - generic [ref=e69]: Clientes
+              - img [ref=e70]
+          - listitem [ref=e72]:
+            - button "Inventario" [ref=e73]:
+              - generic [ref=e74]:
+                - img [ref=e75]
+                - generic [ref=e78]: Inventario
+              - img [ref=e79]
+            - list [ref=e81]:
+              - listitem [ref=e82]:
+                - link "Stock" [ref=e83] [cursor=pointer]:
+                  - /url: /inventory/stock
+                  - img [ref=e84]
+                  - text: Stock
+              - listitem [ref=e87]:
+                - link "Movimientos" [ref=e88] [cursor=pointer]:
+                  - /url: /inventory/movements
+                  - img [ref=e89]
+                  - text: Movimientos
+              - listitem [ref=e93]:
+                - link "Ingreso Masivo" [ref=e94] [cursor=pointer]:
+                  - /url: /inventory/bulk-entry
+                  - img [ref=e95]
+                  - text: Ingreso Masivo
+          - listitem [ref=e99]:
+            - button "Catálogos" [ref=e100]:
+              - generic [ref=e101]:
+                - img [ref=e102]
+                - generic [ref=e106]: Catálogos
+              - img [ref=e107]
+            - list [ref=e109]:
+              - listitem [ref=e110]:
+                - link "Productos" [ref=e111] [cursor=pointer]:
+                  - /url: /catalogs/products
+                  - img [ref=e112]
+                  - text: Productos
+              - listitem [ref=e115]:
+                - link "Líneas" [ref=e116] [cursor=pointer]:
+                  - /url: /catalogs/lines
+                  - img [ref=e117]
+                  - text: Líneas
+              - listitem [ref=e121]:
+                - link "Categorías" [ref=e122] [cursor=pointer]:
+                  - /url: /catalogs/categories
+                  - img [ref=e123]
+                  - text: Categorías
+              - listitem [ref=e126]:
+                - link "Marcas" [ref=e127] [cursor=pointer]:
+                  - /url: /catalogs/brands
+                  - img [ref=e128]
+                  - text: Marcas
+              - listitem [ref=e131]:
+                - link "Tallas" [ref=e132] [cursor=pointer]:
+                  - /url: /catalogs/sizes
+                  - img [ref=e133]
+                  - text: Tallas
+              - listitem [ref=e139]:
+                - link "Proveedores" [ref=e140] [cursor=pointer]:
+                  - /url: /catalogs/suppliers
+                  - img [ref=e141]
+                  - text: Proveedores
+          - listitem [ref=e146]:
+            - link "Reportes" [ref=e147] [cursor=pointer]:
+              - /url: /reports
+              - img [ref=e148]
+              - text: Reportes
+          - listitem [ref=e150]:
+            - link "Admin Usuarios" [ref=e151] [cursor=pointer]:
+              - /url: /admin/users
+              - img [ref=e152]
+              - text: Admin Usuarios
+      - button "Colapsar menú" [ref=e165]:
+        - img [ref=e166]
+        - generic [ref=e169]: Colapsar menú
+    - generic [ref=e170]:
+      - banner [ref=e171]:
+        - generic [ref=e173]:
+          - button "Todas las Tiendas" [ref=e175]:
+            - img
+          - button "Personalizar tema" [ref=e176]:
+            - img
+          - button "OP Operaciones" [ref=e178]:
+            - generic "Operaciones" [ref=e179]: OP
+            - generic [ref=e180]: Operaciones
+      - main [ref=e181]:
+        - generic [ref=e182]:
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - heading "Lista Negra" [level=1] [ref=e185]:
+                - img [ref=e186]
+                - text: Lista Negra
+              - paragraph [ref=e188]: Gestiona clientes bloqueados para ventas a crédito
+            - button "Agregar a Lista Negra" [ref=e189]:
+              - img
+              - text: Agregar a Lista Negra
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - img [ref=e194]
+              - paragraph [ref=e199]: "3"
+              - paragraph [ref=e200]: Clientes bloqueados
+            - generic [ref=e201]:
+              - img [ref=e204]
+              - paragraph [ref=e206]: S/ 1,289.33
+              - paragraph [ref=e207]: Deuda total bloqueados
+            - generic [ref=e208]:
+              - img [ref=e211]
+              - paragraph [ref=e215]: "18"
+              - paragraph [ref=e216]: Clientes activos
+          - generic [ref=e218]:
+            - img [ref=e219]
+            - textbox "Buscar por nombre, DNI o teléfono..." [ref=e222]
+          - table [ref=e225]:
+            - rowgroup [ref=e226]:
+              - row "Cliente DNI Teléfono Motivo Deuda Fecha Bloqueo Acciones" [ref=e227]:
+                - columnheader "Cliente" [ref=e228]
+                - columnheader "DNI" [ref=e229]
+                - columnheader "Teléfono" [ref=e230]
+                - columnheader "Motivo" [ref=e231]
+                - columnheader "Deuda" [ref=e232]
+                - columnheader "Fecha Bloqueo" [ref=e233]
+                - columnheader "Acciones" [ref=e234]
+            - rowgroup [ref=e235]:
+              - row "Pedro Huamaní Ccori 96074518 932109876 Mal Comportamiento S/ 849.33 26/03/2026 01:32 Desbloquear" [ref=e236]:
+                - cell "Pedro Huamaní Ccori" [ref=e237]:
+                  - generic [ref=e238]:
+                    - img [ref=e239]
+                    - generic [ref=e241]: Pedro Huamaní Ccori
+                - cell "96074518" [ref=e242]
+                - cell "932109876" [ref=e243]
+                - cell "Mal Comportamiento" [ref=e244]:
+                  - generic [ref=e245]: Mal Comportamiento
+                - cell "S/ 849.33" [ref=e246]
+                - cell "26/03/2026 01:32" [ref=e247]
+                - cell "Desbloquear" [ref=e248]:
+                  - button "Desbloquear" [ref=e249]:
+                    - img
+                    - text: Desbloquear
+              - row "Gianfranco Julca 77280304 949236795 Mal Comportamiento S/ 5.00 25/03/2026 07:08 Desbloquear" [ref=e250]:
+                - cell "Gianfranco Julca" [ref=e251]:
+                  - generic [ref=e252]:
+                    - img [ref=e253]
+                    - generic [ref=e255]: Gianfranco Julca
+                - cell "77280304" [ref=e256]
+                - cell "949236795" [ref=e257]
+                - cell "Mal Comportamiento" [ref=e258]:
+                  - generic [ref=e259]: Mal Comportamiento
+                - cell "S/ 5.00" [ref=e260]
+                - cell "25/03/2026 07:08" [ref=e261]
+                - cell "Desbloquear" [ref=e262]:
+                  - button "Desbloquear" [ref=e263]:
+                    - img
+                    - text: Desbloquear
+              - row "Carmen Rosa Apaza 29307841 999876543 Deuda Excesiva S/ 435.00 24/03/2026 20:28 Desbloquear" [ref=e264]:
+                - cell "Carmen Rosa Apaza" [ref=e265]:
+                  - generic [ref=e266]:
+                    - img [ref=e267]
+                    - generic [ref=e269]: Carmen Rosa Apaza
+                - cell "29307841" [ref=e270]
+                - cell "999876543" [ref=e271]
+                - cell "Deuda Excesiva" [ref=e272]:
+                  - generic [ref=e273]: Deuda Excesiva
+                - cell "S/ 435.00" [ref=e274]
+                - cell "24/03/2026 20:28" [ref=e275]
+                - cell "Desbloquear" [ref=e276]:
+                  - button "Desbloquear" [ref=e277]:
+                    - img
+                    - text: Desbloquear
+  - region "Notifications alt+T"
+  - alert [ref=e278]
+```

@@ -48,21 +48,25 @@ export default async function DashboardPage({
   // Si tiene 2+ tiendas Y es admin → puede filtrar via URL param
   const params = await (searchParams ?? Promise.resolve({}))
   const canSwitchStore = isAdmin && userStores.length > 1
-  let storeFilter: string | null = null
+  let storeFilter: string | null = null   // used for sales.store_id filter ('Tienda Mujeres')
+  let storeCode: string | null = null     // used for stores.code filter ('MUJERES')
   if (userStores.length === 1) {
-    const storeKey = (userStores[0] ?? '').toUpperCase()
-    storeFilter = STORE_KEY_MAP[storeKey] ?? userStores[0]
+    storeCode = (userStores[0] ?? '').toUpperCase()
+    storeFilter = STORE_KEY_MAP[storeCode] ?? userStores[0]
   } else if (canSwitchStore && params.store && params.store !== 'ALL') {
-    const storeKey = (params.store ?? '').toUpperCase()
-    storeFilter = STORE_KEY_MAP[storeKey] ?? params.store
+    storeCode = (params.store ?? '').toUpperCase()
+    storeFilter = STORE_KEY_MAP[storeCode] ?? params.store
   }
 
-  // ── Get warehouse IDs for store filter (needed for low stock count) ──────
+  // ── Get warehouse IDs + store UUID for store filter ───────────────────────
   let filteredWarehouseIds: string[] = []
-  if (storeFilter) {
+  let filteredStoreUUID: string | null = null
+  if (storeCode) {
+    // Use 'code' column (MUJERES/HOMBRES) — reliable, not display name
     const { data: storeData } = await supabase
-      .from('stores').select('id').eq('name', storeFilter).maybeSingle()
+      .from('stores').select('id').eq('code', storeCode).maybeSingle()
     if (storeData?.id) {
+      filteredStoreUUID = storeData.id
       const { data: whData } = await supabase
         .from('warehouses').select('id').eq('store_id', storeData.id)
       filteredWarehouseIds = (whData || []).map((w: any) => w.id)
@@ -73,8 +77,22 @@ export default async function DashboardPage({
   // Helper para agregar filtro de tienda a queries de sales
   const buildSalesQuery = (q: any) => storeFilter ? q.eq('store_id', storeFilter) : q
 
+  // ── Get client IDs that belong to this store (via sales) ─────────────────
+  let storeClientIds: string[] | null = null
+  if (storeFilter) {
+    const { data: salesClients } = await supabase
+      .from('sales')
+      .select('client_id')
+      .eq('store_id', storeFilter)
+      .not('client_id', 'is', null)
+    if (salesClients) {
+      storeClientIds = [...new Set(salesClients.map((s: any) => s.client_id).filter(Boolean))]
+    }
+  }
+
   const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
-         salesTodayRes, salesMonthRes, lowStockFilteredRes] =
+         salesTodayRes, salesMonthRes, lowStockFilteredRes,
+         filteredDebtRes, filteredOverdueRes] =
     await Promise.all([
       supabase.rpc('get_dashboard_metrics', { p_inactivity_days: 90 }),
       supabase.rpc('get_sales_by_period', {
@@ -104,6 +122,15 @@ export default async function DashboardPage({
             .select('product_id, quantity, products!inner(min_stock, active)')
             .in('warehouse_id', filteredWarehouseIds)
         : Promise.resolve({ data: null, error: null }),
+      // Clientes con deuda activa filtrados por tienda (plans + installments pending)
+      storeClientIds && storeClientIds.length > 0
+        ? supabase.from('credit_plans')
+            .select('id, client_id')
+            .in('client_id', storeClientIds)
+            .eq('status', 'ACTIVE')
+        : Promise.resolve({ data: null, error: null }),
+      // Placeholder — overdue computed after from filteredDebtRes
+      Promise.resolve({ data: null, error: null }),
     ])
 
   // ── Compute filtered low stock count ───────────────────────────────────
@@ -139,11 +166,40 @@ export default async function DashboardPage({
     ? (salesTodayRes.data ?? []).length
     : (raw.salesCountToday ?? 0)
 
+  // Store-filtered debt counts
+  const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
+  let filteredClientsWithDebt: number | null = null
+  let filteredClientsOverdue: number | null = null
+  if (filteredDebtPlans !== null) {
+    // Count distinct client_ids with active plans that have pending installments
+    const activeClientIds = [...new Set(filteredDebtPlans.map((p: any) => p.client_id))]
+    filteredClientsWithDebt = activeClientIds.length
+    // For overdue: check which active plan IDs have installments past due
+    const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
+    if (activePlanIds.length > 0) {
+      const { data: overdueRows } = await supabase
+        .from('installments')
+        .select('plan_id')
+        .in('plan_id', activePlanIds)
+        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+        .lt('due_date', today)
+      const overdueClientIds = new Set(
+        (overdueRows || []).map((r: any) => {
+          const plan = filteredDebtPlans.find((p: any) => p.id === r.plan_id)
+          return plan?.client_id
+        }).filter(Boolean)
+      )
+      filteredClientsOverdue = overdueClientIds.size
+    } else {
+      filteredClientsOverdue = 0
+    }
+  }
+
   const metrics: DashboardMetrics = {
     totalActiveClients:       raw.totalActiveClients       ?? 0,
     totalDeactivatedClients:  raw.totalDeactivatedClients  ?? 0,
-    clientsWithDebt:          raw.clientsWithDebt          ?? 0,
-    clientsWithOverdueDebt:   raw.clientsWithOverdueDebt   ?? 0,
+    clientsWithDebt:          filteredClientsWithDebt ?? (raw.clientsWithDebt ?? 0),
+    clientsWithOverdueDebt:   filteredClientsOverdue  ?? (raw.clientsWithOverdueDebt ?? 0),
     inactiveClients:          raw.inactiveClients          ?? 0,
     birthdaysThisMonth:       raw.birthdaysThisMonth       ?? 0,
     pendingCollectionActions: raw.pendingCollectionActions ?? 0,

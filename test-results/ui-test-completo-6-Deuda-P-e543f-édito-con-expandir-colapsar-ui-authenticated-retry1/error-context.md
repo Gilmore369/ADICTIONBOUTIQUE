@@ -1,0 +1,514 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]: AB
+        - generic [ref=e7]: ADICTION BOUTIQUE
+      - navigation [ref=e8]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Dashboard" [ref=e11] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e12]
+              - text: Dashboard
+          - listitem [ref=e17]:
+            - link "POS" [ref=e18] [cursor=pointer]:
+              - /url: /pos
+              - img [ref=e19]
+              - text: POS
+          - listitem [ref=e23]:
+            - link "Catálogo Visual" [ref=e24] [cursor=pointer]:
+              - /url: /catalogs/visual
+              - img [ref=e25]
+              - text: Catálogo Visual
+          - listitem [ref=e30]:
+            - link "Historial de Ventas" [ref=e31] [cursor=pointer]:
+              - /url: /sales
+              - img [ref=e32]
+              - text: Historial de Ventas
+          - listitem [ref=e35]:
+            - link "Devoluciones" [ref=e36] [cursor=pointer]:
+              - /url: /returns
+              - img [ref=e37]
+              - text: Devoluciones
+          - listitem [ref=e40]:
+            - link "Caja" [ref=e41] [cursor=pointer]:
+              - /url: /cash
+              - img [ref=e42]
+              - text: Caja
+          - listitem [ref=e44]:
+            - link "Deuda" [ref=e45] [cursor=pointer]:
+              - /url: /debt
+              - img [ref=e46]
+              - text: Deuda
+          - listitem [ref=e48]:
+            - button "Cobranzas" [ref=e49]:
+              - generic [ref=e50]:
+                - img [ref=e51]
+                - generic [ref=e54]: Cobranzas
+              - img [ref=e55]
+          - listitem [ref=e57]:
+            - link "Agenda" [ref=e58] [cursor=pointer]:
+              - /url: /agenda
+              - img [ref=e59]
+              - text: Agenda
+          - listitem [ref=e61]:
+            - button "Clientes" [ref=e62]:
+              - generic [ref=e63]:
+                - img [ref=e64]
+                - generic [ref=e69]: Clientes
+              - img [ref=e70]
+          - listitem [ref=e72]:
+            - button "Inventario" [ref=e73]:
+              - generic [ref=e74]:
+                - img [ref=e75]
+                - generic [ref=e78]: Inventario
+              - img [ref=e79]
+            - list [ref=e81]:
+              - listitem [ref=e82]:
+                - link "Stock" [ref=e83] [cursor=pointer]:
+                  - /url: /inventory/stock
+                  - img [ref=e84]
+                  - text: Stock
+              - listitem [ref=e87]:
+                - link "Movimientos" [ref=e88] [cursor=pointer]:
+                  - /url: /inventory/movements
+                  - img [ref=e89]
+                  - text: Movimientos
+              - listitem [ref=e93]:
+                - link "Ingreso Masivo" [ref=e94] [cursor=pointer]:
+                  - /url: /inventory/bulk-entry
+                  - img [ref=e95]
+                  - text: Ingreso Masivo
+          - listitem [ref=e99]:
+            - button "Catálogos" [ref=e100]:
+              - generic [ref=e101]:
+                - img [ref=e102]
+                - generic [ref=e106]: Catálogos
+              - img [ref=e107]
+            - list [ref=e109]:
+              - listitem [ref=e110]:
+                - link "Productos" [ref=e111] [cursor=pointer]:
+                  - /url: /catalogs/products
+                  - img [ref=e112]
+                  - text: Productos
+              - listitem [ref=e115]:
+                - link "Líneas" [ref=e116] [cursor=pointer]:
+                  - /url: /catalogs/lines
+                  - img [ref=e117]
+                  - text: Líneas
+              - listitem [ref=e121]:
+                - link "Categorías" [ref=e122] [cursor=pointer]:
+                  - /url: /catalogs/categories
+                  - img [ref=e123]
+                  - text: Categorías
+              - listitem [ref=e126]:
+                - link "Marcas" [ref=e127] [cursor=pointer]:
+                  - /url: /catalogs/brands
+                  - img [ref=e128]
+                  - text: Marcas
+              - listitem [ref=e131]:
+                - link "Tallas" [ref=e132] [cursor=pointer]:
+                  - /url: /catalogs/sizes
+                  - img [ref=e133]
+                  - text: Tallas
+              - listitem [ref=e139]:
+                - link "Proveedores" [ref=e140] [cursor=pointer]:
+                  - /url: /catalogs/suppliers
+                  - img [ref=e141]
+                  - text: Proveedores
+          - listitem [ref=e146]:
+            - link "Reportes" [ref=e147] [cursor=pointer]:
+              - /url: /reports
+              - img [ref=e148]
+              - text: Reportes
+          - listitem [ref=e150]:
+            - link "Admin Usuarios" [ref=e151] [cursor=pointer]:
+              - /url: /admin/users
+              - img [ref=e152]
+              - text: Admin Usuarios
+      - button "Colapsar menú" [ref=e165]:
+        - img [ref=e166]
+        - generic [ref=e169]: Colapsar menú
+    - generic [ref=e170]:
+      - banner [ref=e171]:
+        - generic [ref=e173]:
+          - button "Todas las Tiendas" [ref=e175]:
+            - img
+          - button "Personalizar tema" [ref=e176]:
+            - img
+          - button "OP Operaciones" [ref=e178]:
+            - generic "Operaciones" [ref=e179]: OP
+            - generic [ref=e180]: Operaciones
+      - main [ref=e181]:
+        - generic [ref=e182]:
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - navigation [ref=e185]:
+                - link "Inicio" [ref=e186] [cursor=pointer]:
+                  - /url: /dashboard
+                - img [ref=e187]
+                - link "Cobranzas" [ref=e189] [cursor=pointer]:
+                  - /url: /debt
+                - img [ref=e190]
+                - generic [ref=e192]: Planes de Crédito
+              - heading "Planes de Crédito" [level=1] [ref=e193]
+              - paragraph [ref=e194]: Clientes con crédito activo — expandí cada uno para ver sus cuotas
+            - generic [ref=e195]:
+              - link "Registrar pago" [ref=e196] [cursor=pointer]:
+                - /url: /collections/payments
+                - img [ref=e197]
+                - text: Registrar pago
+              - link "Nueva gestión" [ref=e199] [cursor=pointer]:
+                - /url: /collections/actions
+                - img [ref=e200]
+                - text: Nueva gestión
+          - generic [ref=e203]:
+            - generic [ref=e204]:
+              - generic [ref=e205]:
+                - img [ref=e207]
+                - paragraph [ref=e212]: Clientes con crédito
+                - paragraph [ref=e213]: "11"
+                - paragraph [ref=e214]: 11 activos
+              - generic [ref=e215]:
+                - img [ref=e217]
+                - paragraph [ref=e219]: Con cuotas vencidas
+                - paragraph [ref=e220]: "1"
+                - paragraph [ref=e221]: Requieren atención
+              - generic [ref=e222]:
+                - img [ref=e224]
+                - paragraph [ref=e227]: Deuda total
+                - paragraph [ref=e228]: S/ 3,775.00
+                - paragraph [ref=e229]: Saldo pendiente
+              - generic [ref=e230]:
+                - img [ref=e232]
+                - paragraph [ref=e234]: Monto vencido
+                - paragraph [ref=e235]: S/ 95.83
+                - paragraph [ref=e236]: En mora
+            - generic [ref=e237]:
+              - generic [ref=e238]:
+                - img [ref=e239]
+                - textbox "Buscar cliente, DNI, ticket..." [ref=e242]
+              - button "Expandir todo" [ref=e243]:
+                - img
+                - text: Expandir todo
+              - button "Colapsar" [ref=e244]:
+                - img
+                - text: Colapsar
+              - generic [ref=e245]: 11 clientes
+            - generic [ref=e246]:
+              - generic [ref=e248] [cursor=pointer]:
+                - img [ref=e249]
+                - generic [ref=e251]:
+                  - generic [ref=e252]:
+                    - generic [ref=e253]:
+                      - img [ref=e254]
+                      - generic [ref=e257]: prueba
+                    - generic [ref=e258]:
+                      - img [ref=e259]
+                      - generic [ref=e261]: "123321123"
+                  - generic [ref=e262]:
+                    - paragraph [ref=e263]: Planes
+                    - paragraph [ref=e264]: "1"
+                  - generic [ref=e265]:
+                    - paragraph [ref=e266]: Deuda total
+                    - paragraph [ref=e267]: S/ 575.00
+                  - generic [ref=e268]:
+                    - paragraph [ref=e269]: Vencido
+                    - paragraph [ref=e270]: S/ 95.83
+                  - generic [ref=e271]:
+                    - link "Registrar pago" [ref=e272]:
+                      - /url: /collections/payments
+                      - button [ref=e273]:
+                        - img
+                    - link "Registrar gestión" [ref=e274]:
+                      - /url: /collections/actions
+                      - button [ref=e275]:
+                        - img
+                - generic [ref=e276]: 1 venc.
+              - generic [ref=e278] [cursor=pointer]:
+                - img [ref=e279]
+                - generic [ref=e281]:
+                  - generic [ref=e282]:
+                    - generic [ref=e283]:
+                      - img [ref=e284]
+                      - generic [ref=e287]: Pedro Huamaní Ccori
+                    - generic [ref=e288]:
+                      - img [ref=e289]
+                      - generic [ref=e291]: "932109876"
+                  - generic [ref=e292]:
+                    - paragraph [ref=e293]: Planes
+                    - paragraph [ref=e294]: "2"
+                  - generic [ref=e295]:
+                    - paragraph [ref=e296]: Deuda total
+                    - paragraph [ref=e297]: S/ 849.33
+                  - generic [ref=e298]:
+                    - paragraph [ref=e299]: Vencido
+                    - generic [ref=e300]: Al dia
+                  - generic [ref=e301]:
+                    - link "Registrar pago" [ref=e302]:
+                      - /url: /collections/payments
+                      - button [ref=e303]:
+                        - img
+                    - link "Registrar gestión" [ref=e304]:
+                      - /url: /collections/actions
+                      - button [ref=e305]:
+                        - img
+              - generic [ref=e307] [cursor=pointer]:
+                - img [ref=e308]
+                - generic [ref=e310]:
+                  - generic [ref=e311]:
+                    - generic [ref=e312]:
+                      - img [ref=e313]
+                      - generic [ref=e316]: Gian
+                    - generic [ref=e317]:
+                      - img [ref=e318]
+                      - generic [ref=e320]: "951951951"
+                  - generic [ref=e321]:
+                    - paragraph [ref=e322]: Planes
+                    - paragraph [ref=e323]: "2"
+                  - generic [ref=e324]:
+                    - paragraph [ref=e325]: Deuda total
+                    - paragraph [ref=e326]: S/ 755.00
+                  - generic [ref=e327]:
+                    - paragraph [ref=e328]: Vencido
+                    - generic [ref=e329]: Al dia
+                  - generic [ref=e330]:
+                    - link "Registrar pago" [ref=e331]:
+                      - /url: /collections/payments
+                      - button [ref=e332]:
+                        - img
+                    - link "Registrar gestión" [ref=e333]:
+                      - /url: /collections/actions
+                      - button [ref=e334]:
+                        - img
+              - generic [ref=e336] [cursor=pointer]:
+                - img [ref=e337]
+                - generic [ref=e339]:
+                  - generic [ref=e340]:
+                    - generic [ref=e341]:
+                      - img [ref=e342]
+                      - generic [ref=e345]: Sandra Valeria Ruiz
+                    - generic [ref=e346]:
+                      - img [ref=e347]
+                      - generic [ref=e349]: "977654321"
+                  - generic [ref=e350]:
+                    - paragraph [ref=e351]: Planes
+                    - paragraph [ref=e352]: "1"
+                  - generic [ref=e353]:
+                    - paragraph [ref=e354]: Deuda total
+                    - paragraph [ref=e355]: S/ 496.00
+                  - generic [ref=e356]:
+                    - paragraph [ref=e357]: Vencido
+                    - generic [ref=e358]: Al dia
+                  - generic [ref=e359]:
+                    - link "Registrar pago" [ref=e360]:
+                      - /url: /collections/payments
+                      - button [ref=e361]:
+                        - img
+                    - link "Registrar gestión" [ref=e362]:
+                      - /url: /collections/actions
+                      - button [ref=e363]:
+                        - img
+              - generic [ref=e365] [cursor=pointer]:
+                - img [ref=e366]
+                - generic [ref=e368]:
+                  - generic [ref=e369]:
+                    - generic [ref=e370]:
+                      - img [ref=e371]
+                      - generic [ref=e374]: Carmen Rosa Apaza
+                    - generic [ref=e375]:
+                      - img [ref=e376]
+                      - generic [ref=e378]: "999876543"
+                  - generic [ref=e379]:
+                    - paragraph [ref=e380]: Planes
+                    - paragraph [ref=e381]: "3"
+                  - generic [ref=e382]:
+                    - paragraph [ref=e383]: Deuda total
+                    - paragraph [ref=e384]: S/ 435.00
+                  - generic [ref=e385]:
+                    - paragraph [ref=e386]: Vencido
+                    - generic [ref=e387]: Al dia
+                  - generic [ref=e388]:
+                    - link "Registrar pago" [ref=e389]:
+                      - /url: /collections/payments
+                      - button [ref=e390]:
+                        - img
+                    - link "Registrar gestión" [ref=e391]:
+                      - /url: /collections/actions
+                      - button [ref=e392]:
+                        - img
+              - generic [ref=e394] [cursor=pointer]:
+                - img [ref=e395]
+                - generic [ref=e397]:
+                  - generic [ref=e398]:
+                    - generic [ref=e399]:
+                      - img [ref=e400]
+                      - generic [ref=e403]: Carlos Mendoza Rivas
+                    - generic [ref=e404]:
+                      - img [ref=e405]
+                      - generic [ref=e407]: "954321098"
+                  - generic [ref=e408]:
+                    - paragraph [ref=e409]: Planes
+                    - paragraph [ref=e410]: "2"
+                  - generic [ref=e411]:
+                    - paragraph [ref=e412]: Deuda total
+                    - paragraph [ref=e413]: S/ 234.90
+                  - generic [ref=e414]:
+                    - paragraph [ref=e415]: Vencido
+                    - generic [ref=e416]: Al dia
+                  - generic [ref=e417]:
+                    - link "Registrar pago" [ref=e418]:
+                      - /url: /collections/payments
+                      - button [ref=e419]:
+                        - img
+                    - link "Registrar gestión" [ref=e420]:
+                      - /url: /collections/actions
+                      - button [ref=e421]:
+                        - img
+              - generic [ref=e423] [cursor=pointer]:
+                - img [ref=e424]
+                - generic [ref=e426]:
+                  - generic [ref=e427]:
+                    - generic [ref=e428]:
+                      - img [ref=e429]
+                      - generic [ref=e432]: Ana Sofía Torres
+                    - generic [ref=e433]:
+                      - img [ref=e434]
+                      - generic [ref=e436]: "943210987"
+                  - generic [ref=e437]:
+                    - paragraph [ref=e438]: Planes
+                    - paragraph [ref=e439]: "2"
+                  - generic [ref=e440]:
+                    - paragraph [ref=e441]: Deuda total
+                    - paragraph [ref=e442]: S/ 234.90
+                  - generic [ref=e443]:
+                    - paragraph [ref=e444]: Vencido
+                    - generic [ref=e445]: Al dia
+                  - generic [ref=e446]:
+                    - link "Registrar pago" [ref=e447]:
+                      - /url: /collections/payments
+                      - button [ref=e448]:
+                        - img
+                    - link "Registrar gestión" [ref=e449]:
+                      - /url: /collections/actions
+                      - button [ref=e450]:
+                        - img
+              - generic [ref=e452] [cursor=pointer]:
+                - img [ref=e453]
+                - generic [ref=e455]:
+                  - generic [ref=e456]:
+                    - generic [ref=e457]:
+                      - img [ref=e458]
+                      - generic [ref=e461]: Gian
+                    - generic [ref=e462]:
+                      - img [ref=e463]
+                      - generic [ref=e465]: "989898981"
+                  - generic [ref=e466]:
+                    - paragraph [ref=e467]: Planes
+                    - paragraph [ref=e468]: "2"
+                  - generic [ref=e469]:
+                    - paragraph [ref=e470]: Deuda total
+                    - paragraph [ref=e471]: S/ 190.00
+                  - generic [ref=e472]:
+                    - paragraph [ref=e473]: Vencido
+                    - generic [ref=e474]: Al dia
+                  - generic [ref=e475]:
+                    - link "Registrar pago" [ref=e476]:
+                      - /url: /collections/payments
+                      - button [ref=e477]:
+                        - img
+                    - link "Registrar gestión" [ref=e478]:
+                      - /url: /collections/actions
+                      - button [ref=e479]:
+                        - img
+              - generic [ref=e481] [cursor=pointer]:
+                - img [ref=e482]
+                - generic [ref=e484]:
+                  - generic [ref=e485]:
+                    - generic [ref=e486]:
+                      - img [ref=e487]
+                      - generic [ref=e490]: Gianfranco Julca
+                    - generic [ref=e491]:
+                      - img [ref=e492]
+                      - generic [ref=e494]: "949236795"
+                  - generic [ref=e495]:
+                    - paragraph [ref=e496]: Planes
+                    - paragraph [ref=e497]: "11"
+                  - generic [ref=e498]:
+                    - paragraph [ref=e499]: Deuda total
+                    - paragraph [ref=e500]: S/ 4.88
+                  - generic [ref=e501]:
+                    - paragraph [ref=e502]: Vencido
+                    - generic [ref=e503]: Al dia
+                  - generic [ref=e504]:
+                    - link "Registrar pago" [ref=e505]:
+                      - /url: /collections/payments
+                      - button [ref=e506]:
+                        - img
+                    - link "Registrar gestión" [ref=e507]:
+                      - /url: /collections/actions
+                      - button [ref=e508]:
+                        - img
+              - generic [ref=e510] [cursor=pointer]:
+                - img [ref=e511]
+                - generic [ref=e513]:
+                  - generic [ref=e514]:
+                    - generic [ref=e515]:
+                      - img [ref=e516]
+                      - generic [ref=e519]: Rosa Elena Mamani
+                    - generic [ref=e520]:
+                      - img [ref=e521]
+                      - generic [ref=e523]: "965432109"
+                  - generic [ref=e524]:
+                    - paragraph [ref=e525]: Planes
+                    - paragraph [ref=e526]: "1"
+                  - generic [ref=e527]:
+                    - paragraph [ref=e528]: Deuda total
+                    - paragraph [ref=e529]: S/ 0.00
+                  - generic [ref=e530]:
+                    - paragraph [ref=e531]: Vencido
+                    - generic [ref=e532]: Al dia
+                  - generic [ref=e533]:
+                    - link "Registrar pago" [ref=e534]:
+                      - /url: /collections/payments
+                      - button [ref=e535]:
+                        - img
+                    - link "Registrar gestión" [ref=e536]:
+                      - /url: /collections/actions
+                      - button [ref=e537]:
+                        - img
+              - generic [ref=e539] [cursor=pointer]:
+                - img [ref=e540]
+                - generic [ref=e542]:
+                  - generic [ref=e543]:
+                    - generic [ref=e544]:
+                      - img [ref=e545]
+                      - generic [ref=e548]: Ariana Muñoz Ames
+                    - generic [ref=e549]:
+                      - img [ref=e550]
+                      - generic [ref=e552]: "931258451"
+                  - generic [ref=e553]:
+                    - paragraph [ref=e554]: Planes
+                    - paragraph [ref=e555]: "2"
+                  - generic [ref=e556]:
+                    - paragraph [ref=e557]: Deuda total
+                    - paragraph [ref=e558]: S/ 0.01
+                  - generic [ref=e559]:
+                    - paragraph [ref=e560]: Vencido
+                    - generic [ref=e561]: Al dia
+                  - generic [ref=e562]:
+                    - link "Registrar pago" [ref=e563]:
+                      - /url: /collections/payments
+                      - button [ref=e564]:
+                        - img
+                    - link "Registrar gestión" [ref=e565]:
+                      - /url: /collections/actions
+                      - button [ref=e566]:
+                        - img
+  - region "Notifications alt+T"
+  - alert [ref=e567]
+```

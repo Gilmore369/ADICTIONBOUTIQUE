@@ -1,0 +1,2081 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic:
+    - complementary:
+      - generic:
+        - generic:
+          - generic: AB
+        - generic: ADICTION BOUTIQUE
+      - navigation:
+        - list:
+          - listitem:
+            - link:
+              - /url: /dashboard
+              - img
+              - text: Dashboard
+          - listitem:
+            - link:
+              - /url: /pos
+              - img
+              - text: POS
+          - listitem:
+            - link:
+              - /url: /catalogs/visual
+              - img
+              - text: Catálogo Visual
+          - listitem:
+            - link:
+              - /url: /sales
+              - img
+              - text: Historial de Ventas
+          - listitem:
+            - link:
+              - /url: /returns
+              - img
+              - text: Devoluciones
+          - listitem:
+            - link:
+              - /url: /cash
+              - img
+              - text: Caja
+          - listitem:
+            - link:
+              - /url: /debt
+              - img
+              - text: Deuda
+          - listitem:
+            - button:
+              - generic:
+                - img
+                - generic: Cobranzas
+              - img
+          - listitem:
+            - link:
+              - /url: /agenda
+              - img
+              - text: Agenda
+          - listitem:
+            - button:
+              - generic:
+                - img
+                - generic: Clientes
+              - img
+          - listitem:
+            - button:
+              - generic:
+                - img
+                - generic: Inventario
+              - img
+            - list:
+              - listitem:
+                - link:
+                  - /url: /inventory/stock
+                  - img
+                  - text: Stock
+              - listitem:
+                - link:
+                  - /url: /inventory/movements
+                  - img
+                  - text: Movimientos
+              - listitem:
+                - link:
+                  - /url: /inventory/bulk-entry
+                  - img
+                  - text: Ingreso Masivo
+          - listitem:
+            - button:
+              - generic:
+                - img
+                - generic: Catálogos
+              - img
+            - list:
+              - listitem:
+                - link:
+                  - /url: /catalogs/products
+                  - img
+                  - text: Productos
+              - listitem:
+                - link:
+                  - /url: /catalogs/lines
+                  - img
+                  - text: Líneas
+              - listitem:
+                - link:
+                  - /url: /catalogs/categories
+                  - img
+                  - text: Categorías
+              - listitem:
+                - link:
+                  - /url: /catalogs/brands
+                  - img
+                  - text: Marcas
+              - listitem:
+                - link:
+                  - /url: /catalogs/sizes
+                  - img
+                  - text: Tallas
+              - listitem:
+                - link:
+                  - /url: /catalogs/suppliers
+                  - img
+                  - text: Proveedores
+          - listitem:
+            - link:
+              - /url: /reports
+              - img
+              - text: Reportes
+          - listitem:
+            - link:
+              - /url: /admin/users
+              - img
+              - text: Admin Usuarios
+      - generic:
+        - button:
+          - img
+          - generic: Colapsar menú
+    - generic:
+      - banner:
+        - generic:
+          - generic:
+            - generic:
+              - button:
+                - img
+            - button:
+              - img
+            - generic:
+              - button:
+                - generic: OP
+                - generic: Operaciones
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Productos
+                - paragraph: Gestiona el catálogo de productos (mostrando 100 de 100)
+              - generic:
+                - button:
+                  - img
+                  - text: Producto Simple
+                - button:
+                  - img
+                  - text: Múltiples Tallas
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                  - textbox:
+                    - /placeholder: Buscar por nombre, código o descripción...
+              - generic:
+                - generic: Filtrar por Línea
+                - combobox
+              - generic:
+                - generic: Filtrar por Categoría
+                - combobox
+            - generic:
+              - generic:
+                - table:
+                  - rowgroup:
+                    - row:
+                      - columnheader: Código de Barras
+                      - columnheader: Nombre
+                      - columnheader: Línea
+                      - columnheader: Categoría
+                      - columnheader: Marca
+                      - columnheader: Talla
+                      - columnheader: Color
+                      - columnheader: Precio
+                      - columnheader: Stock
+                      - columnheader: Acciones
+                  - rowgroup:
+                    - row:
+                      - cell: BLS-001-LB
+                      - cell: Blusa Floral - L - Blanco
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Blanco
+                      - cell: S/ 55.00
+                      - cell: "0"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-LR
+                      - cell: Blusa Floral - L - Rosado
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Rosado
+                      - cell: S/ 55.00
+                      - cell: "0"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-MA
+                      - cell: Blusa Floral - M - Azul
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Azul
+                      - cell: S/ 55.00
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-MB
+                      - cell: Blusa Floral - M - Blanco
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Blanco
+                      - cell: S/ 55.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-MR
+                      - cell: Blusa Floral - M - Rosado
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Rosado
+                      - cell: S/ 55.00
+                      - cell: "16"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-SA
+                      - cell: Blusa Floral - S - Azul
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Azul
+                      - cell: S/ 55.00
+                      - cell: "7"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-SB
+                      - cell: Blusa Floral - S - Blanco
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Blanco
+                      - cell: S/ 55.00
+                      - cell: "13"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-SR
+                      - cell: Blusa Floral - S - Rosado
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Rosado
+                      - cell: S/ 55.00
+                      - cell: "12"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: BLS-001-XR
+                      - cell: Blusa Floral - XL - Rosado
+                      - cell: Mujeres
+                      - cell: Blusas
+                      - cell: Adiction
+                      - cell: XL
+                      - cell: Rosado
+                      - cell: S/ 55.00
+                      - cell: "6"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-LB
+                      - cell: Camisa Formal - L - Blanco
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: L
+                      - cell: Blanco
+                      - cell: S/ 95.00
+                      - cell: "2"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-LC
+                      - cell: Camisa Formal - L - Celeste
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: L
+                      - cell: Celeste
+                      - cell: S/ 95.00
+                      - cell: "4"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-MB
+                      - cell: Camisa Formal - M - Blanco
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: M
+                      - cell: Blanco
+                      - cell: S/ 95.00
+                      - cell: "11"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-MC
+                      - cell: Camisa Formal - M - Celeste
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: M
+                      - cell: Celeste
+                      - cell: S/ 95.00
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-MG
+                      - cell: Camisa Formal - M - Gris
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: M
+                      - cell: Gris
+                      - cell: S/ 95.00
+                      - cell: "7"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-SB
+                      - cell: Camisa Formal - S - Blanco
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: S
+                      - cell: Blanco
+                      - cell: S/ 95.00
+                      - cell: "12"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-SC
+                      - cell: Camisa Formal - S - Celeste
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: S
+                      - cell: Celeste
+                      - cell: S/ 95.00
+                      - cell: "8"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-SG
+                      - cell: Camisa Formal - S - Gris
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: S
+                      - cell: Gris
+                      - cell: S/ 95.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAM-001-XB
+                      - cell: Camisa Formal - XL - Blanco
+                      - cell: Hombres
+                      - cell: Camisas
+                      - cell: Mango
+                      - cell: XL
+                      - cell: Blanco
+                      - cell: S/ 95.00
+                      - cell: "6"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-001-LA
+                      - cell: Casaca Denim - L - Azul
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Forever 21
+                      - cell: L
+                      - cell: Azul
+                      - cell: S/ 180.00
+                      - cell: "8"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-001-LN
+                      - cell: Casaca Denim - L - Negro
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Forever 21
+                      - cell: L
+                      - cell: Negro
+                      - cell: S/ 180.00
+                      - cell: "10"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-001-MA
+                      - cell: Casaca Denim - M - Azul
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Forever 21
+                      - cell: M
+                      - cell: Azul
+                      - cell: S/ 180.00
+                      - cell: "7"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-001-MN
+                      - cell: Casaca Denim - M - Negro
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Forever 21
+                      - cell: M
+                      - cell: Negro
+                      - cell: S/ 180.00
+                      - cell: "6"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-001-SA
+                      - cell: Casaca Denim - S - Azul
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Forever 21
+                      - cell: S
+                      - cell: Azul
+                      - cell: S/ 180.00
+                      - cell: "4"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-001-SN
+                      - cell: Casaca Denim - S - Negro
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Forever 21
+                      - cell: S
+                      - cell: Negro
+                      - cell: S/ 180.00
+                      - cell: "8"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-LA
+                      - cell: Casaca Deportiva - L - Azul
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Azul
+                      - cell: S/ 220.00
+                      - cell: "12"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-LN
+                      - cell: Casaca Deportiva - L - Negro
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Negro
+                      - cell: S/ 220.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-MA
+                      - cell: Casaca Deportiva - M - Azul
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Azul
+                      - cell: S/ 220.00
+                      - cell: "16"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-MN
+                      - cell: Casaca Deportiva - M - Negro
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Negro
+                      - cell: S/ 220.00
+                      - cell: "8"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-MR
+                      - cell: Casaca Deportiva - M - Rojo
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Rojo
+                      - cell: S/ 220.00
+                      - cell: "10"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-SA
+                      - cell: Casaca Deportiva - S - Azul
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Azul
+                      - cell: S/ 220.00
+                      - cell: "14"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-SN
+                      - cell: Casaca Deportiva - S - Negro
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Negro
+                      - cell: S/ 220.00
+                      - cell: "12"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-SR
+                      - cell: Casaca Deportiva - S - Rojo
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Rojo
+                      - cell: S/ 220.00
+                      - cell: "13"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CAS-002-XN
+                      - cell: Casaca Deportiva - XL - Negro
+                      - cell: Hombres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: XL
+                      - cell: Negro
+                      - cell: S/ 220.00
+                      - cell: "11"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-LBe
+                      - cell: Chaleco Army - L - Beige
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Beige
+                      - cell: S/ 350.00
+                      - cell: "0"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-LN
+                      - cell: Chaleco Army - L - Negro
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "8"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-LV
+                      - cell: Chaleco Army - L - Verde
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Verde
+                      - cell: S/ 350.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-MBe
+                      - cell: Chaleco Army - M - Beige
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Beige
+                      - cell: S/ 350.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-MN
+                      - cell: Chaleco Army - M - Negro
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "11"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-MV
+                      - cell: Chaleco Army - M - Verde
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Verde
+                      - cell: S/ 350.00
+                      - cell: "2"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-SBe
+                      - cell: Chaleco Army - S - Beige
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Beige
+                      - cell: S/ 350.00
+                      - cell: "14"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-SN
+                      - cell: Chaleco Army - S - Negro
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "2"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-SV
+                      - cell: Chaleco Army - S - Verde
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Verde
+                      - cell: S/ 350.00
+                      - cell: "10"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CHA-001-XV
+                      - cell: Chaleco Army - XL - Verde
+                      - cell: Mujeres
+                      - cell: Casacas
+                      - cell: Adiction
+                      - cell: XL
+                      - cell: Verde
+                      - cell: S/ 350.00
+                      - cell: "12"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: SPL-001-250ml
+                      - cell: Coconut Passion - 250ml
+                      - cell: Mujeres
+                      - cell: Perfumes
+                      - cell: Victoria Secret
+                      - cell: 250ml
+                      - cell: Amarillo
+                      - cell: S/ 75.00
+                      - cell: "0"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CIN-L
+                      - cell: Gorro pescador 3 tiras - L
+                      - cell: Mujeres
+                      - cell: Accesorios
+                      - cell: Adidas
+                      - cell: L
+                      - cell: Beige
+                      - cell: S/ 139.90
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CIN-001-L
+                      - cell: Gorro pescador 3 tiras - L
+                      - cell: Mujeres
+                      - cell: Accesorios
+                      - cell: Adidas
+                      - cell: L
+                      - cell: Azul
+                      - cell: S/ 139.90
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CIN-001-M
+                      - cell: Gorro pescador 3 tiras - M
+                      - cell: Mujeres
+                      - cell: Accesorios
+                      - cell: Adidas
+                      - cell: M
+                      - cell: Azul
+                      - cell: S/ 139.90
+                      - cell: "2"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: CIN-M
+                      - cell: Gorro pescador 3 tiras - M
+                      - cell: Mujeres
+                      - cell: Accesorios
+                      - cell: Adidas
+                      - cell: M
+                      - cell: Beige
+                      - cell: S/ 139.90
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-28A
+                      - cell: Jean Recto - 28 - Azul
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "28"
+                      - cell: Azul
+                      - cell: S/ 130.00
+                      - cell: "13"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-28G
+                      - cell: Jean Recto - 28 - Gris
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "28"
+                      - cell: Gris
+                      - cell: S/ 130.00
+                      - cell: "12"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-28N
+                      - cell: Jean Recto - 28 - Negro
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "28"
+                      - cell: Negro
+                      - cell: S/ 130.00
+                      - cell: "7"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-30A
+                      - cell: Jean Recto - 30 - Azul
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "30"
+                      - cell: Azul
+                      - cell: S/ 130.00
+                      - cell: "11"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-30G
+                      - cell: Jean Recto - 30 - Gris
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "30"
+                      - cell: Gris
+                      - cell: S/ 130.00
+                      - cell: "2"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-30N
+                      - cell: Jean Recto - 30 - Negro
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "30"
+                      - cell: Negro
+                      - cell: S/ 130.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-32A
+                      - cell: Jean Recto - 32 - Azul
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "32"
+                      - cell: Azul
+                      - cell: S/ 130.00
+                      - cell: "10"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-32N
+                      - cell: Jean Recto - 32 - Negro
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "32"
+                      - cell: Negro
+                      - cell: S/ 130.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-002-34A
+                      - cell: Jean Recto - 34 - Azul
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "34"
+                      - cell: Azul
+                      - cell: S/ 130.00
+                      - cell: "8"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-28A
+                      - cell: Jean Skinny - 28 - Azul
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "28"
+                      - cell: Azul
+                      - cell: S/ 120.00
+                      - cell: "15"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-28N
+                      - cell: Jean Skinny - 28 - Negro
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "28"
+                      - cell: Negro
+                      - cell: S/ 120.00
+                      - cell: "13"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-30A
+                      - cell: Jean Skinny - 30 - Azul
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "30"
+                      - cell: Azul
+                      - cell: S/ 120.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-30N
+                      - cell: Jean Skinny - 30 - Negro
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "30"
+                      - cell: Negro
+                      - cell: S/ 120.00
+                      - cell: "14"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-32A
+                      - cell: Jean Skinny - 32 - Azul
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "32"
+                      - cell: Azul
+                      - cell: S/ 120.00
+                      - cell: "15"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-32N
+                      - cell: Jean Skinny - 32 - Negro
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "32"
+                      - cell: Negro
+                      - cell: S/ 120.00
+                      - cell: "13"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-34A
+                      - cell: Jean Skinny - 34 - Azul
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "34"
+                      - cell: Azul
+                      - cell: S/ 120.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-001-34N
+                      - cell: Jean Skinny - 34 - Negro
+                      - cell: Mujeres
+                      - cell: Jeans
+                      - cell: Zara
+                      - cell: "34"
+                      - cell: Negro
+                      - cell: S/ 120.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-003-28
+                      - cell: Pantalón Denim Negro - 28
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "28"
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-003-30
+                      - cell: Pantalón Denim Negro - 30
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "30"
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-003-32
+                      - cell: Pantalón Denim Negro - 32
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "32"
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "4"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-003-34
+                      - cell: Pantalón Denim Negro - 34
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "34"
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "4"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-003-36
+                      - cell: Pantalón Denim Negro - 36
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "36"
+                      - cell: Negro
+                      - cell: S/ 350.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-033-30
+                      - cell: Pantalón jean Denim - 30
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "30"
+                      - cell: Azul
+                      - cell: S/ 380.00
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-004-32
+                      - cell: Pantalón jean Denim - 32
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "32"
+                      - cell: Beige
+                      - cell: S/ 380.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-033-32
+                      - cell: Pantalón jean Denim - 32
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "32"
+                      - cell: Azul
+                      - cell: S/ 380.00
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-004-34
+                      - cell: Pantalón jean Denim - 34
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "34"
+                      - cell: Beige
+                      - cell: S/ 380.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-033-34
+                      - cell: Pantalón jean Denim - 34
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "34"
+                      - cell: Azul
+                      - cell: S/ 380.00
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-004-36
+                      - cell: Pantalón jean Denim - 36
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "36"
+                      - cell: Beige
+                      - cell: S/ 380.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-033-36
+                      - cell: Pantalón jean Denim - 36
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "36"
+                      - cell: Verde
+                      - cell: S/ 380.00
+                      - cell: "4"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-004-38
+                      - cell: Pantalón jean Denim - 38
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "38"
+                      - cell: Beige
+                      - cell: S/ 380.00
+                      - cell: "5"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-38
+                      - cell: Pantalón jean Denim - 38
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "38"
+                      - cell: Amarillo
+                      - cell: S/ 380.00
+                      - cell: "2"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: JEA-033-38
+                      - cell: Pantalón jean Denim - 38
+                      - cell: Hombres
+                      - cell: Jeans
+                      - cell: Adidas
+                      - cell: "38"
+                      - cell: Verde
+                      - cell: S/ 380.00
+                      - cell: "4"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-LG
+                      - cell: Pantalón Jogger - L - Gris
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Gris
+                      - cell: S/ 85.00
+                      - cell: "14"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-LN
+                      - cell: Pantalón Jogger - L - Negro
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: L
+                      - cell: Negro
+                      - cell: S/ 85.00
+                      - cell: "3"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-MG
+                      - cell: Pantalón Jogger - M - Gris
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Gris
+                      - cell: S/ 85.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-MN
+                      - cell: Pantalón Jogger - M - Negro
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Negro
+                      - cell: S/ 85.00
+                      - cell: "11"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-MV
+                      - cell: Pantalón Jogger - M - Verde
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: M
+                      - cell: Verde
+                      - cell: S/ 85.00
+                      - cell: "13"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-SG
+                      - cell: Pantalón Jogger - S - Gris
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Gris
+                      - cell: S/ 85.00
+                      - cell: "6"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-SN
+                      - cell: Pantalón Jogger - S - Negro
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Negro
+                      - cell: S/ 85.00
+                      - cell: "2"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-SV
+                      - cell: Pantalón Jogger - S - Verde
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: S
+                      - cell: Verde
+                      - cell: S/ 85.00
+                      - cell: "4"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: PAN-001-XN
+                      - cell: Pantalón Jogger - XL - Negro
+                      - cell: Mujeres
+                      - cell: Pantalones
+                      - cell: Adiction
+                      - cell: XL
+                      - cell: Negro
+                      - cell: S/ 85.00
+                      - cell: "10"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-LB
+                      - cell: Polo Básico - L - Blanco
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: L
+                      - cell: Blanco
+                      - cell: S/ 45.00
+                      - cell: "13"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-LG
+                      - cell: Polo Básico - L - Gris
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: L
+                      - cell: Gris
+                      - cell: S/ 45.00
+                      - cell: "11"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-LN
+                      - cell: Polo Básico - L - Negro
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: L
+                      - cell: Negro
+                      - cell: S/ 45.00
+                      - cell: "6"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-MA
+                      - cell: Polo Básico - M - Azul
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: M
+                      - cell: Azul
+                      - cell: S/ 45.00
+                      - cell: "15"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-MB
+                      - cell: Polo Básico - M - Blanco
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: M
+                      - cell: Blanco
+                      - cell: S/ 45.00
+                      - cell: "7"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-MG
+                      - cell: Polo Básico - M - Gris
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: M
+                      - cell: Gris
+                      - cell: S/ 45.00
+                      - cell: "12"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-MN
+                      - cell: Polo Básico - M - Negro
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: M
+                      - cell: Negro
+                      - cell: S/ 45.00
+                      - cell: "11"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-SA
+                      - cell: Polo Básico - S - Azul
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: S
+                      - cell: Azul
+                      - cell: S/ 45.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-SB
+                      - cell: Polo Básico - S - Blanco
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: S
+                      - cell: Blanco
+                      - cell: S/ 45.00
+                      - cell: "15"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-SG
+                      - cell: Polo Básico - S - Gris
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: S
+                      - cell: Gris
+                      - cell: S/ 45.00
+                      - cell: "9"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+                    - row:
+                      - cell: POL-001-SN
+                      - cell: Polo Básico - S - Negro
+                      - cell: Hombres
+                      - cell: Polos c/redondo
+                      - cell: H&M
+                      - cell: S
+                      - cell: Negro
+                      - cell: S/ 45.00
+                      - cell: "7"
+                      - cell:
+                        - generic:
+                          - button:
+                            - img
+                            - generic: Editar
+                          - button:
+                            - img
+                            - generic: Eliminar
+  - region "Notifications alt+T"
+  - alert
+  - dialog "Nuevo Producto" [ref=e2]:
+    - heading "Nuevo Producto" [level=2] [ref=e4]
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]: Código de Barras *
+          - textbox "Código de Barras *" [active] [ref=e9]:
+            - /placeholder: "Ej: 7501234567890"
+        - generic [ref=e10]:
+          - generic [ref=e11]: Nombre *
+          - textbox "Nombre *" [ref=e12]:
+            - /placeholder: Nombre del producto
+      - generic [ref=e13]:
+        - generic [ref=e14]: Descripción
+        - textbox "Descripción" [ref=e15]:
+          - /placeholder: Descripción del producto
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]: Línea *
+          - combobox "Línea *" [ref=e19]:
+            - generic: Seleccionar línea
+            - img
+          - combobox [ref=e20]
+        - generic [ref=e21]:
+          - generic [ref=e22]: Categoría *
+          - combobox "Categoría *" [ref=e23]:
+            - generic: Seleccionar categoría
+            - img
+          - combobox [ref=e24]
+        - generic [ref=e25]:
+          - generic [ref=e26]: Marca
+          - combobox "Marca" [ref=e27]:
+            - generic: Seleccionar marca
+            - img
+          - combobox [ref=e28]
+        - generic [ref=e29]:
+          - generic [ref=e30]: Proveedor
+          - combobox "Proveedor" [ref=e31]:
+            - generic: Seleccionar proveedor
+            - img
+          - combobox [ref=e32]
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]: Talla
+          - textbox "Talla" [ref=e36]:
+            - /placeholder: "Ej: M, 38, XL"
+        - generic [ref=e37]:
+          - generic [ref=e38]: Color
+          - textbox "Color" [ref=e39]:
+            - /placeholder: "Ej: Rojo, Azul"
+        - generic [ref=e40]:
+          - generic [ref=e41]: Presentación
+          - textbox "Presentación" [ref=e42]:
+            - /placeholder: "Ej: Caja, Unidad"
+      - generic [ref=e43]:
+        - generic [ref=e44]:
+          - generic [ref=e45]: Precio de Compra
+          - spinbutton "Precio de Compra" [ref=e46]
+        - generic [ref=e47]:
+          - generic [ref=e48]: Precio de Venta *
+          - spinbutton "Precio de Venta *" [ref=e49]
+        - generic [ref=e50]:
+          - generic [ref=e51]: Stock Mínimo
+          - spinbutton "Stock Mínimo" [ref=e52]: "1"
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]: Fecha de Ingreso
+          - textbox "Fecha de Ingreso" [ref=e56]: 2026-04-05
+        - generic [ref=e57]:
+          - generic [ref=e58]: Foto del Producto
+          - generic [ref=e59]:
+            - img [ref=e61]
+            - generic [ref=e65]:
+              - button "Adjuntar foto" [ref=e66]:
+                - img
+                - text: Adjuntar foto
+              - paragraph [ref=e67]: JPG, PNG, WEBP · Máx. 2 MB
+      - generic [ref=e68]:
+        - checkbox "Producto activo" [checked] [ref=e69]
+        - generic [ref=e70]: Producto activo
+      - generic [ref=e71]:
+        - button "Cancelar" [ref=e72]
+        - button "Crear Producto" [ref=e73]
+    - button "Close" [ref=e74]:
+      - img
+      - generic [ref=e75]: Close
+```

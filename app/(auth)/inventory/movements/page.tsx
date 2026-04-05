@@ -10,24 +10,49 @@ export const metadata = {
 
 async function MovementsData() {
   const supabase = await createServerClient()
-  
-  const { data: movements, error } = await supabase
+
+  // Enforce store isolation
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from('users').select('stores').eq('id', user.id).single()
+    : { data: null }
+
+  const userStores: string[] = (profile as any)?.stores || []
+
+  // Get warehouse IDs for user's store(s)
+  let warehouseFilter: string[] | null = null
+  if (userStores.length === 1) {
+    const { data: storeData } = await supabase
+      .from('stores').select('id').eq('code', userStores[0].toUpperCase()).maybeSingle()
+    if (storeData?.id) {
+      const { data: whData } = await supabase
+        .from('warehouses').select('id').eq('store_id', storeData.id)
+      warehouseFilter = (whData || []).map((w: any) => w.id)
+    }
+  }
+
+  let query = supabase
     .from('movements')
     .select('*, products(name, barcode)')
     .order('created_at', { ascending: false })
-    .limit(100)
-  
+    .limit(200)
+
+  if (warehouseFilter && warehouseFilter.length > 0) {
+    query = query.in('warehouse_id', warehouseFilter) as typeof query
+  }
+
+  const { data: movements, error } = await query
+
   if (error) {
     console.error('Error loading movements:', error)
     return <div className="text-center text-gray-500 py-8">Error al cargar movimientos</div>
   }
-  
-  // Normalizar tipos de movimiento
+
   const normalizedMovements = (movements || []).map(m => ({
     ...m,
     type: m.type === 'ENTRADA' || m.type === 'IN' ? 'IN' : 'OUT'
   }))
-  
+
   return <MovementsTable data={normalizedMovements} />
 }
 

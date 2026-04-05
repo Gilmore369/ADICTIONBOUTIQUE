@@ -11,8 +11,41 @@ export const metadata = {
 async function StockData() {
   const supabase = await createServerClient()
 
+  // Enforce store isolation server-side
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from('users').select('stores').eq('id', user.id).single()
+    : { data: null }
+
+  const userStores: string[] = (profile as any)?.stores || []
+
+  // Get warehouse IDs for user's accessible stores
+  let allowedWarehouseIds: string[] | null = null
+  if (userStores.length > 0 && !(userStores.length === 2 && userStores.includes('MUJERES') && userStores.includes('HOMBRES'))) {
+    // Not all-access: filter to specific stores
+    const { data: storeData } = await supabase
+      .from('stores')
+      .select('id')
+      .in('code', userStores.map(s => s.toUpperCase()))
+    if (storeData && storeData.length > 0) {
+      const storeIds = storeData.map((s: any) => s.id)
+      const { data: whData } = await supabase
+        .from('warehouses').select('id').in('store_id', storeIds)
+      allowedWarehouseIds = (whData || []).map((w: any) => w.id)
+    }
+  }
+
+  let stockQuery = supabase
+    .from('stock')
+    .select('*, products(id, name, barcode, min_stock)')
+    .order('warehouse_id')
+
+  if (allowedWarehouseIds && allowedWarehouseIds.length > 0) {
+    stockQuery = stockQuery.in('warehouse_id', allowedWarehouseIds) as typeof stockQuery
+  }
+
   const [stockRes, storesRes] = await Promise.all([
-    supabase.from('stock').select('*, products(id, name, barcode, min_stock)').order('warehouse_id'),
+    stockQuery,
     supabase.from('stores').select('id, name, code')
   ])
 
