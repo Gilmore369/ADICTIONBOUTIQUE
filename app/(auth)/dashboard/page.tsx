@@ -162,6 +162,7 @@ export default async function DashboardPage({
 
   // Store-filtered debt counts
   const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
+  console.log('[DASH]', { storeFilter, storeSaleIdsLen: storeSaleIds?.length ?? 'null', debtPlans: filteredDebtPlans === null ? 'null' : filteredDebtPlans.length, debtResErr: (filteredDebtRes as any)?.error?.message ?? 'ok' })
   let filteredClientsWithDebt: number | null = null
   let filteredClientsOverdue: number | null = null
   if (filteredDebtPlans !== null) {
