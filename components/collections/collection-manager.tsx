@@ -130,12 +130,118 @@ function TimelineItem({ action }: { action: ActionRecord }) {
   )
 }
 
+// ─── Action detail modal ────────────────────────────────────────────────────
+function ActionDetailModal({ record, onClose }: { record: HistoryRecord; onClose: () => void }) {
+  const router = useRouter()
+  const res = RESULT_LABELS[record.result] || { label: record.result, icon: HelpCircle, color: 'text-gray-500' }
+  const ResIcon = res.icon
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">Detalle de Acción</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4">
+          {/* Cliente */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Cliente</p>
+            <button
+              onClick={() => { router.push(`/clients/${record.client_id}`); onClose() }}
+              className="text-sm font-semibold text-blue-600 hover:underline text-left"
+            >
+              {record.client_name}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Fecha */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Fecha y hora</p>
+              <p className="text-sm text-gray-900">{formatSafeDate(record.created_at, 'dd/MM/yyyy HH:mm')}</p>
+            </div>
+            {/* Cobrador */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Cobrador</p>
+              <p className="text-sm text-gray-900">{record.users?.name || '—'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Tipo */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipo de acción</p>
+              <p className="text-sm text-gray-900">{ACTION_LABELS[record.action_type] || record.action_type}</p>
+            </div>
+            {/* Resultado */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Resultado</p>
+              <span className={cn('flex items-center gap-1.5 text-sm font-medium', res.color)}>
+                <ResIcon className="h-4 w-4 flex-shrink-0" />
+                {res.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Fecha promesa */}
+          {record.payment_promise_date && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Promesa de pago</p>
+              <p className="text-sm text-blue-600 font-medium">
+                📅 {formatSafeDate(record.payment_promise_date, 'dd/MM/yyyy')}
+              </p>
+            </div>
+          )}
+
+          {/* Notas */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Notas</p>
+            {record.notes ? (
+              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2.5 leading-relaxed whitespace-pre-wrap">
+                {record.notes}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">Sin notas</p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Global history view ────────────────────────────────────────────────────
 function GlobalHistory() {
   const router = useRouter()
   const [records, setRecords] = useState<HistoryRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [selectedRecord, setSelectedRecord] = useState<HistoryRecord | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -159,6 +265,9 @@ function GlobalHistory() {
 
   return (
     <div className="space-y-4">
+      {selectedRecord && (
+        <ActionDetailModal record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+      )}
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
@@ -203,20 +312,19 @@ function GlobalHistory() {
                   const res = RESULT_LABELS[r.result] || { label: r.result, icon: HelpCircle, color: 'text-gray-500' }
                   const ResIcon = res.icon
                   return (
-                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                    <tr
+                      key={r.id}
+                      onClick={() => setSelectedRecord(r)}
+                      className="hover:bg-blue-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                         {formatSafeDate(r.created_at, 'dd/MM/yy HH:mm')}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => router.push(`/clients/${r.client_id}`)}
-                          className="font-medium text-gray-900 hover:text-blue-600 hover:underline text-left"
-                        >
-                          {r.client_name}
-                        </button>
+                        <span className="font-medium text-gray-900">{r.client_name}</span>
                         {r.payment_promise_date && (
                           <div className="text-xs text-blue-600 mt-0.5">
-                            📅 Promete: {formatSafeDate(r.payment_promise_date, 'dd/MM/yyyy')}
+                            📅 {formatSafeDate(r.payment_promise_date, 'dd/MM/yyyy')}
                           </div>
                         )}
                       </td>

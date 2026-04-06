@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { formatSafeDate } from '@/lib/utils/date'
-import { RefreshCw, Loader2, ShoppingCart, DollarSign, Package, Phone, Filter, Download } from 'lucide-react'
+import { RefreshCw, Loader2, ShoppingCart, DollarSign, Package, Phone, Filter, Download, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type Category = 'all' | 'ventas' | 'cobros' | 'inventario' | 'cobranzas'
+type Category = 'all' | 'ventas' | 'cobros' | 'inventario' | 'cobranzas' | 'ediciones'
 type Severity = 'info' | 'success' | 'warning' | 'error'
 
 interface LogEntry {
@@ -23,11 +23,12 @@ interface LogEntry {
 interface UserOption { id: string; name: string; email: string }
 
 const CATEGORY_META: Record<Category, { label: string; icon: any; color: string }> = {
-  all:        { label: 'Todo',       icon: Filter,      color: 'text-gray-600' },
-  ventas:     { label: 'Ventas',     icon: ShoppingCart, color: 'text-blue-600' },
-  cobros:     { label: 'Cobros',     icon: DollarSign,  color: 'text-green-600' },
-  inventario: { label: 'Inventario', icon: Package,     color: 'text-orange-600' },
-  cobranzas:  { label: 'Cobranzas', icon: Phone,       color: 'text-purple-600' },
+  all:        { label: 'Todo',        icon: Filter,      color: 'text-gray-600' },
+  ventas:     { label: 'Ventas',      icon: ShoppingCart, color: 'text-blue-600' },
+  cobros:     { label: 'Cobros',      icon: DollarSign,  color: 'text-green-600' },
+  inventario: { label: 'Inventario',  icon: Package,     color: 'text-orange-600' },
+  cobranzas:  { label: 'Cobranzas',  icon: Phone,       color: 'text-purple-600' },
+  ediciones:  { label: 'Ediciones',  icon: Edit2,       color: 'text-rose-600' },
 }
 
 const SEVERITY_STYLES: Record<Severity, string> = {
@@ -42,6 +43,7 @@ const CAT_BADGE: Record<string, string> = {
   cobro:     'bg-green-100 text-green-700',
   inventario:'bg-orange-100 text-orange-700',
   cobranza:  'bg-purple-100 text-purple-700',
+  edicion:   'bg-rose-100 text-rose-700',
 }
 
 export default function AdminLogsPage() {
@@ -149,10 +151,10 @@ export default function AdminLogsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {(['venta','cobro','inventario','cobranza'] as const).map(cat => {
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {(['venta','cobro','inventario','cobranza','edicion'] as const).map(cat => {
           const count = filtered.filter(e => e.category === cat).length
-          const labels: Record<string, string> = { venta: 'Ventas', cobro: 'Cobros', inventario: 'Movimientos', cobranza: 'Cobranzas' }
+          const labels: Record<string, string> = { venta: 'Ventas', cobro: 'Cobros', inventario: 'Movimientos', cobranza: 'Cobranzas', edicion: 'Ediciones' }
           return (
             <div key={cat} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
               <div className="text-2xl font-bold text-gray-900">{count}</div>

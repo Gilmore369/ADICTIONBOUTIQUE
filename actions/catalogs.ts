@@ -21,6 +21,15 @@ import { createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
+import { logAudit } from '@/lib/audit'
+
+async function getCurrentUserId(): Promise<string | null> {
+  try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    return user?.id ?? null
+  } catch { return null }
+}
 import {
   lineSchema,
   categorySchema,
@@ -206,6 +215,9 @@ export async function deleteLine(id: string): Promise<ActionResponse> {
 
   // Revalidate cache
   revalidatePath('/catalogs/lines')
+
+  const uid = await getCurrentUserId()
+  await logAudit({ userId: uid, action: 'DELETE', entityType: 'catalog_line', entityId: id, detail: 'Línea desactivada' })
 
   return { success: true }
 }
@@ -399,6 +411,9 @@ export async function deleteCategory(id: string): Promise<ActionResponse> {
 
   // Revalidate cache
   revalidatePath('/catalogs/categories')
+
+  const uid = await getCurrentUserId()
+  await logAudit({ userId: uid, action: 'DELETE', entityType: 'catalog_category', entityId: id, detail: 'Categoría desactivada' })
 
   return { success: true }
 }
@@ -609,6 +624,9 @@ export async function deleteBrand(id: string): Promise<ActionResponse> {
   // Revalidate cache
   revalidatePath('/catalogs/brands')
 
+  const uid = await getCurrentUserId()
+  await logAudit({ userId: uid, action: 'DELETE', entityType: 'catalog_brand', entityId: id, detail: 'Marca desactivada' })
+
   return { success: true }
 }
 
@@ -784,6 +802,9 @@ export async function deleteSize(id: string): Promise<ActionResponse> {
   // Revalidate cache
   revalidatePath('/catalogs/sizes')
 
+  const uid = await getCurrentUserId()
+  await logAudit({ userId: uid, action: 'DELETE', entityType: 'catalog_size', entityId: id, detail: 'Talla desactivada' })
+
   return { success: true }
 }
 
@@ -934,6 +955,9 @@ export async function deleteSupplier(id: string): Promise<ActionResponse> {
 
   // Revalidate cache
   revalidatePath('/catalogs/suppliers')
+
+  const uid = await getCurrentUserId()
+  await logAudit({ userId: uid, action: 'DELETE', entityType: 'catalog_supplier', entityId: id, detail: 'Proveedor desactivado' })
 
   return { success: true }
 }
@@ -1096,6 +1120,17 @@ export async function updateProduct(id: string, formData: FormData): Promise<Act
   revalidatePath(`/catalogs/products/${id}`)
   revalidatePath('/api/products/search', 'page')
 
+  const uid = await getCurrentUserId()
+  await logAudit({
+    userId: uid,
+    action: 'UPDATE',
+    entityType: 'product',
+    entityId: id,
+    entityName: (data as any)?.name ?? id,
+    detail: `Campos actualizados: ${Object.keys(validated.data).join(', ')}`,
+    newValues: validated.data as any,
+  })
+
   return { success: true, data }
 }
 
@@ -1128,6 +1163,15 @@ export async function deleteProduct(id: string): Promise<ActionResponse> {
   // Revalidate cache
   revalidatePath('/catalogs/products')
   revalidatePath('/api/products/search', 'page')
+
+  const uid = await getCurrentUserId()
+  await logAudit({
+    userId: uid,
+    action: 'DELETE',
+    entityType: 'product',
+    entityId: id,
+    detail: 'Producto desactivado',
+  })
 
   return { success: true }
 }
@@ -1337,6 +1381,17 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
   revalidatePath(`/clients/${id}`)
   revalidatePath('/api/clients/search', 'page')
 
+  const uid = await getCurrentUserId()
+  await logAudit({
+    userId: uid,
+    action: 'UPDATE',
+    entityType: 'client',
+    entityId: id,
+    entityName: (data as any)?.name ?? id,
+    detail: `Campos actualizados: ${Object.keys(validated.data).join(', ')}`,
+    newValues: validated.data as any,
+  })
+
   return { success: true, data }
 }
 
@@ -1369,6 +1424,15 @@ export async function deleteClient(id: string): Promise<ActionResponse> {
   // Revalidate cache
   revalidatePath('/clients')
   revalidatePath('/api/clients/search', 'page')
+
+  const uid = await getCurrentUserId()
+  await logAudit({
+    userId: uid,
+    action: 'DELETE',
+    entityType: 'client',
+    entityId: id,
+    detail: 'Cliente desactivado',
+  })
 
   return { success: true }
 }

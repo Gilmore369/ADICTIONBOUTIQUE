@@ -1,0 +1,2006 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - button [ref=e3]:
+      - img [ref=e4]
+    - complementary [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: AB
+        - text: Adiction Boutique
+      - navigation [ref=e8]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Dashboard" [ref=e11] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e12]
+              - text: Dashboard
+          - listitem [ref=e17]:
+            - link "POS" [ref=e18] [cursor=pointer]:
+              - /url: /pos
+              - img [ref=e19]
+              - text: POS
+          - listitem [ref=e23]:
+            - link "Catálogo Visual" [ref=e24] [cursor=pointer]:
+              - /url: /catalogs/visual
+              - img [ref=e25]
+              - text: Catálogo Visual
+          - listitem [ref=e30]:
+            - link "Historial de Ventas" [ref=e31] [cursor=pointer]:
+              - /url: /sales
+              - img [ref=e32]
+              - text: Historial de Ventas
+          - listitem [ref=e35]:
+            - link "Devoluciones" [ref=e36] [cursor=pointer]:
+              - /url: /returns
+              - img [ref=e37]
+              - text: Devoluciones
+          - listitem [ref=e40]:
+            - link "Caja" [ref=e41] [cursor=pointer]:
+              - /url: /cash
+              - img [ref=e42]
+              - text: Caja
+          - listitem [ref=e44]:
+            - link "Deuda" [ref=e45] [cursor=pointer]:
+              - /url: /debt
+              - img [ref=e46]
+              - text: Deuda
+          - listitem [ref=e48]:
+            - button "Cobranzas" [ref=e49]:
+              - generic [ref=e50]:
+                - img [ref=e51]
+                - text: Cobranzas
+              - img [ref=e54]
+          - listitem [ref=e56]:
+            - link "Agenda" [ref=e57] [cursor=pointer]:
+              - /url: /agenda
+              - img [ref=e58]
+              - text: Agenda
+          - listitem [ref=e60]:
+            - button "Clientes" [ref=e61]:
+              - generic [ref=e62]:
+                - img [ref=e63]
+                - text: Clientes
+              - img [ref=e68]
+          - listitem [ref=e70]:
+            - button "Inventario" [ref=e71]:
+              - generic [ref=e72]:
+                - img [ref=e73]
+                - text: Inventario
+              - img [ref=e76]
+            - list [ref=e78]:
+              - listitem [ref=e79]:
+                - link "Stock" [ref=e80] [cursor=pointer]:
+                  - /url: /inventory/stock
+                  - img [ref=e81]
+                  - text: Stock
+              - listitem [ref=e84]:
+                - link "Movimientos" [ref=e85] [cursor=pointer]:
+                  - /url: /inventory/movements
+                  - img [ref=e86]
+                  - text: Movimientos
+              - listitem [ref=e90]:
+                - link "Ingreso Masivo" [ref=e91] [cursor=pointer]:
+                  - /url: /inventory/bulk-entry
+                  - img [ref=e92]
+                  - text: Ingreso Masivo
+          - listitem [ref=e96]:
+            - button "Catálogos" [ref=e97]:
+              - generic [ref=e98]:
+                - img [ref=e99]
+                - text: Catálogos
+              - img [ref=e103]
+            - list [ref=e105]:
+              - listitem [ref=e106]:
+                - link "Productos" [ref=e107] [cursor=pointer]:
+                  - /url: /catalogs/products
+                  - img [ref=e108]
+                  - text: Productos
+              - listitem [ref=e111]:
+                - link "Líneas" [ref=e112] [cursor=pointer]:
+                  - /url: /catalogs/lines
+                  - img [ref=e113]
+                  - text: Líneas
+              - listitem [ref=e117]:
+                - link "Categorías" [ref=e118] [cursor=pointer]:
+                  - /url: /catalogs/categories
+                  - img [ref=e119]
+                  - text: Categorías
+              - listitem [ref=e122]:
+                - link "Marcas" [ref=e123] [cursor=pointer]:
+                  - /url: /catalogs/brands
+                  - img [ref=e124]
+                  - text: Marcas
+              - listitem [ref=e127]:
+                - link "Tallas" [ref=e128] [cursor=pointer]:
+                  - /url: /catalogs/sizes
+                  - img [ref=e129]
+                  - text: Tallas
+              - listitem [ref=e135]:
+                - link "Proveedores" [ref=e136] [cursor=pointer]:
+                  - /url: /catalogs/suppliers
+                  - img [ref=e137]
+                  - text: Proveedores
+          - listitem [ref=e142]:
+            - link "Reportes" [ref=e143] [cursor=pointer]:
+              - /url: /reports
+              - img [ref=e144]
+              - text: Reportes
+      - button "Colapsar menú" [ref=e147]:
+        - img [ref=e148]
+        - text: Colapsar menú
+    - generic [ref=e151]:
+      - banner [ref=e152]:
+        - generic [ref=e154]:
+          - button "Todas las Tiendas" [ref=e156]:
+            - img [ref=e157]
+          - button "Personalizar tema" [ref=e161]:
+            - img [ref=e162]
+          - button "OP Operaciones" [ref=e169]:
+            - generic "Operaciones" [ref=e170]: OP
+            - text: Operaciones
+      - main [ref=e171]:
+        - generic [ref=e173]:
+          - generic [ref=e174]:
+            - generic [ref=e175]:
+              - heading "Productos" [level=1] [ref=e176]
+              - paragraph [ref=e177]: Gestiona el catálogo de productos (mostrando 100 de 100)
+            - generic [ref=e178]:
+              - button "Producto Simple" [ref=e179]:
+                - img [ref=e180]
+                - text: Producto Simple
+              - button "Múltiples Tallas" [ref=e181]:
+                - img [ref=e182]
+                - text: Múltiples Tallas
+          - generic [ref=e186]:
+            - generic [ref=e188]:
+              - img [ref=e189]
+              - textbox "Buscar por nombre, código o descripción..." [ref=e192]
+            - generic [ref=e193]:
+              - text: Filtrar por Línea
+              - combobox [ref=e194]:
+                - option "Todas las líneas" [selected]
+                - option "Hombres"
+                - option "Mujeres"
+                - option "Niños"
+            - generic [ref=e195]:
+              - text: Filtrar por Categoría
+              - combobox [ref=e196]:
+                - option "Todas las categorías" [selected]
+                - option "Accesorios"
+                - option "Blusas"
+                - option "Bolsos"
+                - option "Bufandas"
+                - option "Camisas"
+                - option "Casacas"
+                - option "Casacas"
+                - option "Cinturones"
+                - option "Conjuntos"
+                - option "Eau de Toilette"
+                - option "Gorros"
+                - option "Jeans"
+                - option "Jeans"
+                - option "Mochilas"
+                - option "Pantalones"
+                - option "Perfumes"
+                - option "Polos c/redondo"
+                - option "Polos c/redondo"
+                - option "Splash"
+                - option "Vestidos"
+          - table [ref=e199]:
+            - rowgroup [ref=e200]:
+              - row "Código de Barras Nombre Línea Categoría Marca Talla Color Precio Stock Acciones" [ref=e201]:
+                - columnheader "Código de Barras" [ref=e202]
+                - columnheader "Nombre" [ref=e203]
+                - columnheader "Línea" [ref=e204]
+                - columnheader "Categoría" [ref=e205]
+                - columnheader "Marca" [ref=e206]
+                - columnheader "Talla" [ref=e207]
+                - columnheader "Color" [ref=e208]
+                - columnheader "Precio" [ref=e209]
+                - columnheader "Stock" [ref=e210]
+                - columnheader "Acciones" [ref=e211]
+            - rowgroup [ref=e212]:
+              - row "BLS-001-LB Blusa Floral - L - Blanco Mujeres Blusas Adiction L Blanco S/ 55.00 0 Editar Eliminar" [ref=e213]:
+                - cell "BLS-001-LB" [ref=e214]
+                - cell "Blusa Floral - L - Blanco" [ref=e215]
+                - cell "Mujeres" [ref=e216]
+                - cell "Blusas" [ref=e217]
+                - cell "Adiction" [ref=e218]
+                - cell "L" [ref=e219]
+                - cell "Blanco" [ref=e220]
+                - cell "S/ 55.00" [ref=e221]
+                - cell "0" [ref=e222]
+                - cell "Editar Eliminar" [ref=e223]:
+                  - generic [ref=e224]:
+                    - button "Editar" [ref=e225]:
+                      - img [ref=e226]
+                      - text: Editar
+                    - button "Eliminar" [active] [ref=e229]:
+                      - img [ref=e230]
+                      - text: Eliminar
+              - row "BLS-001-LR Blusa Floral - L - Rosado Mujeres Blusas Adiction L Rosado S/ 55.00 0 Editar Eliminar" [ref=e233]:
+                - cell "BLS-001-LR" [ref=e234]
+                - cell "Blusa Floral - L - Rosado" [ref=e235]
+                - cell "Mujeres" [ref=e236]
+                - cell "Blusas" [ref=e237]
+                - cell "Adiction" [ref=e238]
+                - cell "L" [ref=e239]
+                - cell "Rosado" [ref=e240]
+                - cell "S/ 55.00" [ref=e241]
+                - cell "0" [ref=e242]
+                - cell "Editar Eliminar" [ref=e243]:
+                  - generic [ref=e244]:
+                    - button "Editar" [ref=e245]:
+                      - img [ref=e246]
+                      - text: Editar
+                    - button "Eliminar" [ref=e249]:
+                      - img [ref=e250]
+                      - text: Eliminar
+              - row "BLS-001-MA Blusa Floral - M - Azul Mujeres Blusas Adiction M Azul S/ 55.00 3 Editar Eliminar" [ref=e253]:
+                - cell "BLS-001-MA" [ref=e254]
+                - cell "Blusa Floral - M - Azul" [ref=e255]
+                - cell "Mujeres" [ref=e256]
+                - cell "Blusas" [ref=e257]
+                - cell "Adiction" [ref=e258]
+                - cell "M" [ref=e259]
+                - cell "Azul" [ref=e260]
+                - cell "S/ 55.00" [ref=e261]
+                - cell "3" [ref=e262]
+                - cell "Editar Eliminar" [ref=e263]:
+                  - generic [ref=e264]:
+                    - button "Editar" [ref=e265]:
+                      - img [ref=e266]
+                      - text: Editar
+                    - button "Eliminar" [ref=e269]:
+                      - img [ref=e270]
+                      - text: Eliminar
+              - row "BLS-001-MB Blusa Floral - M - Blanco Mujeres Blusas Adiction M Blanco S/ 55.00 9 Editar Eliminar" [ref=e273]:
+                - cell "BLS-001-MB" [ref=e274]
+                - cell "Blusa Floral - M - Blanco" [ref=e275]
+                - cell "Mujeres" [ref=e276]
+                - cell "Blusas" [ref=e277]
+                - cell "Adiction" [ref=e278]
+                - cell "M" [ref=e279]
+                - cell "Blanco" [ref=e280]
+                - cell "S/ 55.00" [ref=e281]
+                - cell "9" [ref=e282]
+                - cell "Editar Eliminar" [ref=e283]:
+                  - generic [ref=e284]:
+                    - button "Editar" [ref=e285]:
+                      - img [ref=e286]
+                      - text: Editar
+                    - button "Eliminar" [ref=e289]:
+                      - img [ref=e290]
+                      - text: Eliminar
+              - row "BLS-001-MR Blusa Floral - M - Rosado Mujeres Blusas Adiction M Rosado S/ 55.00 16 Editar Eliminar" [ref=e293]:
+                - cell "BLS-001-MR" [ref=e294]
+                - cell "Blusa Floral - M - Rosado" [ref=e295]
+                - cell "Mujeres" [ref=e296]
+                - cell "Blusas" [ref=e297]
+                - cell "Adiction" [ref=e298]
+                - cell "M" [ref=e299]
+                - cell "Rosado" [ref=e300]
+                - cell "S/ 55.00" [ref=e301]
+                - cell "16" [ref=e302]
+                - cell "Editar Eliminar" [ref=e303]:
+                  - generic [ref=e304]:
+                    - button "Editar" [ref=e305]:
+                      - img [ref=e306]
+                      - text: Editar
+                    - button "Eliminar" [ref=e309]:
+                      - img [ref=e310]
+                      - text: Eliminar
+              - row "BLS-001-SA Blusa Floral - S - Azul Mujeres Blusas Adiction S Azul S/ 55.00 7 Editar Eliminar" [ref=e313]:
+                - cell "BLS-001-SA" [ref=e314]
+                - cell "Blusa Floral - S - Azul" [ref=e315]
+                - cell "Mujeres" [ref=e316]
+                - cell "Blusas" [ref=e317]
+                - cell "Adiction" [ref=e318]
+                - cell "S" [ref=e319]
+                - cell "Azul" [ref=e320]
+                - cell "S/ 55.00" [ref=e321]
+                - cell "7" [ref=e322]
+                - cell "Editar Eliminar" [ref=e323]:
+                  - generic [ref=e324]:
+                    - button "Editar" [ref=e325]:
+                      - img [ref=e326]
+                      - text: Editar
+                    - button "Eliminar" [ref=e329]:
+                      - img [ref=e330]
+                      - text: Eliminar
+              - row "BLS-001-SB Blusa Floral - S - Blanco Mujeres Blusas Adiction S Blanco S/ 55.00 13 Editar Eliminar" [ref=e333]:
+                - cell "BLS-001-SB" [ref=e334]
+                - cell "Blusa Floral - S - Blanco" [ref=e335]
+                - cell "Mujeres" [ref=e336]
+                - cell "Blusas" [ref=e337]
+                - cell "Adiction" [ref=e338]
+                - cell "S" [ref=e339]
+                - cell "Blanco" [ref=e340]
+                - cell "S/ 55.00" [ref=e341]
+                - cell "13" [ref=e342]
+                - cell "Editar Eliminar" [ref=e343]:
+                  - generic [ref=e344]:
+                    - button "Editar" [ref=e345]:
+                      - img [ref=e346]
+                      - text: Editar
+                    - button "Eliminar" [ref=e349]:
+                      - img [ref=e350]
+                      - text: Eliminar
+              - row "BLS-001-SR Blusa Floral - S - Rosado Mujeres Blusas Adiction S Rosado S/ 55.00 12 Editar Eliminar" [ref=e353]:
+                - cell "BLS-001-SR" [ref=e354]
+                - cell "Blusa Floral - S - Rosado" [ref=e355]
+                - cell "Mujeres" [ref=e356]
+                - cell "Blusas" [ref=e357]
+                - cell "Adiction" [ref=e358]
+                - cell "S" [ref=e359]
+                - cell "Rosado" [ref=e360]
+                - cell "S/ 55.00" [ref=e361]
+                - cell "12" [ref=e362]
+                - cell "Editar Eliminar" [ref=e363]:
+                  - generic [ref=e364]:
+                    - button "Editar" [ref=e365]:
+                      - img [ref=e366]
+                      - text: Editar
+                    - button "Eliminar" [ref=e369]:
+                      - img [ref=e370]
+                      - text: Eliminar
+              - row "BLS-001-XR Blusa Floral - XL - Rosado Mujeres Blusas Adiction XL Rosado S/ 55.00 6 Editar Eliminar" [ref=e373]:
+                - cell "BLS-001-XR" [ref=e374]
+                - cell "Blusa Floral - XL - Rosado" [ref=e375]
+                - cell "Mujeres" [ref=e376]
+                - cell "Blusas" [ref=e377]
+                - cell "Adiction" [ref=e378]
+                - cell "XL" [ref=e379]
+                - cell "Rosado" [ref=e380]
+                - cell "S/ 55.00" [ref=e381]
+                - cell "6" [ref=e382]
+                - cell "Editar Eliminar" [ref=e383]:
+                  - generic [ref=e384]:
+                    - button "Editar" [ref=e385]:
+                      - img [ref=e386]
+                      - text: Editar
+                    - button "Eliminar" [ref=e389]:
+                      - img [ref=e390]
+                      - text: Eliminar
+              - row "CAM-001-LB Camisa Formal - L - Blanco Hombres Camisas Mango L Blanco S/ 95.00 2 Editar Eliminar" [ref=e393]:
+                - cell "CAM-001-LB" [ref=e394]
+                - cell "Camisa Formal - L - Blanco" [ref=e395]
+                - cell "Hombres" [ref=e396]
+                - cell "Camisas" [ref=e397]
+                - cell "Mango" [ref=e398]
+                - cell "L" [ref=e399]
+                - cell "Blanco" [ref=e400]
+                - cell "S/ 95.00" [ref=e401]
+                - cell "2" [ref=e402]
+                - cell "Editar Eliminar" [ref=e403]:
+                  - generic [ref=e404]:
+                    - button "Editar" [ref=e405]:
+                      - img [ref=e406]
+                      - text: Editar
+                    - button "Eliminar" [ref=e409]:
+                      - img [ref=e410]
+                      - text: Eliminar
+              - row "CAM-001-LC Camisa Formal - L - Celeste Hombres Camisas Mango L Celeste S/ 95.00 4 Editar Eliminar" [ref=e413]:
+                - cell "CAM-001-LC" [ref=e414]
+                - cell "Camisa Formal - L - Celeste" [ref=e415]
+                - cell "Hombres" [ref=e416]
+                - cell "Camisas" [ref=e417]
+                - cell "Mango" [ref=e418]
+                - cell "L" [ref=e419]
+                - cell "Celeste" [ref=e420]
+                - cell "S/ 95.00" [ref=e421]
+                - cell "4" [ref=e422]
+                - cell "Editar Eliminar" [ref=e423]:
+                  - generic [ref=e424]:
+                    - button "Editar" [ref=e425]:
+                      - img [ref=e426]
+                      - text: Editar
+                    - button "Eliminar" [ref=e429]:
+                      - img [ref=e430]
+                      - text: Eliminar
+              - row "CAM-001-MB Camisa Formal - M - Blanco Hombres Camisas Mango M Blanco S/ 95.00 11 Editar Eliminar" [ref=e433]:
+                - cell "CAM-001-MB" [ref=e434]
+                - cell "Camisa Formal - M - Blanco" [ref=e435]
+                - cell "Hombres" [ref=e436]
+                - cell "Camisas" [ref=e437]
+                - cell "Mango" [ref=e438]
+                - cell "M" [ref=e439]
+                - cell "Blanco" [ref=e440]
+                - cell "S/ 95.00" [ref=e441]
+                - cell "11" [ref=e442]
+                - cell "Editar Eliminar" [ref=e443]:
+                  - generic [ref=e444]:
+                    - button "Editar" [ref=e445]:
+                      - img [ref=e446]
+                      - text: Editar
+                    - button "Eliminar" [ref=e449]:
+                      - img [ref=e450]
+                      - text: Eliminar
+              - row "CAM-001-MC Camisa Formal - M - Celeste Hombres Camisas Mango M Celeste S/ 95.00 3 Editar Eliminar" [ref=e453]:
+                - cell "CAM-001-MC" [ref=e454]
+                - cell "Camisa Formal - M - Celeste" [ref=e455]
+                - cell "Hombres" [ref=e456]
+                - cell "Camisas" [ref=e457]
+                - cell "Mango" [ref=e458]
+                - cell "M" [ref=e459]
+                - cell "Celeste" [ref=e460]
+                - cell "S/ 95.00" [ref=e461]
+                - cell "3" [ref=e462]
+                - cell "Editar Eliminar" [ref=e463]:
+                  - generic [ref=e464]:
+                    - button "Editar" [ref=e465]:
+                      - img [ref=e466]
+                      - text: Editar
+                    - button "Eliminar" [ref=e469]:
+                      - img [ref=e470]
+                      - text: Eliminar
+              - row "CAM-001-MG Camisa Formal - M - Gris Hombres Camisas Mango M Gris S/ 95.00 7 Editar Eliminar" [ref=e473]:
+                - cell "CAM-001-MG" [ref=e474]
+                - cell "Camisa Formal - M - Gris" [ref=e475]
+                - cell "Hombres" [ref=e476]
+                - cell "Camisas" [ref=e477]
+                - cell "Mango" [ref=e478]
+                - cell "M" [ref=e479]
+                - cell "Gris" [ref=e480]
+                - cell "S/ 95.00" [ref=e481]
+                - cell "7" [ref=e482]
+                - cell "Editar Eliminar" [ref=e483]:
+                  - generic [ref=e484]:
+                    - button "Editar" [ref=e485]:
+                      - img [ref=e486]
+                      - text: Editar
+                    - button "Eliminar" [ref=e489]:
+                      - img [ref=e490]
+                      - text: Eliminar
+              - row "CAM-001-SB Camisa Formal - S - Blanco Hombres Camisas Mango S Blanco S/ 95.00 12 Editar Eliminar" [ref=e493]:
+                - cell "CAM-001-SB" [ref=e494]
+                - cell "Camisa Formal - S - Blanco" [ref=e495]
+                - cell "Hombres" [ref=e496]
+                - cell "Camisas" [ref=e497]
+                - cell "Mango" [ref=e498]
+                - cell "S" [ref=e499]
+                - cell "Blanco" [ref=e500]
+                - cell "S/ 95.00" [ref=e501]
+                - cell "12" [ref=e502]
+                - cell "Editar Eliminar" [ref=e503]:
+                  - generic [ref=e504]:
+                    - button "Editar" [ref=e505]:
+                      - img [ref=e506]
+                      - text: Editar
+                    - button "Eliminar" [ref=e509]:
+                      - img [ref=e510]
+                      - text: Eliminar
+              - row "CAM-001-SC Camisa Formal - S - Celeste Hombres Camisas Mango S Celeste S/ 95.00 8 Editar Eliminar" [ref=e513]:
+                - cell "CAM-001-SC" [ref=e514]
+                - cell "Camisa Formal - S - Celeste" [ref=e515]
+                - cell "Hombres" [ref=e516]
+                - cell "Camisas" [ref=e517]
+                - cell "Mango" [ref=e518]
+                - cell "S" [ref=e519]
+                - cell "Celeste" [ref=e520]
+                - cell "S/ 95.00" [ref=e521]
+                - cell "8" [ref=e522]
+                - cell "Editar Eliminar" [ref=e523]:
+                  - generic [ref=e524]:
+                    - button "Editar" [ref=e525]:
+                      - img [ref=e526]
+                      - text: Editar
+                    - button "Eliminar" [ref=e529]:
+                      - img [ref=e530]
+                      - text: Eliminar
+              - row "CAM-001-SG Camisa Formal - S - Gris Hombres Camisas Mango S Gris S/ 95.00 9 Editar Eliminar" [ref=e533]:
+                - cell "CAM-001-SG" [ref=e534]
+                - cell "Camisa Formal - S - Gris" [ref=e535]
+                - cell "Hombres" [ref=e536]
+                - cell "Camisas" [ref=e537]
+                - cell "Mango" [ref=e538]
+                - cell "S" [ref=e539]
+                - cell "Gris" [ref=e540]
+                - cell "S/ 95.00" [ref=e541]
+                - cell "9" [ref=e542]
+                - cell "Editar Eliminar" [ref=e543]:
+                  - generic [ref=e544]:
+                    - button "Editar" [ref=e545]:
+                      - img [ref=e546]
+                      - text: Editar
+                    - button "Eliminar" [ref=e549]:
+                      - img [ref=e550]
+                      - text: Eliminar
+              - row "CAM-001-XB Camisa Formal - XL - Blanco Hombres Camisas Mango XL Blanco S/ 95.00 6 Editar Eliminar" [ref=e553]:
+                - cell "CAM-001-XB" [ref=e554]
+                - cell "Camisa Formal - XL - Blanco" [ref=e555]
+                - cell "Hombres" [ref=e556]
+                - cell "Camisas" [ref=e557]
+                - cell "Mango" [ref=e558]
+                - cell "XL" [ref=e559]
+                - cell "Blanco" [ref=e560]
+                - cell "S/ 95.00" [ref=e561]
+                - cell "6" [ref=e562]
+                - cell "Editar Eliminar" [ref=e563]:
+                  - generic [ref=e564]:
+                    - button "Editar" [ref=e565]:
+                      - img [ref=e566]
+                      - text: Editar
+                    - button "Eliminar" [ref=e569]:
+                      - img [ref=e570]
+                      - text: Eliminar
+              - row "CAS-001-LA Casaca Denim - L - Azul Mujeres Casacas Forever 21 L Azul S/ 180.00 8 Editar Eliminar" [ref=e573]:
+                - cell "CAS-001-LA" [ref=e574]
+                - cell "Casaca Denim - L - Azul" [ref=e575]
+                - cell "Mujeres" [ref=e576]
+                - cell "Casacas" [ref=e577]
+                - cell "Forever 21" [ref=e578]
+                - cell "L" [ref=e579]
+                - cell "Azul" [ref=e580]
+                - cell "S/ 180.00" [ref=e581]
+                - cell "8" [ref=e582]
+                - cell "Editar Eliminar" [ref=e583]:
+                  - generic [ref=e584]:
+                    - button "Editar" [ref=e585]:
+                      - img [ref=e586]
+                      - text: Editar
+                    - button "Eliminar" [ref=e589]:
+                      - img [ref=e590]
+                      - text: Eliminar
+              - row "CAS-001-LN Casaca Denim - L - Negro Mujeres Casacas Forever 21 L Negro S/ 180.00 10 Editar Eliminar" [ref=e593]:
+                - cell "CAS-001-LN" [ref=e594]
+                - cell "Casaca Denim - L - Negro" [ref=e595]
+                - cell "Mujeres" [ref=e596]
+                - cell "Casacas" [ref=e597]
+                - cell "Forever 21" [ref=e598]
+                - cell "L" [ref=e599]
+                - cell "Negro" [ref=e600]
+                - cell "S/ 180.00" [ref=e601]
+                - cell "10" [ref=e602]
+                - cell "Editar Eliminar" [ref=e603]:
+                  - generic [ref=e604]:
+                    - button "Editar" [ref=e605]:
+                      - img [ref=e606]
+                      - text: Editar
+                    - button "Eliminar" [ref=e609]:
+                      - img [ref=e610]
+                      - text: Eliminar
+              - row "CAS-001-MA Casaca Denim - M - Azul Mujeres Casacas Forever 21 M Azul S/ 180.00 7 Editar Eliminar" [ref=e613]:
+                - cell "CAS-001-MA" [ref=e614]
+                - cell "Casaca Denim - M - Azul" [ref=e615]
+                - cell "Mujeres" [ref=e616]
+                - cell "Casacas" [ref=e617]
+                - cell "Forever 21" [ref=e618]
+                - cell "M" [ref=e619]
+                - cell "Azul" [ref=e620]
+                - cell "S/ 180.00" [ref=e621]
+                - cell "7" [ref=e622]
+                - cell "Editar Eliminar" [ref=e623]:
+                  - generic [ref=e624]:
+                    - button "Editar" [ref=e625]:
+                      - img [ref=e626]
+                      - text: Editar
+                    - button "Eliminar" [ref=e629]:
+                      - img [ref=e630]
+                      - text: Eliminar
+              - row "CAS-001-MN Casaca Denim - M - Negro Mujeres Casacas Forever 21 M Negro S/ 180.00 6 Editar Eliminar" [ref=e633]:
+                - cell "CAS-001-MN" [ref=e634]
+                - cell "Casaca Denim - M - Negro" [ref=e635]
+                - cell "Mujeres" [ref=e636]
+                - cell "Casacas" [ref=e637]
+                - cell "Forever 21" [ref=e638]
+                - cell "M" [ref=e639]
+                - cell "Negro" [ref=e640]
+                - cell "S/ 180.00" [ref=e641]
+                - cell "6" [ref=e642]
+                - cell "Editar Eliminar" [ref=e643]:
+                  - generic [ref=e644]:
+                    - button "Editar" [ref=e645]:
+                      - img [ref=e646]
+                      - text: Editar
+                    - button "Eliminar" [ref=e649]:
+                      - img [ref=e650]
+                      - text: Eliminar
+              - row "CAS-001-SA Casaca Denim - S - Azul Mujeres Casacas Forever 21 S Azul S/ 180.00 4 Editar Eliminar" [ref=e653]:
+                - cell "CAS-001-SA" [ref=e654]
+                - cell "Casaca Denim - S - Azul" [ref=e655]
+                - cell "Mujeres" [ref=e656]
+                - cell "Casacas" [ref=e657]
+                - cell "Forever 21" [ref=e658]
+                - cell "S" [ref=e659]
+                - cell "Azul" [ref=e660]
+                - cell "S/ 180.00" [ref=e661]
+                - cell "4" [ref=e662]
+                - cell "Editar Eliminar" [ref=e663]:
+                  - generic [ref=e664]:
+                    - button "Editar" [ref=e665]:
+                      - img [ref=e666]
+                      - text: Editar
+                    - button "Eliminar" [ref=e669]:
+                      - img [ref=e670]
+                      - text: Eliminar
+              - row "CAS-001-SN Casaca Denim - S - Negro Mujeres Casacas Forever 21 S Negro S/ 180.00 8 Editar Eliminar" [ref=e673]:
+                - cell "CAS-001-SN" [ref=e674]
+                - cell "Casaca Denim - S - Negro" [ref=e675]
+                - cell "Mujeres" [ref=e676]
+                - cell "Casacas" [ref=e677]
+                - cell "Forever 21" [ref=e678]
+                - cell "S" [ref=e679]
+                - cell "Negro" [ref=e680]
+                - cell "S/ 180.00" [ref=e681]
+                - cell "8" [ref=e682]
+                - cell "Editar Eliminar" [ref=e683]:
+                  - generic [ref=e684]:
+                    - button "Editar" [ref=e685]:
+                      - img [ref=e686]
+                      - text: Editar
+                    - button "Eliminar" [ref=e689]:
+                      - img [ref=e690]
+                      - text: Eliminar
+              - row "CAS-002-LA Casaca Deportiva - L - Azul Hombres Casacas Adiction L Azul S/ 220.00 12 Editar Eliminar" [ref=e693]:
+                - cell "CAS-002-LA" [ref=e694]
+                - cell "Casaca Deportiva - L - Azul" [ref=e695]
+                - cell "Hombres" [ref=e696]
+                - cell "Casacas" [ref=e697]
+                - cell "Adiction" [ref=e698]
+                - cell "L" [ref=e699]
+                - cell "Azul" [ref=e700]
+                - cell "S/ 220.00" [ref=e701]
+                - cell "12" [ref=e702]
+                - cell "Editar Eliminar" [ref=e703]:
+                  - generic [ref=e704]:
+                    - button "Editar" [ref=e705]:
+                      - img [ref=e706]
+                      - text: Editar
+                    - button "Eliminar" [ref=e709]:
+                      - img [ref=e710]
+                      - text: Eliminar
+              - row "CAS-002-LN Casaca Deportiva - L - Negro Hombres Casacas Adiction L Negro S/ 220.00 9 Editar Eliminar" [ref=e713]:
+                - cell "CAS-002-LN" [ref=e714]
+                - cell "Casaca Deportiva - L - Negro" [ref=e715]
+                - cell "Hombres" [ref=e716]
+                - cell "Casacas" [ref=e717]
+                - cell "Adiction" [ref=e718]
+                - cell "L" [ref=e719]
+                - cell "Negro" [ref=e720]
+                - cell "S/ 220.00" [ref=e721]
+                - cell "9" [ref=e722]
+                - cell "Editar Eliminar" [ref=e723]:
+                  - generic [ref=e724]:
+                    - button "Editar" [ref=e725]:
+                      - img [ref=e726]
+                      - text: Editar
+                    - button "Eliminar" [ref=e729]:
+                      - img [ref=e730]
+                      - text: Eliminar
+              - row "CAS-002-MA Casaca Deportiva - M - Azul Hombres Casacas Adiction M Azul S/ 220.00 16 Editar Eliminar" [ref=e733]:
+                - cell "CAS-002-MA" [ref=e734]
+                - cell "Casaca Deportiva - M - Azul" [ref=e735]
+                - cell "Hombres" [ref=e736]
+                - cell "Casacas" [ref=e737]
+                - cell "Adiction" [ref=e738]
+                - cell "M" [ref=e739]
+                - cell "Azul" [ref=e740]
+                - cell "S/ 220.00" [ref=e741]
+                - cell "16" [ref=e742]
+                - cell "Editar Eliminar" [ref=e743]:
+                  - generic [ref=e744]:
+                    - button "Editar" [ref=e745]:
+                      - img [ref=e746]
+                      - text: Editar
+                    - button "Eliminar" [ref=e749]:
+                      - img [ref=e750]
+                      - text: Eliminar
+              - row "CAS-002-MN Casaca Deportiva - M - Negro Hombres Casacas Adiction M Negro S/ 220.00 8 Editar Eliminar" [ref=e753]:
+                - cell "CAS-002-MN" [ref=e754]
+                - cell "Casaca Deportiva - M - Negro" [ref=e755]
+                - cell "Hombres" [ref=e756]
+                - cell "Casacas" [ref=e757]
+                - cell "Adiction" [ref=e758]
+                - cell "M" [ref=e759]
+                - cell "Negro" [ref=e760]
+                - cell "S/ 220.00" [ref=e761]
+                - cell "8" [ref=e762]
+                - cell "Editar Eliminar" [ref=e763]:
+                  - generic [ref=e764]:
+                    - button "Editar" [ref=e765]:
+                      - img [ref=e766]
+                      - text: Editar
+                    - button "Eliminar" [ref=e769]:
+                      - img [ref=e770]
+                      - text: Eliminar
+              - row "CAS-002-MR Casaca Deportiva - M - Rojo Hombres Casacas Adiction M Rojo S/ 220.00 10 Editar Eliminar" [ref=e773]:
+                - cell "CAS-002-MR" [ref=e774]
+                - cell "Casaca Deportiva - M - Rojo" [ref=e775]
+                - cell "Hombres" [ref=e776]
+                - cell "Casacas" [ref=e777]
+                - cell "Adiction" [ref=e778]
+                - cell "M" [ref=e779]
+                - cell "Rojo" [ref=e780]
+                - cell "S/ 220.00" [ref=e781]
+                - cell "10" [ref=e782]
+                - cell "Editar Eliminar" [ref=e783]:
+                  - generic [ref=e784]:
+                    - button "Editar" [ref=e785]:
+                      - img [ref=e786]
+                      - text: Editar
+                    - button "Eliminar" [ref=e789]:
+                      - img [ref=e790]
+                      - text: Eliminar
+              - row "CAS-002-SA Casaca Deportiva - S - Azul Hombres Casacas Adiction S Azul S/ 220.00 14 Editar Eliminar" [ref=e793]:
+                - cell "CAS-002-SA" [ref=e794]
+                - cell "Casaca Deportiva - S - Azul" [ref=e795]
+                - cell "Hombres" [ref=e796]
+                - cell "Casacas" [ref=e797]
+                - cell "Adiction" [ref=e798]
+                - cell "S" [ref=e799]
+                - cell "Azul" [ref=e800]
+                - cell "S/ 220.00" [ref=e801]
+                - cell "14" [ref=e802]
+                - cell "Editar Eliminar" [ref=e803]:
+                  - generic [ref=e804]:
+                    - button "Editar" [ref=e805]:
+                      - img [ref=e806]
+                      - text: Editar
+                    - button "Eliminar" [ref=e809]:
+                      - img [ref=e810]
+                      - text: Eliminar
+              - row "CAS-002-SN Casaca Deportiva - S - Negro Hombres Casacas Adiction S Negro S/ 220.00 12 Editar Eliminar" [ref=e813]:
+                - cell "CAS-002-SN" [ref=e814]
+                - cell "Casaca Deportiva - S - Negro" [ref=e815]
+                - cell "Hombres" [ref=e816]
+                - cell "Casacas" [ref=e817]
+                - cell "Adiction" [ref=e818]
+                - cell "S" [ref=e819]
+                - cell "Negro" [ref=e820]
+                - cell "S/ 220.00" [ref=e821]
+                - cell "12" [ref=e822]
+                - cell "Editar Eliminar" [ref=e823]:
+                  - generic [ref=e824]:
+                    - button "Editar" [ref=e825]:
+                      - img [ref=e826]
+                      - text: Editar
+                    - button "Eliminar" [ref=e829]:
+                      - img [ref=e830]
+                      - text: Eliminar
+              - row "CAS-002-SR Casaca Deportiva - S - Rojo Hombres Casacas Adiction S Rojo S/ 220.00 13 Editar Eliminar" [ref=e833]:
+                - cell "CAS-002-SR" [ref=e834]
+                - cell "Casaca Deportiva - S - Rojo" [ref=e835]
+                - cell "Hombres" [ref=e836]
+                - cell "Casacas" [ref=e837]
+                - cell "Adiction" [ref=e838]
+                - cell "S" [ref=e839]
+                - cell "Rojo" [ref=e840]
+                - cell "S/ 220.00" [ref=e841]
+                - cell "13" [ref=e842]
+                - cell "Editar Eliminar" [ref=e843]:
+                  - generic [ref=e844]:
+                    - button "Editar" [ref=e845]:
+                      - img [ref=e846]
+                      - text: Editar
+                    - button "Eliminar" [ref=e849]:
+                      - img [ref=e850]
+                      - text: Eliminar
+              - row "CAS-002-XN Casaca Deportiva - XL - Negro Hombres Casacas Adiction XL Negro S/ 220.00 11 Editar Eliminar" [ref=e853]:
+                - cell "CAS-002-XN" [ref=e854]
+                - cell "Casaca Deportiva - XL - Negro" [ref=e855]
+                - cell "Hombres" [ref=e856]
+                - cell "Casacas" [ref=e857]
+                - cell "Adiction" [ref=e858]
+                - cell "XL" [ref=e859]
+                - cell "Negro" [ref=e860]
+                - cell "S/ 220.00" [ref=e861]
+                - cell "11" [ref=e862]
+                - cell "Editar Eliminar" [ref=e863]:
+                  - generic [ref=e864]:
+                    - button "Editar" [ref=e865]:
+                      - img [ref=e866]
+                      - text: Editar
+                    - button "Eliminar" [ref=e869]:
+                      - img [ref=e870]
+                      - text: Eliminar
+              - row "CHA-001-LBe Chaleco Army - L - Beige Mujeres Casacas Adiction L Beige S/ 350.00 0 Editar Eliminar" [ref=e873]:
+                - cell "CHA-001-LBe" [ref=e874]
+                - cell "Chaleco Army - L - Beige" [ref=e875]
+                - cell "Mujeres" [ref=e876]
+                - cell "Casacas" [ref=e877]
+                - cell "Adiction" [ref=e878]
+                - cell "L" [ref=e879]
+                - cell "Beige" [ref=e880]
+                - cell "S/ 350.00" [ref=e881]
+                - cell "0" [ref=e882]
+                - cell "Editar Eliminar" [ref=e883]:
+                  - generic [ref=e884]:
+                    - button "Editar" [ref=e885]:
+                      - img [ref=e886]
+                      - text: Editar
+                    - button "Eliminar" [ref=e889]:
+                      - img [ref=e890]
+                      - text: Eliminar
+              - row "CHA-001-LN Chaleco Army - L - Negro Mujeres Casacas Adiction L Negro S/ 350.00 8 Editar Eliminar" [ref=e893]:
+                - cell "CHA-001-LN" [ref=e894]
+                - cell "Chaleco Army - L - Negro" [ref=e895]
+                - cell "Mujeres" [ref=e896]
+                - cell "Casacas" [ref=e897]
+                - cell "Adiction" [ref=e898]
+                - cell "L" [ref=e899]
+                - cell "Negro" [ref=e900]
+                - cell "S/ 350.00" [ref=e901]
+                - cell "8" [ref=e902]
+                - cell "Editar Eliminar" [ref=e903]:
+                  - generic [ref=e904]:
+                    - button "Editar" [ref=e905]:
+                      - img [ref=e906]
+                      - text: Editar
+                    - button "Eliminar" [ref=e909]:
+                      - img [ref=e910]
+                      - text: Eliminar
+              - row "CHA-001-LV Chaleco Army - L - Verde Mujeres Casacas Adiction L Verde S/ 350.00 5 Editar Eliminar" [ref=e913]:
+                - cell "CHA-001-LV" [ref=e914]
+                - cell "Chaleco Army - L - Verde" [ref=e915]
+                - cell "Mujeres" [ref=e916]
+                - cell "Casacas" [ref=e917]
+                - cell "Adiction" [ref=e918]
+                - cell "L" [ref=e919]
+                - cell "Verde" [ref=e920]
+                - cell "S/ 350.00" [ref=e921]
+                - cell "5" [ref=e922]
+                - cell "Editar Eliminar" [ref=e923]:
+                  - generic [ref=e924]:
+                    - button "Editar" [ref=e925]:
+                      - img [ref=e926]
+                      - text: Editar
+                    - button "Eliminar" [ref=e929]:
+                      - img [ref=e930]
+                      - text: Eliminar
+              - row "CHA-001-MBe Chaleco Army - M - Beige Mujeres Casacas Adiction M Beige S/ 350.00 5 Editar Eliminar" [ref=e933]:
+                - cell "CHA-001-MBe" [ref=e934]
+                - cell "Chaleco Army - M - Beige" [ref=e935]
+                - cell "Mujeres" [ref=e936]
+                - cell "Casacas" [ref=e937]
+                - cell "Adiction" [ref=e938]
+                - cell "M" [ref=e939]
+                - cell "Beige" [ref=e940]
+                - cell "S/ 350.00" [ref=e941]
+                - cell "5" [ref=e942]
+                - cell "Editar Eliminar" [ref=e943]:
+                  - generic [ref=e944]:
+                    - button "Editar" [ref=e945]:
+                      - img [ref=e946]
+                      - text: Editar
+                    - button "Eliminar" [ref=e949]:
+                      - img [ref=e950]
+                      - text: Eliminar
+              - row "CHA-001-MN Chaleco Army - M - Negro Mujeres Casacas Adiction M Negro S/ 350.00 11 Editar Eliminar" [ref=e953]:
+                - cell "CHA-001-MN" [ref=e954]
+                - cell "Chaleco Army - M - Negro" [ref=e955]
+                - cell "Mujeres" [ref=e956]
+                - cell "Casacas" [ref=e957]
+                - cell "Adiction" [ref=e958]
+                - cell "M" [ref=e959]
+                - cell "Negro" [ref=e960]
+                - cell "S/ 350.00" [ref=e961]
+                - cell "11" [ref=e962]
+                - cell "Editar Eliminar" [ref=e963]:
+                  - generic [ref=e964]:
+                    - button "Editar" [ref=e965]:
+                      - img [ref=e966]
+                      - text: Editar
+                    - button "Eliminar" [ref=e969]:
+                      - img [ref=e970]
+                      - text: Eliminar
+              - row "CHA-001-MV Chaleco Army - M - Verde Mujeres Casacas Adiction M Verde S/ 350.00 2 Editar Eliminar" [ref=e973]:
+                - cell "CHA-001-MV" [ref=e974]
+                - cell "Chaleco Army - M - Verde" [ref=e975]
+                - cell "Mujeres" [ref=e976]
+                - cell "Casacas" [ref=e977]
+                - cell "Adiction" [ref=e978]
+                - cell "M" [ref=e979]
+                - cell "Verde" [ref=e980]
+                - cell "S/ 350.00" [ref=e981]
+                - cell "2" [ref=e982]
+                - cell "Editar Eliminar" [ref=e983]:
+                  - generic [ref=e984]:
+                    - button "Editar" [ref=e985]:
+                      - img [ref=e986]
+                      - text: Editar
+                    - button "Eliminar" [ref=e989]:
+                      - img [ref=e990]
+                      - text: Eliminar
+              - row "CHA-001-SBe Chaleco Army - S - Beige Mujeres Casacas Adiction S Beige S/ 350.00 14 Editar Eliminar" [ref=e993]:
+                - cell "CHA-001-SBe" [ref=e994]
+                - cell "Chaleco Army - S - Beige" [ref=e995]
+                - cell "Mujeres" [ref=e996]
+                - cell "Casacas" [ref=e997]
+                - cell "Adiction" [ref=e998]
+                - cell "S" [ref=e999]
+                - cell "Beige" [ref=e1000]
+                - cell "S/ 350.00" [ref=e1001]
+                - cell "14" [ref=e1002]
+                - cell "Editar Eliminar" [ref=e1003]:
+                  - generic [ref=e1004]:
+                    - button "Editar" [ref=e1005]:
+                      - img [ref=e1006]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1009]:
+                      - img [ref=e1010]
+                      - text: Eliminar
+              - row "CHA-001-SN Chaleco Army - S - Negro Mujeres Casacas Adiction S Negro S/ 350.00 2 Editar Eliminar" [ref=e1013]:
+                - cell "CHA-001-SN" [ref=e1014]
+                - cell "Chaleco Army - S - Negro" [ref=e1015]
+                - cell "Mujeres" [ref=e1016]
+                - cell "Casacas" [ref=e1017]
+                - cell "Adiction" [ref=e1018]
+                - cell "S" [ref=e1019]
+                - cell "Negro" [ref=e1020]
+                - cell "S/ 350.00" [ref=e1021]
+                - cell "2" [ref=e1022]
+                - cell "Editar Eliminar" [ref=e1023]:
+                  - generic [ref=e1024]:
+                    - button "Editar" [ref=e1025]:
+                      - img [ref=e1026]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1029]:
+                      - img [ref=e1030]
+                      - text: Eliminar
+              - row "CHA-001-SV Chaleco Army - S - Verde Mujeres Casacas Adiction S Verde S/ 350.00 10 Editar Eliminar" [ref=e1033]:
+                - cell "CHA-001-SV" [ref=e1034]
+                - cell "Chaleco Army - S - Verde" [ref=e1035]
+                - cell "Mujeres" [ref=e1036]
+                - cell "Casacas" [ref=e1037]
+                - cell "Adiction" [ref=e1038]
+                - cell "S" [ref=e1039]
+                - cell "Verde" [ref=e1040]
+                - cell "S/ 350.00" [ref=e1041]
+                - cell "10" [ref=e1042]
+                - cell "Editar Eliminar" [ref=e1043]:
+                  - generic [ref=e1044]:
+                    - button "Editar" [ref=e1045]:
+                      - img [ref=e1046]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1049]:
+                      - img [ref=e1050]
+                      - text: Eliminar
+              - row "CHA-001-XV Chaleco Army - XL - Verde Mujeres Casacas Adiction XL Verde S/ 350.00 12 Editar Eliminar" [ref=e1053]:
+                - cell "CHA-001-XV" [ref=e1054]
+                - cell "Chaleco Army - XL - Verde" [ref=e1055]
+                - cell "Mujeres" [ref=e1056]
+                - cell "Casacas" [ref=e1057]
+                - cell "Adiction" [ref=e1058]
+                - cell "XL" [ref=e1059]
+                - cell "Verde" [ref=e1060]
+                - cell "S/ 350.00" [ref=e1061]
+                - cell "12" [ref=e1062]
+                - cell "Editar Eliminar" [ref=e1063]:
+                  - generic [ref=e1064]:
+                    - button "Editar" [ref=e1065]:
+                      - img [ref=e1066]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1069]:
+                      - img [ref=e1070]
+                      - text: Eliminar
+              - row "SPL-001-250ml Coconut Passion - 250ml Mujeres Perfumes Victoria Secret 250ml Amarillo S/ 75.00 0 Editar Eliminar" [ref=e1073]:
+                - cell "SPL-001-250ml" [ref=e1074]
+                - cell "Coconut Passion - 250ml" [ref=e1075]
+                - cell "Mujeres" [ref=e1076]
+                - cell "Perfumes" [ref=e1077]
+                - cell "Victoria Secret" [ref=e1078]
+                - cell "250ml" [ref=e1079]
+                - cell "Amarillo" [ref=e1080]
+                - cell "S/ 75.00" [ref=e1081]
+                - cell "0" [ref=e1082]
+                - cell "Editar Eliminar" [ref=e1083]:
+                  - generic [ref=e1084]:
+                    - button "Editar" [ref=e1085]:
+                      - img [ref=e1086]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1089]:
+                      - img [ref=e1090]
+                      - text: Eliminar
+              - row "CIN-L Gorro pescador 3 tiras - L Mujeres Accesorios Adidas L Beige S/ 139.90 3 Editar Eliminar" [ref=e1093]:
+                - cell "CIN-L" [ref=e1094]
+                - cell "Gorro pescador 3 tiras - L" [ref=e1095]
+                - cell "Mujeres" [ref=e1096]
+                - cell "Accesorios" [ref=e1097]
+                - cell "Adidas" [ref=e1098]
+                - cell "L" [ref=e1099]
+                - cell "Beige" [ref=e1100]
+                - cell "S/ 139.90" [ref=e1101]
+                - cell "3" [ref=e1102]
+                - cell "Editar Eliminar" [ref=e1103]:
+                  - generic [ref=e1104]:
+                    - button "Editar" [ref=e1105]:
+                      - img [ref=e1106]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1109]:
+                      - img [ref=e1110]
+                      - text: Eliminar
+              - row "CIN-001-L Gorro pescador 3 tiras - L Mujeres Accesorios Adidas L Azul S/ 139.90 3 Editar Eliminar" [ref=e1113]:
+                - cell "CIN-001-L" [ref=e1114]
+                - cell "Gorro pescador 3 tiras - L" [ref=e1115]
+                - cell "Mujeres" [ref=e1116]
+                - cell "Accesorios" [ref=e1117]
+                - cell "Adidas" [ref=e1118]
+                - cell "L" [ref=e1119]
+                - cell "Azul" [ref=e1120]
+                - cell "S/ 139.90" [ref=e1121]
+                - cell "3" [ref=e1122]
+                - cell "Editar Eliminar" [ref=e1123]:
+                  - generic [ref=e1124]:
+                    - button "Editar" [ref=e1125]:
+                      - img [ref=e1126]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1129]:
+                      - img [ref=e1130]
+                      - text: Eliminar
+              - row "CIN-001-M Gorro pescador 3 tiras - M Mujeres Accesorios Adidas M Azul S/ 139.90 2 Editar Eliminar" [ref=e1133]:
+                - cell "CIN-001-M" [ref=e1134]
+                - cell "Gorro pescador 3 tiras - M" [ref=e1135]
+                - cell "Mujeres" [ref=e1136]
+                - cell "Accesorios" [ref=e1137]
+                - cell "Adidas" [ref=e1138]
+                - cell "M" [ref=e1139]
+                - cell "Azul" [ref=e1140]
+                - cell "S/ 139.90" [ref=e1141]
+                - cell "2" [ref=e1142]
+                - cell "Editar Eliminar" [ref=e1143]:
+                  - generic [ref=e1144]:
+                    - button "Editar" [ref=e1145]:
+                      - img [ref=e1146]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1149]:
+                      - img [ref=e1150]
+                      - text: Eliminar
+              - row "CIN-M Gorro pescador 3 tiras - M Mujeres Accesorios Adidas M Beige S/ 139.90 5 Editar Eliminar" [ref=e1153]:
+                - cell "CIN-M" [ref=e1154]
+                - cell "Gorro pescador 3 tiras - M" [ref=e1155]
+                - cell "Mujeres" [ref=e1156]
+                - cell "Accesorios" [ref=e1157]
+                - cell "Adidas" [ref=e1158]
+                - cell "M" [ref=e1159]
+                - cell "Beige" [ref=e1160]
+                - cell "S/ 139.90" [ref=e1161]
+                - cell "5" [ref=e1162]
+                - cell "Editar Eliminar" [ref=e1163]:
+                  - generic [ref=e1164]:
+                    - button "Editar" [ref=e1165]:
+                      - img [ref=e1166]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1169]:
+                      - img [ref=e1170]
+                      - text: Eliminar
+              - row "JEA-002-28A Jean Recto - 28 - Azul Hombres Jeans Zara 28 Azul S/ 130.00 13 Editar Eliminar" [ref=e1173]:
+                - cell "JEA-002-28A" [ref=e1174]
+                - cell "Jean Recto - 28 - Azul" [ref=e1175]
+                - cell "Hombres" [ref=e1176]
+                - cell "Jeans" [ref=e1177]
+                - cell "Zara" [ref=e1178]
+                - cell "28" [ref=e1179]
+                - cell "Azul" [ref=e1180]
+                - cell "S/ 130.00" [ref=e1181]
+                - cell "13" [ref=e1182]
+                - cell "Editar Eliminar" [ref=e1183]:
+                  - generic [ref=e1184]:
+                    - button "Editar" [ref=e1185]:
+                      - img [ref=e1186]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1189]:
+                      - img [ref=e1190]
+                      - text: Eliminar
+              - row "JEA-002-28G Jean Recto - 28 - Gris Hombres Jeans Zara 28 Gris S/ 130.00 12 Editar Eliminar" [ref=e1193]:
+                - cell "JEA-002-28G" [ref=e1194]
+                - cell "Jean Recto - 28 - Gris" [ref=e1195]
+                - cell "Hombres" [ref=e1196]
+                - cell "Jeans" [ref=e1197]
+                - cell "Zara" [ref=e1198]
+                - cell "28" [ref=e1199]
+                - cell "Gris" [ref=e1200]
+                - cell "S/ 130.00" [ref=e1201]
+                - cell "12" [ref=e1202]
+                - cell "Editar Eliminar" [ref=e1203]:
+                  - generic [ref=e1204]:
+                    - button "Editar" [ref=e1205]:
+                      - img [ref=e1206]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1209]:
+                      - img [ref=e1210]
+                      - text: Eliminar
+              - row "JEA-002-28N Jean Recto - 28 - Negro Hombres Jeans Zara 28 Negro S/ 130.00 7 Editar Eliminar" [ref=e1213]:
+                - cell "JEA-002-28N" [ref=e1214]
+                - cell "Jean Recto - 28 - Negro" [ref=e1215]
+                - cell "Hombres" [ref=e1216]
+                - cell "Jeans" [ref=e1217]
+                - cell "Zara" [ref=e1218]
+                - cell "28" [ref=e1219]
+                - cell "Negro" [ref=e1220]
+                - cell "S/ 130.00" [ref=e1221]
+                - cell "7" [ref=e1222]
+                - cell "Editar Eliminar" [ref=e1223]:
+                  - generic [ref=e1224]:
+                    - button "Editar" [ref=e1225]:
+                      - img [ref=e1226]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1229]:
+                      - img [ref=e1230]
+                      - text: Eliminar
+              - row "JEA-002-30A Jean Recto - 30 - Azul Hombres Jeans Zara 30 Azul S/ 130.00 11 Editar Eliminar" [ref=e1233]:
+                - cell "JEA-002-30A" [ref=e1234]
+                - cell "Jean Recto - 30 - Azul" [ref=e1235]
+                - cell "Hombres" [ref=e1236]
+                - cell "Jeans" [ref=e1237]
+                - cell "Zara" [ref=e1238]
+                - cell "30" [ref=e1239]
+                - cell "Azul" [ref=e1240]
+                - cell "S/ 130.00" [ref=e1241]
+                - cell "11" [ref=e1242]
+                - cell "Editar Eliminar" [ref=e1243]:
+                  - generic [ref=e1244]:
+                    - button "Editar" [ref=e1245]:
+                      - img [ref=e1246]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1249]:
+                      - img [ref=e1250]
+                      - text: Eliminar
+              - row "JEA-002-30G Jean Recto - 30 - Gris Hombres Jeans Zara 30 Gris S/ 130.00 2 Editar Eliminar" [ref=e1253]:
+                - cell "JEA-002-30G" [ref=e1254]
+                - cell "Jean Recto - 30 - Gris" [ref=e1255]
+                - cell "Hombres" [ref=e1256]
+                - cell "Jeans" [ref=e1257]
+                - cell "Zara" [ref=e1258]
+                - cell "30" [ref=e1259]
+                - cell "Gris" [ref=e1260]
+                - cell "S/ 130.00" [ref=e1261]
+                - cell "2" [ref=e1262]
+                - cell "Editar Eliminar" [ref=e1263]:
+                  - generic [ref=e1264]:
+                    - button "Editar" [ref=e1265]:
+                      - img [ref=e1266]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1269]:
+                      - img [ref=e1270]
+                      - text: Eliminar
+              - row "JEA-002-30N Jean Recto - 30 - Negro Hombres Jeans Zara 30 Negro S/ 130.00 9 Editar Eliminar" [ref=e1273]:
+                - cell "JEA-002-30N" [ref=e1274]
+                - cell "Jean Recto - 30 - Negro" [ref=e1275]
+                - cell "Hombres" [ref=e1276]
+                - cell "Jeans" [ref=e1277]
+                - cell "Zara" [ref=e1278]
+                - cell "30" [ref=e1279]
+                - cell "Negro" [ref=e1280]
+                - cell "S/ 130.00" [ref=e1281]
+                - cell "9" [ref=e1282]
+                - cell "Editar Eliminar" [ref=e1283]:
+                  - generic [ref=e1284]:
+                    - button "Editar" [ref=e1285]:
+                      - img [ref=e1286]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1289]:
+                      - img [ref=e1290]
+                      - text: Eliminar
+              - row "JEA-002-32A Jean Recto - 32 - Azul Hombres Jeans Zara 32 Azul S/ 130.00 10 Editar Eliminar" [ref=e1293]:
+                - cell "JEA-002-32A" [ref=e1294]
+                - cell "Jean Recto - 32 - Azul" [ref=e1295]
+                - cell "Hombres" [ref=e1296]
+                - cell "Jeans" [ref=e1297]
+                - cell "Zara" [ref=e1298]
+                - cell "32" [ref=e1299]
+                - cell "Azul" [ref=e1300]
+                - cell "S/ 130.00" [ref=e1301]
+                - cell "10" [ref=e1302]
+                - cell "Editar Eliminar" [ref=e1303]:
+                  - generic [ref=e1304]:
+                    - button "Editar" [ref=e1305]:
+                      - img [ref=e1306]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1309]:
+                      - img [ref=e1310]
+                      - text: Eliminar
+              - row "JEA-002-32N Jean Recto - 32 - Negro Hombres Jeans Zara 32 Negro S/ 130.00 9 Editar Eliminar" [ref=e1313]:
+                - cell "JEA-002-32N" [ref=e1314]
+                - cell "Jean Recto - 32 - Negro" [ref=e1315]
+                - cell "Hombres" [ref=e1316]
+                - cell "Jeans" [ref=e1317]
+                - cell "Zara" [ref=e1318]
+                - cell "32" [ref=e1319]
+                - cell "Negro" [ref=e1320]
+                - cell "S/ 130.00" [ref=e1321]
+                - cell "9" [ref=e1322]
+                - cell "Editar Eliminar" [ref=e1323]:
+                  - generic [ref=e1324]:
+                    - button "Editar" [ref=e1325]:
+                      - img [ref=e1326]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1329]:
+                      - img [ref=e1330]
+                      - text: Eliminar
+              - row "JEA-002-34A Jean Recto - 34 - Azul Hombres Jeans Zara 34 Azul S/ 130.00 8 Editar Eliminar" [ref=e1333]:
+                - cell "JEA-002-34A" [ref=e1334]
+                - cell "Jean Recto - 34 - Azul" [ref=e1335]
+                - cell "Hombres" [ref=e1336]
+                - cell "Jeans" [ref=e1337]
+                - cell "Zara" [ref=e1338]
+                - cell "34" [ref=e1339]
+                - cell "Azul" [ref=e1340]
+                - cell "S/ 130.00" [ref=e1341]
+                - cell "8" [ref=e1342]
+                - cell "Editar Eliminar" [ref=e1343]:
+                  - generic [ref=e1344]:
+                    - button "Editar" [ref=e1345]:
+                      - img [ref=e1346]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1349]:
+                      - img [ref=e1350]
+                      - text: Eliminar
+              - row "JEA-001-28A Jean Skinny - 28 - Azul Mujeres Jeans Zara 28 Azul S/ 120.00 15 Editar Eliminar" [ref=e1353]:
+                - cell "JEA-001-28A" [ref=e1354]
+                - cell "Jean Skinny - 28 - Azul" [ref=e1355]
+                - cell "Mujeres" [ref=e1356]
+                - cell "Jeans" [ref=e1357]
+                - cell "Zara" [ref=e1358]
+                - cell "28" [ref=e1359]
+                - cell "Azul" [ref=e1360]
+                - cell "S/ 120.00" [ref=e1361]
+                - cell "15" [ref=e1362]
+                - cell "Editar Eliminar" [ref=e1363]:
+                  - generic [ref=e1364]:
+                    - button "Editar" [ref=e1365]:
+                      - img [ref=e1366]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1369]:
+                      - img [ref=e1370]
+                      - text: Eliminar
+              - row "JEA-001-28N Jean Skinny - 28 - Negro Mujeres Jeans Zara 28 Negro S/ 120.00 13 Editar Eliminar" [ref=e1373]:
+                - cell "JEA-001-28N" [ref=e1374]
+                - cell "Jean Skinny - 28 - Negro" [ref=e1375]
+                - cell "Mujeres" [ref=e1376]
+                - cell "Jeans" [ref=e1377]
+                - cell "Zara" [ref=e1378]
+                - cell "28" [ref=e1379]
+                - cell "Negro" [ref=e1380]
+                - cell "S/ 120.00" [ref=e1381]
+                - cell "13" [ref=e1382]
+                - cell "Editar Eliminar" [ref=e1383]:
+                  - generic [ref=e1384]:
+                    - button "Editar" [ref=e1385]:
+                      - img [ref=e1386]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1389]:
+                      - img [ref=e1390]
+                      - text: Eliminar
+              - row "JEA-001-30A Jean Skinny - 30 - Azul Mujeres Jeans Zara 30 Azul S/ 120.00 5 Editar Eliminar" [ref=e1393]:
+                - cell "JEA-001-30A" [ref=e1394]
+                - cell "Jean Skinny - 30 - Azul" [ref=e1395]
+                - cell "Mujeres" [ref=e1396]
+                - cell "Jeans" [ref=e1397]
+                - cell "Zara" [ref=e1398]
+                - cell "30" [ref=e1399]
+                - cell "Azul" [ref=e1400]
+                - cell "S/ 120.00" [ref=e1401]
+                - cell "5" [ref=e1402]
+                - cell "Editar Eliminar" [ref=e1403]:
+                  - generic [ref=e1404]:
+                    - button "Editar" [ref=e1405]:
+                      - img [ref=e1406]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1409]:
+                      - img [ref=e1410]
+                      - text: Eliminar
+              - row "JEA-001-30N Jean Skinny - 30 - Negro Mujeres Jeans Zara 30 Negro S/ 120.00 14 Editar Eliminar" [ref=e1413]:
+                - cell "JEA-001-30N" [ref=e1414]
+                - cell "Jean Skinny - 30 - Negro" [ref=e1415]
+                - cell "Mujeres" [ref=e1416]
+                - cell "Jeans" [ref=e1417]
+                - cell "Zara" [ref=e1418]
+                - cell "30" [ref=e1419]
+                - cell "Negro" [ref=e1420]
+                - cell "S/ 120.00" [ref=e1421]
+                - cell "14" [ref=e1422]
+                - cell "Editar Eliminar" [ref=e1423]:
+                  - generic [ref=e1424]:
+                    - button "Editar" [ref=e1425]:
+                      - img [ref=e1426]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1429]:
+                      - img [ref=e1430]
+                      - text: Eliminar
+              - row "JEA-001-32A Jean Skinny - 32 - Azul Mujeres Jeans Zara 32 Azul S/ 120.00 15 Editar Eliminar" [ref=e1433]:
+                - cell "JEA-001-32A" [ref=e1434]
+                - cell "Jean Skinny - 32 - Azul" [ref=e1435]
+                - cell "Mujeres" [ref=e1436]
+                - cell "Jeans" [ref=e1437]
+                - cell "Zara" [ref=e1438]
+                - cell "32" [ref=e1439]
+                - cell "Azul" [ref=e1440]
+                - cell "S/ 120.00" [ref=e1441]
+                - cell "15" [ref=e1442]
+                - cell "Editar Eliminar" [ref=e1443]:
+                  - generic [ref=e1444]:
+                    - button "Editar" [ref=e1445]:
+                      - img [ref=e1446]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1449]:
+                      - img [ref=e1450]
+                      - text: Eliminar
+              - row "JEA-001-32N Jean Skinny - 32 - Negro Mujeres Jeans Zara 32 Negro S/ 120.00 13 Editar Eliminar" [ref=e1453]:
+                - cell "JEA-001-32N" [ref=e1454]
+                - cell "Jean Skinny - 32 - Negro" [ref=e1455]
+                - cell "Mujeres" [ref=e1456]
+                - cell "Jeans" [ref=e1457]
+                - cell "Zara" [ref=e1458]
+                - cell "32" [ref=e1459]
+                - cell "Negro" [ref=e1460]
+                - cell "S/ 120.00" [ref=e1461]
+                - cell "13" [ref=e1462]
+                - cell "Editar Eliminar" [ref=e1463]:
+                  - generic [ref=e1464]:
+                    - button "Editar" [ref=e1465]:
+                      - img [ref=e1466]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1469]:
+                      - img [ref=e1470]
+                      - text: Eliminar
+              - row "JEA-001-34A Jean Skinny - 34 - Azul Mujeres Jeans Zara 34 Azul S/ 120.00 9 Editar Eliminar" [ref=e1473]:
+                - cell "JEA-001-34A" [ref=e1474]
+                - cell "Jean Skinny - 34 - Azul" [ref=e1475]
+                - cell "Mujeres" [ref=e1476]
+                - cell "Jeans" [ref=e1477]
+                - cell "Zara" [ref=e1478]
+                - cell "34" [ref=e1479]
+                - cell "Azul" [ref=e1480]
+                - cell "S/ 120.00" [ref=e1481]
+                - cell "9" [ref=e1482]
+                - cell "Editar Eliminar" [ref=e1483]:
+                  - generic [ref=e1484]:
+                    - button "Editar" [ref=e1485]:
+                      - img [ref=e1486]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1489]:
+                      - img [ref=e1490]
+                      - text: Eliminar
+              - row "JEA-001-34N Jean Skinny - 34 - Negro Mujeres Jeans Zara 34 Negro S/ 120.00 5 Editar Eliminar" [ref=e1493]:
+                - cell "JEA-001-34N" [ref=e1494]
+                - cell "Jean Skinny - 34 - Negro" [ref=e1495]
+                - cell "Mujeres" [ref=e1496]
+                - cell "Jeans" [ref=e1497]
+                - cell "Zara" [ref=e1498]
+                - cell "34" [ref=e1499]
+                - cell "Negro" [ref=e1500]
+                - cell "S/ 120.00" [ref=e1501]
+                - cell "5" [ref=e1502]
+                - cell "Editar Eliminar" [ref=e1503]:
+                  - generic [ref=e1504]:
+                    - button "Editar" [ref=e1505]:
+                      - img [ref=e1506]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1509]:
+                      - img [ref=e1510]
+                      - text: Eliminar
+              - row "JEA-003-28 Pantalón Denim Negro - 28 Hombres Jeans Adidas 28 Negro S/ 350.00 3 Editar Eliminar" [ref=e1513]:
+                - cell "JEA-003-28" [ref=e1514]
+                - cell "Pantalón Denim Negro - 28" [ref=e1515]
+                - cell "Hombres" [ref=e1516]
+                - cell "Jeans" [ref=e1517]
+                - cell "Adidas" [ref=e1518]
+                - cell "28" [ref=e1519]
+                - cell "Negro" [ref=e1520]
+                - cell "S/ 350.00" [ref=e1521]
+                - cell "3" [ref=e1522]
+                - cell "Editar Eliminar" [ref=e1523]:
+                  - generic [ref=e1524]:
+                    - button "Editar" [ref=e1525]:
+                      - img [ref=e1526]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1529]:
+                      - img [ref=e1530]
+                      - text: Eliminar
+              - row "JEA-003-30 Pantalón Denim Negro - 30 Hombres Jeans Adidas 30 Negro S/ 350.00 5 Editar Eliminar" [ref=e1533]:
+                - cell "JEA-003-30" [ref=e1534]
+                - cell "Pantalón Denim Negro - 30" [ref=e1535]
+                - cell "Hombres" [ref=e1536]
+                - cell "Jeans" [ref=e1537]
+                - cell "Adidas" [ref=e1538]
+                - cell "30" [ref=e1539]
+                - cell "Negro" [ref=e1540]
+                - cell "S/ 350.00" [ref=e1541]
+                - cell "5" [ref=e1542]
+                - cell "Editar Eliminar" [ref=e1543]:
+                  - generic [ref=e1544]:
+                    - button "Editar" [ref=e1545]:
+                      - img [ref=e1546]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1549]:
+                      - img [ref=e1550]
+                      - text: Eliminar
+              - row "JEA-003-32 Pantalón Denim Negro - 32 Hombres Jeans Adidas 32 Negro S/ 350.00 4 Editar Eliminar" [ref=e1553]:
+                - cell "JEA-003-32" [ref=e1554]
+                - cell "Pantalón Denim Negro - 32" [ref=e1555]
+                - cell "Hombres" [ref=e1556]
+                - cell "Jeans" [ref=e1557]
+                - cell "Adidas" [ref=e1558]
+                - cell "32" [ref=e1559]
+                - cell "Negro" [ref=e1560]
+                - cell "S/ 350.00" [ref=e1561]
+                - cell "4" [ref=e1562]
+                - cell "Editar Eliminar" [ref=e1563]:
+                  - generic [ref=e1564]:
+                    - button "Editar" [ref=e1565]:
+                      - img [ref=e1566]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1569]:
+                      - img [ref=e1570]
+                      - text: Eliminar
+              - row "JEA-003-34 Pantalón Denim Negro - 34 Hombres Jeans Adidas 34 Negro S/ 350.00 4 Editar Eliminar" [ref=e1573]:
+                - cell "JEA-003-34" [ref=e1574]
+                - cell "Pantalón Denim Negro - 34" [ref=e1575]
+                - cell "Hombres" [ref=e1576]
+                - cell "Jeans" [ref=e1577]
+                - cell "Adidas" [ref=e1578]
+                - cell "34" [ref=e1579]
+                - cell "Negro" [ref=e1580]
+                - cell "S/ 350.00" [ref=e1581]
+                - cell "4" [ref=e1582]
+                - cell "Editar Eliminar" [ref=e1583]:
+                  - generic [ref=e1584]:
+                    - button "Editar" [ref=e1585]:
+                      - img [ref=e1586]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1589]:
+                      - img [ref=e1590]
+                      - text: Eliminar
+              - row "JEA-003-36 Pantalón Denim Negro - 36 Hombres Jeans Adidas 36 Negro S/ 350.00 5 Editar Eliminar" [ref=e1593]:
+                - cell "JEA-003-36" [ref=e1594]
+                - cell "Pantalón Denim Negro - 36" [ref=e1595]
+                - cell "Hombres" [ref=e1596]
+                - cell "Jeans" [ref=e1597]
+                - cell "Adidas" [ref=e1598]
+                - cell "36" [ref=e1599]
+                - cell "Negro" [ref=e1600]
+                - cell "S/ 350.00" [ref=e1601]
+                - cell "5" [ref=e1602]
+                - cell "Editar Eliminar" [ref=e1603]:
+                  - generic [ref=e1604]:
+                    - button "Editar" [ref=e1605]:
+                      - img [ref=e1606]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1609]:
+                      - img [ref=e1610]
+                      - text: Eliminar
+              - row "JEA-033-30 Pantalón jean Denim - 30 Hombres Jeans Adidas 30 Azul S/ 380.00 3 Editar Eliminar" [ref=e1613]:
+                - cell "JEA-033-30" [ref=e1614]
+                - cell "Pantalón jean Denim - 30" [ref=e1615]
+                - cell "Hombres" [ref=e1616]
+                - cell "Jeans" [ref=e1617]
+                - cell "Adidas" [ref=e1618]
+                - cell "30" [ref=e1619]
+                - cell "Azul" [ref=e1620]
+                - cell "S/ 380.00" [ref=e1621]
+                - cell "3" [ref=e1622]
+                - cell "Editar Eliminar" [ref=e1623]:
+                  - generic [ref=e1624]:
+                    - button "Editar" [ref=e1625]:
+                      - img [ref=e1626]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1629]:
+                      - img [ref=e1630]
+                      - text: Eliminar
+              - row "JEA-004-32 Pantalón jean Denim - 32 Hombres Jeans Adidas 32 Beige S/ 380.00 5 Editar Eliminar" [ref=e1633]:
+                - cell "JEA-004-32" [ref=e1634]
+                - cell "Pantalón jean Denim - 32" [ref=e1635]
+                - cell "Hombres" [ref=e1636]
+                - cell "Jeans" [ref=e1637]
+                - cell "Adidas" [ref=e1638]
+                - cell "32" [ref=e1639]
+                - cell "Beige" [ref=e1640]
+                - cell "S/ 380.00" [ref=e1641]
+                - cell "5" [ref=e1642]
+                - cell "Editar Eliminar" [ref=e1643]:
+                  - generic [ref=e1644]:
+                    - button "Editar" [ref=e1645]:
+                      - img [ref=e1646]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1649]:
+                      - img [ref=e1650]
+                      - text: Eliminar
+              - row "JEA-033-32 Pantalón jean Denim - 32 Hombres Jeans Adidas 32 Azul S/ 380.00 3 Editar Eliminar" [ref=e1653]:
+                - cell "JEA-033-32" [ref=e1654]
+                - cell "Pantalón jean Denim - 32" [ref=e1655]
+                - cell "Hombres" [ref=e1656]
+                - cell "Jeans" [ref=e1657]
+                - cell "Adidas" [ref=e1658]
+                - cell "32" [ref=e1659]
+                - cell "Azul" [ref=e1660]
+                - cell "S/ 380.00" [ref=e1661]
+                - cell "3" [ref=e1662]
+                - cell "Editar Eliminar" [ref=e1663]:
+                  - generic [ref=e1664]:
+                    - button "Editar" [ref=e1665]:
+                      - img [ref=e1666]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1669]:
+                      - img [ref=e1670]
+                      - text: Eliminar
+              - row "JEA-004-34 Pantalón jean Denim - 34 Hombres Jeans Adidas 34 Beige S/ 380.00 5 Editar Eliminar" [ref=e1673]:
+                - cell "JEA-004-34" [ref=e1674]
+                - cell "Pantalón jean Denim - 34" [ref=e1675]
+                - cell "Hombres" [ref=e1676]
+                - cell "Jeans" [ref=e1677]
+                - cell "Adidas" [ref=e1678]
+                - cell "34" [ref=e1679]
+                - cell "Beige" [ref=e1680]
+                - cell "S/ 380.00" [ref=e1681]
+                - cell "5" [ref=e1682]
+                - cell "Editar Eliminar" [ref=e1683]:
+                  - generic [ref=e1684]:
+                    - button "Editar" [ref=e1685]:
+                      - img [ref=e1686]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1689]:
+                      - img [ref=e1690]
+                      - text: Eliminar
+              - row "JEA-033-34 Pantalón jean Denim - 34 Hombres Jeans Adidas 34 Azul S/ 380.00 3 Editar Eliminar" [ref=e1693]:
+                - cell "JEA-033-34" [ref=e1694]
+                - cell "Pantalón jean Denim - 34" [ref=e1695]
+                - cell "Hombres" [ref=e1696]
+                - cell "Jeans" [ref=e1697]
+                - cell "Adidas" [ref=e1698]
+                - cell "34" [ref=e1699]
+                - cell "Azul" [ref=e1700]
+                - cell "S/ 380.00" [ref=e1701]
+                - cell "3" [ref=e1702]
+                - cell "Editar Eliminar" [ref=e1703]:
+                  - generic [ref=e1704]:
+                    - button "Editar" [ref=e1705]:
+                      - img [ref=e1706]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1709]:
+                      - img [ref=e1710]
+                      - text: Eliminar
+              - row "JEA-004-36 Pantalón jean Denim - 36 Hombres Jeans Adidas 36 Beige S/ 380.00 5 Editar Eliminar" [ref=e1713]:
+                - cell "JEA-004-36" [ref=e1714]
+                - cell "Pantalón jean Denim - 36" [ref=e1715]
+                - cell "Hombres" [ref=e1716]
+                - cell "Jeans" [ref=e1717]
+                - cell "Adidas" [ref=e1718]
+                - cell "36" [ref=e1719]
+                - cell "Beige" [ref=e1720]
+                - cell "S/ 380.00" [ref=e1721]
+                - cell "5" [ref=e1722]
+                - cell "Editar Eliminar" [ref=e1723]:
+                  - generic [ref=e1724]:
+                    - button "Editar" [ref=e1725]:
+                      - img [ref=e1726]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1729]:
+                      - img [ref=e1730]
+                      - text: Eliminar
+              - row "JEA-033-36 Pantalón jean Denim - 36 Hombres Jeans Adidas 36 Verde S/ 380.00 4 Editar Eliminar" [ref=e1733]:
+                - cell "JEA-033-36" [ref=e1734]
+                - cell "Pantalón jean Denim - 36" [ref=e1735]
+                - cell "Hombres" [ref=e1736]
+                - cell "Jeans" [ref=e1737]
+                - cell "Adidas" [ref=e1738]
+                - cell "36" [ref=e1739]
+                - cell "Verde" [ref=e1740]
+                - cell "S/ 380.00" [ref=e1741]
+                - cell "4" [ref=e1742]
+                - cell "Editar Eliminar" [ref=e1743]:
+                  - generic [ref=e1744]:
+                    - button "Editar" [ref=e1745]:
+                      - img [ref=e1746]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1749]:
+                      - img [ref=e1750]
+                      - text: Eliminar
+              - row "JEA-004-38 Pantalón jean Denim - 38 Hombres Jeans Adidas 38 Beige S/ 380.00 5 Editar Eliminar" [ref=e1753]:
+                - cell "JEA-004-38" [ref=e1754]
+                - cell "Pantalón jean Denim - 38" [ref=e1755]
+                - cell "Hombres" [ref=e1756]
+                - cell "Jeans" [ref=e1757]
+                - cell "Adidas" [ref=e1758]
+                - cell "38" [ref=e1759]
+                - cell "Beige" [ref=e1760]
+                - cell "S/ 380.00" [ref=e1761]
+                - cell "5" [ref=e1762]
+                - cell "Editar Eliminar" [ref=e1763]:
+                  - generic [ref=e1764]:
+                    - button "Editar" [ref=e1765]:
+                      - img [ref=e1766]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1769]:
+                      - img [ref=e1770]
+                      - text: Eliminar
+              - row "JEA-38 Pantalón jean Denim - 38 Hombres Jeans Adidas 38 Amarillo S/ 380.00 2 Editar Eliminar" [ref=e1773]:
+                - cell "JEA-38" [ref=e1774]
+                - cell "Pantalón jean Denim - 38" [ref=e1775]
+                - cell "Hombres" [ref=e1776]
+                - cell "Jeans" [ref=e1777]
+                - cell "Adidas" [ref=e1778]
+                - cell "38" [ref=e1779]
+                - cell "Amarillo" [ref=e1780]
+                - cell "S/ 380.00" [ref=e1781]
+                - cell "2" [ref=e1782]
+                - cell "Editar Eliminar" [ref=e1783]:
+                  - generic [ref=e1784]:
+                    - button "Editar" [ref=e1785]:
+                      - img [ref=e1786]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1789]:
+                      - img [ref=e1790]
+                      - text: Eliminar
+              - row "JEA-033-38 Pantalón jean Denim - 38 Hombres Jeans Adidas 38 Verde S/ 380.00 4 Editar Eliminar" [ref=e1793]:
+                - cell "JEA-033-38" [ref=e1794]
+                - cell "Pantalón jean Denim - 38" [ref=e1795]
+                - cell "Hombres" [ref=e1796]
+                - cell "Jeans" [ref=e1797]
+                - cell "Adidas" [ref=e1798]
+                - cell "38" [ref=e1799]
+                - cell "Verde" [ref=e1800]
+                - cell "S/ 380.00" [ref=e1801]
+                - cell "4" [ref=e1802]
+                - cell "Editar Eliminar" [ref=e1803]:
+                  - generic [ref=e1804]:
+                    - button "Editar" [ref=e1805]:
+                      - img [ref=e1806]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1809]:
+                      - img [ref=e1810]
+                      - text: Eliminar
+              - row "PAN-001-LG Pantalón Jogger - L - Gris Mujeres Pantalones Adiction L Gris S/ 85.00 14 Editar Eliminar" [ref=e1813]:
+                - cell "PAN-001-LG" [ref=e1814]
+                - cell "Pantalón Jogger - L - Gris" [ref=e1815]
+                - cell "Mujeres" [ref=e1816]
+                - cell "Pantalones" [ref=e1817]
+                - cell "Adiction" [ref=e1818]
+                - cell "L" [ref=e1819]
+                - cell "Gris" [ref=e1820]
+                - cell "S/ 85.00" [ref=e1821]
+                - cell "14" [ref=e1822]
+                - cell "Editar Eliminar" [ref=e1823]:
+                  - generic [ref=e1824]:
+                    - button "Editar" [ref=e1825]:
+                      - img [ref=e1826]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1829]:
+                      - img [ref=e1830]
+                      - text: Eliminar
+              - row "PAN-001-LN Pantalón Jogger - L - Negro Mujeres Pantalones Adiction L Negro S/ 85.00 3 Editar Eliminar" [ref=e1833]:
+                - cell "PAN-001-LN" [ref=e1834]
+                - cell "Pantalón Jogger - L - Negro" [ref=e1835]
+                - cell "Mujeres" [ref=e1836]
+                - cell "Pantalones" [ref=e1837]
+                - cell "Adiction" [ref=e1838]
+                - cell "L" [ref=e1839]
+                - cell "Negro" [ref=e1840]
+                - cell "S/ 85.00" [ref=e1841]
+                - cell "3" [ref=e1842]
+                - cell "Editar Eliminar" [ref=e1843]:
+                  - generic [ref=e1844]:
+                    - button "Editar" [ref=e1845]:
+                      - img [ref=e1846]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1849]:
+                      - img [ref=e1850]
+                      - text: Eliminar
+              - row "PAN-001-MG Pantalón Jogger - M - Gris Mujeres Pantalones Adiction M Gris S/ 85.00 9 Editar Eliminar" [ref=e1853]:
+                - cell "PAN-001-MG" [ref=e1854]
+                - cell "Pantalón Jogger - M - Gris" [ref=e1855]
+                - cell "Mujeres" [ref=e1856]
+                - cell "Pantalones" [ref=e1857]
+                - cell "Adiction" [ref=e1858]
+                - cell "M" [ref=e1859]
+                - cell "Gris" [ref=e1860]
+                - cell "S/ 85.00" [ref=e1861]
+                - cell "9" [ref=e1862]
+                - cell "Editar Eliminar" [ref=e1863]:
+                  - generic [ref=e1864]:
+                    - button "Editar" [ref=e1865]:
+                      - img [ref=e1866]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1869]:
+                      - img [ref=e1870]
+                      - text: Eliminar
+              - row "PAN-001-MN Pantalón Jogger - M - Negro Mujeres Pantalones Adiction M Negro S/ 85.00 11 Editar Eliminar" [ref=e1873]:
+                - cell "PAN-001-MN" [ref=e1874]
+                - cell "Pantalón Jogger - M - Negro" [ref=e1875]
+                - cell "Mujeres" [ref=e1876]
+                - cell "Pantalones" [ref=e1877]
+                - cell "Adiction" [ref=e1878]
+                - cell "M" [ref=e1879]
+                - cell "Negro" [ref=e1880]
+                - cell "S/ 85.00" [ref=e1881]
+                - cell "11" [ref=e1882]
+                - cell "Editar Eliminar" [ref=e1883]:
+                  - generic [ref=e1884]:
+                    - button "Editar" [ref=e1885]:
+                      - img [ref=e1886]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1889]:
+                      - img [ref=e1890]
+                      - text: Eliminar
+              - row "PAN-001-MV Pantalón Jogger - M - Verde Mujeres Pantalones Adiction M Verde S/ 85.00 13 Editar Eliminar" [ref=e1893]:
+                - cell "PAN-001-MV" [ref=e1894]
+                - cell "Pantalón Jogger - M - Verde" [ref=e1895]
+                - cell "Mujeres" [ref=e1896]
+                - cell "Pantalones" [ref=e1897]
+                - cell "Adiction" [ref=e1898]
+                - cell "M" [ref=e1899]
+                - cell "Verde" [ref=e1900]
+                - cell "S/ 85.00" [ref=e1901]
+                - cell "13" [ref=e1902]
+                - cell "Editar Eliminar" [ref=e1903]:
+                  - generic [ref=e1904]:
+                    - button "Editar" [ref=e1905]:
+                      - img [ref=e1906]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1909]:
+                      - img [ref=e1910]
+                      - text: Eliminar
+              - row "PAN-001-SG Pantalón Jogger - S - Gris Mujeres Pantalones Adiction S Gris S/ 85.00 6 Editar Eliminar" [ref=e1913]:
+                - cell "PAN-001-SG" [ref=e1914]
+                - cell "Pantalón Jogger - S - Gris" [ref=e1915]
+                - cell "Mujeres" [ref=e1916]
+                - cell "Pantalones" [ref=e1917]
+                - cell "Adiction" [ref=e1918]
+                - cell "S" [ref=e1919]
+                - cell "Gris" [ref=e1920]
+                - cell "S/ 85.00" [ref=e1921]
+                - cell "6" [ref=e1922]
+                - cell "Editar Eliminar" [ref=e1923]:
+                  - generic [ref=e1924]:
+                    - button "Editar" [ref=e1925]:
+                      - img [ref=e1926]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1929]:
+                      - img [ref=e1930]
+                      - text: Eliminar
+              - row "PAN-001-SN Pantalón Jogger - S - Negro Mujeres Pantalones Adiction S Negro S/ 85.00 2 Editar Eliminar" [ref=e1933]:
+                - cell "PAN-001-SN" [ref=e1934]
+                - cell "Pantalón Jogger - S - Negro" [ref=e1935]
+                - cell "Mujeres" [ref=e1936]
+                - cell "Pantalones" [ref=e1937]
+                - cell "Adiction" [ref=e1938]
+                - cell "S" [ref=e1939]
+                - cell "Negro" [ref=e1940]
+                - cell "S/ 85.00" [ref=e1941]
+                - cell "2" [ref=e1942]
+                - cell "Editar Eliminar" [ref=e1943]:
+                  - generic [ref=e1944]:
+                    - button "Editar" [ref=e1945]:
+                      - img [ref=e1946]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1949]:
+                      - img [ref=e1950]
+                      - text: Eliminar
+              - row "PAN-001-SV Pantalón Jogger - S - Verde Mujeres Pantalones Adiction S Verde S/ 85.00 4 Editar Eliminar" [ref=e1953]:
+                - cell "PAN-001-SV" [ref=e1954]
+                - cell "Pantalón Jogger - S - Verde" [ref=e1955]
+                - cell "Mujeres" [ref=e1956]
+                - cell "Pantalones" [ref=e1957]
+                - cell "Adiction" [ref=e1958]
+                - cell "S" [ref=e1959]
+                - cell "Verde" [ref=e1960]
+                - cell "S/ 85.00" [ref=e1961]
+                - cell "4" [ref=e1962]
+                - cell "Editar Eliminar" [ref=e1963]:
+                  - generic [ref=e1964]:
+                    - button "Editar" [ref=e1965]:
+                      - img [ref=e1966]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1969]:
+                      - img [ref=e1970]
+                      - text: Eliminar
+              - row "PAN-001-XN Pantalón Jogger - XL - Negro Mujeres Pantalones Adiction XL Negro S/ 85.00 10 Editar Eliminar" [ref=e1973]:
+                - cell "PAN-001-XN" [ref=e1974]
+                - cell "Pantalón Jogger - XL - Negro" [ref=e1975]
+                - cell "Mujeres" [ref=e1976]
+                - cell "Pantalones" [ref=e1977]
+                - cell "Adiction" [ref=e1978]
+                - cell "XL" [ref=e1979]
+                - cell "Negro" [ref=e1980]
+                - cell "S/ 85.00" [ref=e1981]
+                - cell "10" [ref=e1982]
+                - cell "Editar Eliminar" [ref=e1983]:
+                  - generic [ref=e1984]:
+                    - button "Editar" [ref=e1985]:
+                      - img [ref=e1986]
+                      - text: Editar
+                    - button "Eliminar" [ref=e1989]:
+                      - img [ref=e1990]
+                      - text: Eliminar
+              - row "POL-001-LB Polo Básico - L - Blanco Hombres Polos c/redondo H&M L Blanco S/ 45.00 13 Editar Eliminar" [ref=e1993]:
+                - cell "POL-001-LB" [ref=e1994]
+                - cell "Polo Básico - L - Blanco" [ref=e1995]
+                - cell "Hombres" [ref=e1996]
+                - cell "Polos c/redondo" [ref=e1997]
+                - cell "H&M" [ref=e1998]
+                - cell "L" [ref=e1999]
+                - cell "Blanco" [ref=e2000]
+                - cell "S/ 45.00" [ref=e2001]
+                - cell "13" [ref=e2002]
+                - cell "Editar Eliminar" [ref=e2003]:
+                  - generic [ref=e2004]:
+                    - button "Editar" [ref=e2005]:
+                      - img [ref=e2006]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2009]:
+                      - img [ref=e2010]
+                      - text: Eliminar
+              - row "POL-001-LG Polo Básico - L - Gris Hombres Polos c/redondo H&M L Gris S/ 45.00 11 Editar Eliminar" [ref=e2013]:
+                - cell "POL-001-LG" [ref=e2014]
+                - cell "Polo Básico - L - Gris" [ref=e2015]
+                - cell "Hombres" [ref=e2016]
+                - cell "Polos c/redondo" [ref=e2017]
+                - cell "H&M" [ref=e2018]
+                - cell "L" [ref=e2019]
+                - cell "Gris" [ref=e2020]
+                - cell "S/ 45.00" [ref=e2021]
+                - cell "11" [ref=e2022]
+                - cell "Editar Eliminar" [ref=e2023]:
+                  - generic [ref=e2024]:
+                    - button "Editar" [ref=e2025]:
+                      - img [ref=e2026]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2029]:
+                      - img [ref=e2030]
+                      - text: Eliminar
+              - row "POL-001-LN Polo Básico - L - Negro Hombres Polos c/redondo H&M L Negro S/ 45.00 6 Editar Eliminar" [ref=e2033]:
+                - cell "POL-001-LN" [ref=e2034]
+                - cell "Polo Básico - L - Negro" [ref=e2035]
+                - cell "Hombres" [ref=e2036]
+                - cell "Polos c/redondo" [ref=e2037]
+                - cell "H&M" [ref=e2038]
+                - cell "L" [ref=e2039]
+                - cell "Negro" [ref=e2040]
+                - cell "S/ 45.00" [ref=e2041]
+                - cell "6" [ref=e2042]
+                - cell "Editar Eliminar" [ref=e2043]:
+                  - generic [ref=e2044]:
+                    - button "Editar" [ref=e2045]:
+                      - img [ref=e2046]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2049]:
+                      - img [ref=e2050]
+                      - text: Eliminar
+              - row "POL-001-MA Polo Básico - M - Azul Hombres Polos c/redondo H&M M Azul S/ 45.00 15 Editar Eliminar" [ref=e2053]:
+                - cell "POL-001-MA" [ref=e2054]
+                - cell "Polo Básico - M - Azul" [ref=e2055]
+                - cell "Hombres" [ref=e2056]
+                - cell "Polos c/redondo" [ref=e2057]
+                - cell "H&M" [ref=e2058]
+                - cell "M" [ref=e2059]
+                - cell "Azul" [ref=e2060]
+                - cell "S/ 45.00" [ref=e2061]
+                - cell "15" [ref=e2062]
+                - cell "Editar Eliminar" [ref=e2063]:
+                  - generic [ref=e2064]:
+                    - button "Editar" [ref=e2065]:
+                      - img [ref=e2066]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2069]:
+                      - img [ref=e2070]
+                      - text: Eliminar
+              - row "POL-001-MB Polo Básico - M - Blanco Hombres Polos c/redondo H&M M Blanco S/ 45.00 7 Editar Eliminar" [ref=e2073]:
+                - cell "POL-001-MB" [ref=e2074]
+                - cell "Polo Básico - M - Blanco" [ref=e2075]
+                - cell "Hombres" [ref=e2076]
+                - cell "Polos c/redondo" [ref=e2077]
+                - cell "H&M" [ref=e2078]
+                - cell "M" [ref=e2079]
+                - cell "Blanco" [ref=e2080]
+                - cell "S/ 45.00" [ref=e2081]
+                - cell "7" [ref=e2082]
+                - cell "Editar Eliminar" [ref=e2083]:
+                  - generic [ref=e2084]:
+                    - button "Editar" [ref=e2085]:
+                      - img [ref=e2086]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2089]:
+                      - img [ref=e2090]
+                      - text: Eliminar
+              - row "POL-001-MG Polo Básico - M - Gris Hombres Polos c/redondo H&M M Gris S/ 45.00 12 Editar Eliminar" [ref=e2093]:
+                - cell "POL-001-MG" [ref=e2094]
+                - cell "Polo Básico - M - Gris" [ref=e2095]
+                - cell "Hombres" [ref=e2096]
+                - cell "Polos c/redondo" [ref=e2097]
+                - cell "H&M" [ref=e2098]
+                - cell "M" [ref=e2099]
+                - cell "Gris" [ref=e2100]
+                - cell "S/ 45.00" [ref=e2101]
+                - cell "12" [ref=e2102]
+                - cell "Editar Eliminar" [ref=e2103]:
+                  - generic [ref=e2104]:
+                    - button "Editar" [ref=e2105]:
+                      - img [ref=e2106]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2109]:
+                      - img [ref=e2110]
+                      - text: Eliminar
+              - row "POL-001-MN Polo Básico - M - Negro Hombres Polos c/redondo H&M M Negro S/ 45.00 11 Editar Eliminar" [ref=e2113]:
+                - cell "POL-001-MN" [ref=e2114]
+                - cell "Polo Básico - M - Negro" [ref=e2115]
+                - cell "Hombres" [ref=e2116]
+                - cell "Polos c/redondo" [ref=e2117]
+                - cell "H&M" [ref=e2118]
+                - cell "M" [ref=e2119]
+                - cell "Negro" [ref=e2120]
+                - cell "S/ 45.00" [ref=e2121]
+                - cell "11" [ref=e2122]
+                - cell "Editar Eliminar" [ref=e2123]:
+                  - generic [ref=e2124]:
+                    - button "Editar" [ref=e2125]:
+                      - img [ref=e2126]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2129]:
+                      - img [ref=e2130]
+                      - text: Eliminar
+              - row "POL-001-SA Polo Básico - S - Azul Hombres Polos c/redondo H&M S Azul S/ 45.00 9 Editar Eliminar" [ref=e2133]:
+                - cell "POL-001-SA" [ref=e2134]
+                - cell "Polo Básico - S - Azul" [ref=e2135]
+                - cell "Hombres" [ref=e2136]
+                - cell "Polos c/redondo" [ref=e2137]
+                - cell "H&M" [ref=e2138]
+                - cell "S" [ref=e2139]
+                - cell "Azul" [ref=e2140]
+                - cell "S/ 45.00" [ref=e2141]
+                - cell "9" [ref=e2142]
+                - cell "Editar Eliminar" [ref=e2143]:
+                  - generic [ref=e2144]:
+                    - button "Editar" [ref=e2145]:
+                      - img [ref=e2146]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2149]:
+                      - img [ref=e2150]
+                      - text: Eliminar
+              - row "POL-001-SB Polo Básico - S - Blanco Hombres Polos c/redondo H&M S Blanco S/ 45.00 15 Editar Eliminar" [ref=e2153]:
+                - cell "POL-001-SB" [ref=e2154]
+                - cell "Polo Básico - S - Blanco" [ref=e2155]
+                - cell "Hombres" [ref=e2156]
+                - cell "Polos c/redondo" [ref=e2157]
+                - cell "H&M" [ref=e2158]
+                - cell "S" [ref=e2159]
+                - cell "Blanco" [ref=e2160]
+                - cell "S/ 45.00" [ref=e2161]
+                - cell "15" [ref=e2162]
+                - cell "Editar Eliminar" [ref=e2163]:
+                  - generic [ref=e2164]:
+                    - button "Editar" [ref=e2165]:
+                      - img [ref=e2166]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2169]:
+                      - img [ref=e2170]
+                      - text: Eliminar
+              - row "POL-001-SG Polo Básico - S - Gris Hombres Polos c/redondo H&M S Gris S/ 45.00 9 Editar Eliminar" [ref=e2173]:
+                - cell "POL-001-SG" [ref=e2174]
+                - cell "Polo Básico - S - Gris" [ref=e2175]
+                - cell "Hombres" [ref=e2176]
+                - cell "Polos c/redondo" [ref=e2177]
+                - cell "H&M" [ref=e2178]
+                - cell "S" [ref=e2179]
+                - cell "Gris" [ref=e2180]
+                - cell "S/ 45.00" [ref=e2181]
+                - cell "9" [ref=e2182]
+                - cell "Editar Eliminar" [ref=e2183]:
+                  - generic [ref=e2184]:
+                    - button "Editar" [ref=e2185]:
+                      - img [ref=e2186]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2189]:
+                      - img [ref=e2190]
+                      - text: Eliminar
+              - row "POL-001-SN Polo Básico - S - Negro Hombres Polos c/redondo H&M S Negro S/ 45.00 7 Editar Eliminar" [ref=e2193]:
+                - cell "POL-001-SN" [ref=e2194]
+                - cell "Polo Básico - S - Negro" [ref=e2195]
+                - cell "Hombres" [ref=e2196]
+                - cell "Polos c/redondo" [ref=e2197]
+                - cell "H&M" [ref=e2198]
+                - cell "S" [ref=e2199]
+                - cell "Negro" [ref=e2200]
+                - cell "S/ 45.00" [ref=e2201]
+                - cell "7" [ref=e2202]
+                - cell "Editar Eliminar" [ref=e2203]:
+                  - generic [ref=e2204]:
+                    - button "Editar" [ref=e2205]:
+                      - img [ref=e2206]
+                      - text: Editar
+                    - button "Eliminar" [ref=e2209]:
+                      - img [ref=e2210]
+                      - text: Eliminar
+  - region "Notifications alt+T"
+```

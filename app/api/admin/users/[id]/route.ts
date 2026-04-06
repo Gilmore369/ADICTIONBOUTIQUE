@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { logAudit } from '@/lib/audit'
 
 async function requireAdmin() {
   const supabase = await createServerClient()
@@ -38,6 +39,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAudit({
+    userId: admin.id,
+    action: 'UPDATE',
+    entityType: 'user',
+    entityId: params.id,
+    entityName: (data as any)?.name ?? params.id,
+    detail: `Actualizado: ${Object.keys(updates).join(', ')}`,
+    newValues: updates,
+  })
+
   return NextResponse.json(data)
 }
 
@@ -55,5 +67,15 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAudit({
+    userId: admin.id,
+    action: 'DELETE',
+    entityType: 'user',
+    entityId: params.id,
+    entityName: (data as any)?.name ?? params.id,
+    detail: 'Usuario desactivado',
+  })
+
   return NextResponse.json(data)
 }

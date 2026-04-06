@@ -1,0 +1,264 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]: AB
+        - generic [ref=e7]: ADICTION BOUTIQUE
+      - navigation [ref=e8]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Dashboard" [ref=e11] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e12]
+              - text: Dashboard
+          - listitem [ref=e17]:
+            - link "POS" [ref=e18] [cursor=pointer]:
+              - /url: /pos
+              - img [ref=e19]
+              - text: POS
+          - listitem [ref=e23]:
+            - link "Catálogo Visual" [ref=e24] [cursor=pointer]:
+              - /url: /catalogs/visual
+              - img [ref=e25]
+              - text: Catálogo Visual
+          - listitem [ref=e30]:
+            - link "Historial de Ventas" [ref=e31] [cursor=pointer]:
+              - /url: /sales
+              - img [ref=e32]
+              - text: Historial de Ventas
+          - listitem [ref=e35]:
+            - link "Devoluciones" [ref=e36] [cursor=pointer]:
+              - /url: /returns
+              - img [ref=e37]
+              - text: Devoluciones
+          - listitem [ref=e40]:
+            - link "Caja" [ref=e41] [cursor=pointer]:
+              - /url: /cash
+              - img [ref=e42]
+              - text: Caja
+          - listitem [ref=e44]:
+            - link "Deuda" [ref=e45] [cursor=pointer]:
+              - /url: /debt
+              - img [ref=e46]
+              - text: Deuda
+          - listitem [ref=e48]:
+            - button "Cobranzas" [ref=e49]:
+              - generic [ref=e50]:
+                - img [ref=e51]
+                - generic [ref=e54]: Cobranzas
+              - img [ref=e55]
+          - listitem [ref=e57]:
+            - link "Agenda" [ref=e58] [cursor=pointer]:
+              - /url: /agenda
+              - img [ref=e59]
+              - text: Agenda
+          - listitem [ref=e61]:
+            - button "Clientes" [ref=e62]:
+              - generic [ref=e63]:
+                - img [ref=e64]
+                - generic [ref=e69]: Clientes
+              - img [ref=e70]
+          - listitem [ref=e72]:
+            - button "Inventario" [ref=e73]:
+              - generic [ref=e74]:
+                - img [ref=e75]
+                - generic [ref=e78]: Inventario
+              - img [ref=e79]
+            - list [ref=e81]:
+              - listitem [ref=e82]:
+                - link "Stock" [ref=e83] [cursor=pointer]:
+                  - /url: /inventory/stock
+                  - img [ref=e84]
+                  - text: Stock
+              - listitem [ref=e87]:
+                - link "Movimientos" [ref=e88] [cursor=pointer]:
+                  - /url: /inventory/movements
+                  - img [ref=e89]
+                  - text: Movimientos
+              - listitem [ref=e93]:
+                - link "Ingreso Masivo" [ref=e94] [cursor=pointer]:
+                  - /url: /inventory/bulk-entry
+                  - img [ref=e95]
+                  - text: Ingreso Masivo
+          - listitem [ref=e99]:
+            - button "Catálogos" [ref=e100]:
+              - generic [ref=e101]:
+                - img [ref=e102]
+                - generic [ref=e106]: Catálogos
+              - img [ref=e107]
+            - list [ref=e109]:
+              - listitem [ref=e110]:
+                - link "Productos" [ref=e111] [cursor=pointer]:
+                  - /url: /catalogs/products
+                  - img [ref=e112]
+                  - text: Productos
+              - listitem [ref=e115]:
+                - link "Líneas" [ref=e116] [cursor=pointer]:
+                  - /url: /catalogs/lines
+                  - img [ref=e117]
+                  - text: Líneas
+              - listitem [ref=e121]:
+                - link "Categorías" [ref=e122] [cursor=pointer]:
+                  - /url: /catalogs/categories
+                  - img [ref=e123]
+                  - text: Categorías
+              - listitem [ref=e126]:
+                - link "Marcas" [ref=e127] [cursor=pointer]:
+                  - /url: /catalogs/brands
+                  - img [ref=e128]
+                  - text: Marcas
+              - listitem [ref=e131]:
+                - link "Tallas" [ref=e132] [cursor=pointer]:
+                  - /url: /catalogs/sizes
+                  - img [ref=e133]
+                  - text: Tallas
+              - listitem [ref=e139]:
+                - link "Proveedores" [ref=e140] [cursor=pointer]:
+                  - /url: /catalogs/suppliers
+                  - img [ref=e141]
+                  - text: Proveedores
+          - listitem [ref=e146]:
+            - link "Reportes" [ref=e147] [cursor=pointer]:
+              - /url: /reports
+              - img [ref=e148]
+              - text: Reportes
+          - listitem [ref=e150]:
+            - link "Admin Usuarios" [ref=e151] [cursor=pointer]:
+              - /url: /admin/users
+              - img [ref=e152]
+              - text: Admin Usuarios
+      - button "Colapsar menú" [ref=e165]:
+        - img [ref=e166]
+        - generic [ref=e169]: Colapsar menú
+    - generic [ref=e170]:
+      - banner [ref=e171]:
+        - generic [ref=e173]:
+          - button "Todas las Tiendas" [ref=e175]:
+            - img
+          - button "Personalizar tema" [ref=e176]:
+            - img
+          - button "OP Operaciones" [ref=e178]:
+            - generic "Operaciones" [ref=e179]: OP
+            - generic [ref=e180]: Operaciones
+      - main [ref=e181]:
+        - generic [ref=e182]:
+          - generic [ref=e183]:
+            - generic [ref=e184]:
+              - img [ref=e185]
+              - heading "Gestión de Usuarios" [level=1] [ref=e190]
+            - button "Nuevo Usuario" [ref=e191]:
+              - img [ref=e192]
+              - text: Nuevo Usuario
+          - table [ref=e196]:
+            - rowgroup [ref=e197]:
+              - row "Usuario Roles Tiendas Estado Acciones" [ref=e198]:
+                - columnheader "Usuario" [ref=e199]
+                - columnheader "Roles" [ref=e200]
+                - columnheader "Tiendas" [ref=e201]
+                - columnheader "Estado" [ref=e202]
+                - columnheader "Acciones" [ref=e203]
+            - rowgroup [ref=e204]:
+              - row "Usuario Test PW test.pw.1775409336969@adiction.test vendedor Mujeres Activo" [ref=e205]:
+                - cell "Usuario Test PW test.pw.1775409336969@adiction.test" [ref=e206]:
+                  - generic [ref=e207]: Usuario Test PW
+                  - generic [ref=e208]: test.pw.1775409336969@adiction.test
+                - cell "vendedor" [ref=e209]:
+                  - generic [ref=e211]: vendedor
+                - cell "Mujeres" [ref=e212]:
+                  - generic [ref=e214]: Mujeres
+                - cell "Activo" [ref=e215]
+                - cell [ref=e216]:
+                  - generic [ref=e217]:
+                    - button [ref=e218]:
+                      - img [ref=e219]
+                    - button [ref=e222]:
+                      - img [ref=e223]
+              - row "Usuario Test PW test.pw.1775409324023@adiction.test vendedor Mujeres Activo" [ref=e228]:
+                - cell "Usuario Test PW test.pw.1775409324023@adiction.test" [ref=e229]:
+                  - generic [ref=e230]: Usuario Test PW
+                  - generic [ref=e231]: test.pw.1775409324023@adiction.test
+                - cell "vendedor" [ref=e232]:
+                  - generic [ref=e234]: vendedor
+                - cell "Mujeres" [ref=e235]:
+                  - generic [ref=e237]: Mujeres
+                - cell "Activo" [ref=e238]
+                - cell [ref=e239]:
+                  - generic [ref=e240]:
+                    - button [ref=e241]:
+                      - img [ref=e242]
+                    - button [ref=e245]:
+                      - img [ref=e246]
+              - row "Vendedor Hombres hombres@aboutique.com admin vendedor Hombres Activo" [ref=e251]:
+                - cell "Vendedor Hombres hombres@aboutique.com" [ref=e252]:
+                  - generic [ref=e253]: Vendedor Hombres
+                  - generic [ref=e254]: hombres@aboutique.com
+                - cell "admin vendedor" [ref=e255]:
+                  - generic [ref=e256]:
+                    - generic [ref=e257]: admin
+                    - generic [ref=e258]: vendedor
+                - cell "Hombres" [ref=e259]:
+                  - generic [ref=e261]: Hombres
+                - cell "Activo" [ref=e262]
+                - cell [ref=e263]:
+                  - generic [ref=e264]:
+                    - button [ref=e265]:
+                      - img [ref=e266]
+                    - button [ref=e269]:
+                      - img [ref=e270]
+              - row "Operaciones operaciones@gruposervesp.com admin Mujeres Hombres Activo" [ref=e275]:
+                - cell "Operaciones operaciones@gruposervesp.com" [ref=e276]:
+                  - generic [ref=e277]: Operaciones
+                  - generic [ref=e278]: operaciones@gruposervesp.com
+                - cell "admin" [ref=e279]:
+                  - generic [ref=e281]: admin
+                - cell "Mujeres Hombres" [ref=e282]:
+                  - generic [ref=e283]:
+                    - generic [ref=e284]: Mujeres
+                    - generic [ref=e285]: Hombres
+                - cell "Activo" [ref=e286]
+                - cell [ref=e287]:
+                  - generic [ref=e288]:
+                    - button [ref=e289]:
+                      - img [ref=e290]
+                    - button [ref=e293]:
+                      - img [ref=e294]
+              - row "Arizitah TuLof karianaghostimporter@gmail.com admin vendedor Mujeres Activo" [ref=e299]:
+                - cell "Arizitah TuLof karianaghostimporter@gmail.com" [ref=e300]:
+                  - generic [ref=e301]: Arizitah TuLof
+                  - generic [ref=e302]: karianaghostimporter@gmail.com
+                - cell "admin vendedor" [ref=e303]:
+                  - generic [ref=e304]:
+                    - generic [ref=e305]: admin
+                    - generic [ref=e306]: vendedor
+                - cell "Mujeres" [ref=e307]:
+                  - generic [ref=e309]: Mujeres
+                - cell "Activo" [ref=e310]
+                - cell [ref=e311]:
+                  - generic [ref=e312]:
+                    - button [ref=e313]:
+                      - img [ref=e314]
+                    - button [ref=e317]:
+                      - img [ref=e318]
+              - row "Admin User gianpepex@gmail.com admin Mujeres Hombres Activo" [ref=e323]:
+                - cell "Admin User gianpepex@gmail.com" [ref=e324]:
+                  - generic [ref=e325]: Admin User
+                  - generic [ref=e326]: gianpepex@gmail.com
+                - cell "admin" [ref=e327]:
+                  - generic [ref=e329]: admin
+                - cell "Mujeres Hombres" [ref=e330]:
+                  - generic [ref=e331]:
+                    - generic [ref=e332]: Mujeres
+                    - generic [ref=e333]: Hombres
+                - cell "Activo" [ref=e334]
+                - cell [ref=e335]:
+                  - generic [ref=e336]:
+                    - button [ref=e337]:
+                      - img [ref=e338]
+                    - button [ref=e341]:
+                      - img [ref=e342]
+  - region "Notifications alt+T"
+  - alert [ref=e347]
+```

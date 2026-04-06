@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { logAudit } from '@/lib/audit'
 
 // ── POST: ejecutar auto-blacklist (admin) ─────────────────────────────────────
 export async function POST() {
@@ -89,6 +90,15 @@ export async function DELETE(request: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
+
+    await logAudit({
+      userId: user.id,
+      action: 'UPDATE',
+      entityType: 'client',
+      entityId: clientId,
+      entityName: client.name,
+      detail: 'Removido de lista negra',
+    })
 
     return NextResponse.json({
       success: true,

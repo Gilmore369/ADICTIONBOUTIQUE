@@ -1,10 +1,10 @@
 /**
  * GET /api/admin/logs
  * Unified audit log for admins — aggregates recent activity from:
- *   sales, payments, movements, collection_actions
+ *   sales, payments, movements, collection_actions, audit_logs
  * Query params:
  *   limit    (default 200, max 500)
- *   category (all | ventas | cobros | inventario | cobranzas)
+ *   category (all | ventas | cobros | inventario | cobranzas | ediciones)
  *   user_id  (filter by specific user)
  */
 
@@ -126,6 +126,38 @@ export async function GET(request: NextRequest) {
         user_name: (r.users as any)?.name || '—',
         created_at: r.created_at,
         severity: 'info',
+      })
+    }
+  }
+
+  // ── Ediciones / Borrados (audit_logs) ────────────────────────────────────
+  if (category === 'all' || category === 'ediciones') {
+    let q = supabase
+      .from('audit_logs')
+      .select('id, created_at, user_id, action, entity_type, entity_id, entity_name, detail, store, users:user_id(name)')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
+    const { data } = await q
+    for (const r of data || []) {
+      const actionLabel = r.action === 'DELETE' ? 'Eliminado' : r.action === 'UPDATE' ? 'Editado' : 'Creado'
+      const entityLabel: Record<string, string> = {
+        product: 'Producto', client: 'Cliente', user: 'Usuario',
+        catalog_line: 'Línea', catalog_category: 'Categoría',
+        catalog_brand: 'Marca', catalog_size: 'Talla',
+        catalog_supplier: 'Proveedor', product_image: 'Imagen',
+        stock: 'Stock',
+      }
+      entries.push({
+        id: `aud-${r.id}`,
+        category: 'edicion',
+        action: `${actionLabel}: ${entityLabel[r.entity_type] || r.entity_type}`,
+        detail: r.detail || (r.entity_name ? `"${r.entity_name}"` : r.entity_id || '—'),
+        store: r.store || null,
+        user_id: r.user_id,
+        user_name: (r.users as any)?.name || '—',
+        created_at: r.created_at,
+        severity: r.action === 'DELETE' ? 'warning' : 'info',
       })
     }
   }

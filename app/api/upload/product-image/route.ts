@@ -20,6 +20,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
+import { logAudit } from '@/lib/audit'
 
 const BUCKET = 'product-images'
 const MAX_SIZE = 2 * 1024 * 1024 // 2 MB
@@ -221,6 +222,15 @@ export async function DELETE(request: NextRequest) {
     // Delete from DB
     const { error } = await supabase.from('product_images').delete().eq('id', id)
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+
+    await logAudit({
+      userId: user.id,
+      action: 'DELETE',
+      entityType: 'product_image',
+      entityId: id,
+      entityName: img?.storage_path ?? id,
+      detail: `Imagen eliminada: ${img?.storage_path ?? id}`,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
