@@ -19,7 +19,7 @@ import {
   Menu, X, ChevronDown, ChevronRight, ChevronLeft, Box, Tag, Layers,
   Ruler, Truck, PackagePlus, Warehouse, BarChart3, DollarSign, Images,
   PanelLeftClose, PanelLeftOpen, FileText, AlertTriangle, RotateCcw, CalendarDays,
-  UserCog,
+  UserCog, ScrollText,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -98,6 +98,7 @@ const navItems: NavItem[] = [
 
   // ── ADMIN ──
   { title: 'Admin Usuarios', href: '/admin/users', icon: UserCog, adminOnly: true },
+  { title: 'Logs del Sistema', href: '/admin/logs', icon: ScrollText, adminOnly: true },
 ]
 
 interface SidebarProps {
