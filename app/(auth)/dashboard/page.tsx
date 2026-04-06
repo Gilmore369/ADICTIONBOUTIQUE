@@ -67,22 +67,24 @@ export default async function DashboardPage({
   // Helper para agregar filtro de tienda a queries de sales
   const buildSalesQuery = (q: any) => storeFilter ? q.eq('store_id', storeFilter) : q
 
-  // ── Get client IDs that belong to this store (via sales) ─────────────────
-  let storeClientIds: string[] | null = null
+  // ── Get sale IDs that belong to this store (source of truth for credit plans) ──
+  // credit_plans.sale_id → sales.store_id is the correct join — NOT via client_id
+  let storeSaleIds: string[] | null = null
   if (storeFilter) {
-    const { data: salesClients } = await supabase
+    const { data: storeSales } = await supabase
       .from('sales')
-      .select('client_id')
+      .select('id')
       .eq('store_id', storeFilter)
-      .not('client_id', 'is', null)
-    if (salesClients) {
-      storeClientIds = [...new Set(salesClients.map((s: any) => s.client_id).filter(Boolean))]
+    if (storeSales) {
+      storeSaleIds = storeSales.map((s: any) => s.id)
     }
   }
 
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+
   const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
          salesTodayRes, salesMonthRes, lowStockFilteredRes,
-         filteredDebtRes, filteredOverdueRes] =
+         filteredDebtRes] =
     await Promise.all([
       supabase.rpc('get_dashboard_metrics', { p_inactivity_days: 90 }),
       supabase.rpc('get_sales_by_period', {
@@ -104,25 +106,23 @@ export default async function DashboardPage({
         .gte('created_at', today).eq('voided', false)),
       // Ventas este mes filtradas por tienda (override RPC)
       buildSalesQuery(supabase.from('sales').select('total')
-        .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-        .eq('voided', false)),
+        .gte('created_at', monthStart).eq('voided', false)),
       // Stock bajo filtrado por tienda
-      // filteredWarehouseIds[0] = 'Tienda Mujeres' or 'Tienda Hombres' (not UUID)
       filteredWarehouseIds.length > 0
         ? supabase.from('stock')
             .select('product_id, quantity, products!inner(min_stock, active)')
             .in('warehouse_id', filteredWarehouseIds)
             .eq('products.active', true)
         : Promise.resolve({ data: null, error: null }),
-      // Clientes con deuda activa filtrados por tienda (plans + installments pending)
-      storeClientIds && storeClientIds.length > 0
+      // Planes de crédito filtrados por tienda via sale_id (la forma correcta)
+      storeSaleIds && storeSaleIds.length > 0
         ? supabase.from('credit_plans')
             .select('id, client_id')
-            .in('client_id', storeClientIds)
+            .in('sale_id', storeSaleIds)
             .eq('status', 'ACTIVE')
-        : Promise.resolve({ data: null, error: null }),
-      // Placeholder — overdue computed after from filteredDebtRes
-      Promise.resolve({ data: null, error: null }),
+        : storeSaleIds !== null
+          ? Promise.resolve({ data: [], error: null })  // storeFilter activo pero sin ventas → 0
+          : Promise.resolve({ data: null, error: null }),  // sin filtro → usar RPC global
     ])
 
   // ── Compute filtered low stock count ───────────────────────────────────
@@ -210,6 +210,22 @@ export default async function DashboardPage({
     filteredTotalOverdue = 0
   }
 
+  // ── Compute filtered payments this month (via plan_id → sale_id → store) ─
+  let filteredPaymentsMonth: number | null = null
+  if (filteredDebtPlans !== null) {
+    const planIds = (filteredDebtPlans ?? []).map((p: any) => p.id)
+    if (planIds.length > 0) {
+      const { data: payRows } = await supabase
+        .from('payments')
+        .select('amount')
+        .in('plan_id', planIds)
+        .gte('created_at', monthStart)
+      filteredPaymentsMonth = (payRows ?? []).reduce((s: number, r: any) => s + Number(r.amount), 0)
+    } else {
+      filteredPaymentsMonth = 0
+    }
+  }
+
   const metrics: DashboardMetrics = {
     totalActiveClients:       raw.totalActiveClients       ?? 0,
     totalDeactivatedClients:  raw.totalDeactivatedClients  ?? 0,
@@ -218,13 +234,13 @@ export default async function DashboardPage({
     inactiveClients:          raw.inactiveClients          ?? 0,
     birthdaysThisMonth:       raw.birthdaysThisMonth       ?? 0,
     pendingCollectionActions: raw.pendingCollectionActions ?? 0,
-    totalOutstandingDebt:     filteredTotalDebt    ?? (raw.totalOutstandingDebt     ?? 0),
-    totalOverdueDebt:         filteredTotalOverdue ?? (raw.totalOverdueDebt         ?? 0),
+    totalOutstandingDebt:     filteredTotalDebt        ?? (raw.totalOutstandingDebt ?? 0),
+    totalOverdueDebt:         filteredTotalOverdue     ?? (raw.totalOverdueDebt     ?? 0),
     salesToday:               filteredSalesToday,
     salesCountToday:          filteredCountToday,
     salesThisMonth:           filteredSalesMonth,
     lowStockProducts:         filteredLowStock ?? raw.lowStockProducts ?? 0,
-    paymentsThisMonth:        raw.paymentsThisMonth        ?? 0,
+    paymentsThisMonth:        filteredPaymentsMonth ?? (raw.paymentsThisMonth ?? 0),
   }
 
   const todayChange = yTotal > 0
