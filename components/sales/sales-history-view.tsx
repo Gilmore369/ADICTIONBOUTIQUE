@@ -67,35 +67,26 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     }
   }, [selectedStore, lockedStore])
 
-  // Calculate metrics
-  const metrics = useMemo(() => {
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const weekAgo = new Date(today)
-    weekAgo.setDate(weekAgo.getDate() - 7)
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-
-    const todaySales = sales.filter(s => new Date(s.created_at) >= today)
-    const monthSales = sales.filter(s => new Date(s.created_at) >= monthStart)
-    
-    const contadoTotal = sales.filter(s => s.sale_type === 'CONTADO').reduce((sum, s) => sum + s.total, 0)
-    const creditoTotal = sales.filter(s => s.sale_type === 'CREDITO').reduce((sum, s) => sum + s.total, 0)
-    
-    const totalAmount = sales.reduce((sum, s) => sum + s.total, 0)
-    const avgTicket = sales.length > 0 ? totalAmount / sales.length : 0
-
+  // Calculate metrics — always based on filteredSales so cards react to filters
+  // (filteredSales defined below, but metrics is computed lazily via useMemo deps)
+  const computeMetrics = (data: Sale[]) => {
+    const total = data.reduce((s, x) => s + x.total, 0)
+    const contadoSales = data.filter(s => s.sale_type === 'CONTADO')
+    const creditoSales = data.filter(s => s.sale_type === 'CREDITO')
+    const contadoTotal = contadoSales.reduce((s, x) => s + x.total, 0)
+    const creditoTotal = creditoSales.reduce((s, x) => s + x.total, 0)
     return {
-      todayTotal: todaySales.reduce((sum, s) => sum + s.total, 0),
-      todayCount: todaySales.length,
-      monthTotal: monthSales.reduce((sum, s) => sum + s.total, 0),
-      monthCount: monthSales.length,
+      total,
+      count: data.length,
       contadoTotal,
+      contadoCount: contadoSales.length,
       creditoTotal,
-      contadoPercent: totalAmount > 0 ? (contadoTotal / totalAmount) * 100 : 0,
-      avgTicket,
-      totalCount: sales.length
+      creditoCount: creditoSales.length,
+      avgTicket: data.length > 0 ? total / data.length : 0,
+      contadoPct: total > 0 ? (contadoTotal / total) * 100 : 0,
+      creditoPct: total > 0 ? (creditoTotal / total) * 100 : 0,
     }
-  }, [sales])
+  }
 
   // Filter sales
   const filteredSales = useMemo(() => {
@@ -148,6 +139,9 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     })
   }, [sales, searchTerm, filterType, filterStore, filterPeriod])
 
+  // Metrics always reflect current filtered view
+  const metrics = useMemo(() => computeMetrics(filteredSales), [filteredSales])
+
   const handleDownloadPDF = async (sale: Sale) => {
     try {
       toast.info('Descargando PDF...', 'Por favor espera')
@@ -195,46 +189,46 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             <div className="p-2 bg-emerald-100 rounded-lg">
               <DollarSign className="h-5 w-5 text-emerald-600" />
             </div>
-            <span className="text-xs font-medium text-emerald-600">HOY</span>
+            <span className="text-xs font-medium text-emerald-600">TOTAL</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.todayTotal)}</p>
-          <p className="text-xs text-gray-600 mt-1">{metrics.todayCount} ventas</p>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.total)}</p>
+          <p className="text-xs text-gray-600 mt-1">{metrics.count} ventas en filtro actual</p>
         </Card>
 
-        {/* Ventas del Mes */}
+        {/* Contado */}
         <Card className="p-4 bg-gradient-to-br from-blue-50 to-sky-50 border-blue-200/60">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-blue-600" />
+              <ShoppingCart className="h-5 w-5 text-blue-600" />
             </div>
-            <span className="text-xs font-medium text-blue-600">MES</span>
+            <span className="text-xs font-medium text-blue-600">CONTADO</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.monthTotal)}</p>
-          <p className="text-xs text-gray-600 mt-1">{metrics.monthCount} ventas</p>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.contadoTotal)}</p>
+          <p className="text-xs text-gray-600 mt-1">{metrics.contadoCount} ventas · {metrics.contadoPct.toFixed(0)}% del total</p>
         </Card>
 
-        {/* Ticket Promedio */}
+        {/* Crédito */}
         <Card className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200/60">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-purple-100 rounded-lg">
               <TrendingUp className="h-5 w-5 text-purple-600" />
             </div>
-            <span className="text-xs font-medium text-purple-600">PROMEDIO</span>
+            <span className="text-xs font-medium text-purple-600">CRÉDITO</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.avgTicket)}</p>
-          <p className="text-xs text-gray-600 mt-1">por venta</p>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.creditoTotal)}</p>
+          <p className="text-xs text-gray-600 mt-1">{metrics.creditoCount} ventas · {metrics.creditoPct.toFixed(0)}% del total</p>
         </Card>
 
-        {/* Contado vs Crédito */}
+        {/* Ticket Promedio */}
         <Card className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/60">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-amber-100 rounded-lg">
-              <ShoppingCart className="h-5 w-5 text-amber-600" />
+              <Calendar className="h-5 w-5 text-amber-600" />
             </div>
-            <span className="text-xs font-medium text-amber-600">CONTADO</span>
+            <span className="text-xs font-medium text-amber-600">TICKET PROM.</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{metrics.contadoPercent.toFixed(0)}%</p>
-          <p className="text-xs text-gray-600 mt-1">{formatCurrency(metrics.contadoTotal)} de {formatCurrency(metrics.contadoTotal + metrics.creditoTotal)}</p>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.avgTicket)}</p>
+          <p className="text-xs text-gray-600 mt-1">{metrics.count} ventas en vista actual</p>
         </Card>
       </div>
 
