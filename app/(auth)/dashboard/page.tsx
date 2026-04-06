@@ -187,6 +187,29 @@ export default async function DashboardPage({
     }
   }
 
+  // ── Compute filtered debt totals ──────────────────────────────────────────
+  let filteredTotalDebt: number | null = null
+  let filteredTotalOverdue: number | null = null
+  if (filteredDebtPlans !== null && filteredDebtPlans.length > 0) {
+    const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
+    const { data: installmentRows } = await supabase
+      .from('installments')
+      .select('amount, paid_amount, due_date, status')
+      .in('plan_id', activePlanIds)
+      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+    if (installmentRows) {
+      filteredTotalDebt = installmentRows.reduce(
+        (s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0
+      )
+      filteredTotalOverdue = installmentRows
+        .filter((r: any) => r.due_date < today)
+        .reduce((s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0)
+    }
+  } else if (filteredDebtPlans !== null && filteredDebtPlans.length === 0) {
+    filteredTotalDebt = 0
+    filteredTotalOverdue = 0
+  }
+
   const metrics: DashboardMetrics = {
     totalActiveClients:       raw.totalActiveClients       ?? 0,
     totalDeactivatedClients:  raw.totalDeactivatedClients  ?? 0,
@@ -195,8 +218,8 @@ export default async function DashboardPage({
     inactiveClients:          raw.inactiveClients          ?? 0,
     birthdaysThisMonth:       raw.birthdaysThisMonth       ?? 0,
     pendingCollectionActions: raw.pendingCollectionActions ?? 0,
-    totalOutstandingDebt:     raw.totalOutstandingDebt     ?? 0,
-    totalOverdueDebt:         raw.totalOverdueDebt         ?? 0,
+    totalOutstandingDebt:     filteredTotalDebt    ?? (raw.totalOutstandingDebt     ?? 0),
+    totalOverdueDebt:         filteredTotalOverdue ?? (raw.totalOverdueDebt         ?? 0),
     salesToday:               filteredSalesToday,
     salesCountToday:          filteredCountToday,
     salesThisMonth:           filteredSalesMonth,
