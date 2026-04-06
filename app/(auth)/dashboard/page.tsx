@@ -69,19 +69,6 @@ export default async function DashboardPage({
   // Helper para agregar filtro de tienda a queries de sales
   const buildSalesQuery = (q: any) => storeFilter ? q.eq('store_id', storeFilter) : q
 
-  // ── Get sale IDs that belong to this store (source of truth for credit plans) ──
-  // credit_plans.sale_id → sales.store_id is the correct join — NOT via client_id
-  let storeSaleIds: string[] | null = null
-  if (storeFilter) {
-    const { data: storeSales } = await supabase
-      .from('sales')
-      .select('id')
-      .eq('store_id', storeFilter)
-    if (storeSales) {
-      storeSaleIds = storeSales.map((s: any) => s.id)
-    }
-  }
-
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
 
   const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
@@ -116,15 +103,13 @@ export default async function DashboardPage({
             .in('warehouse_id', filteredWarehouseIds)
             .eq('products.active', true)
         : Promise.resolve({ data: null, error: null }),
-      // Planes de crédito filtrados por tienda via sale_id (la forma correcta)
-      storeSaleIds && storeSaleIds.length > 0
+      // Planes de crédito filtrados via inner join sales.store_id (un solo query, sin two-step)
+      storeFilter
         ? supabase.from('credit_plans')
-            .select('id, client_id')
-            .in('sale_id', storeSaleIds)
+            .select('id, client_id, sales!inner(store_id)')
+            .eq('sales.store_id', storeFilter)
             .eq('status', 'ACTIVE')
-        : storeSaleIds !== null
-          ? Promise.resolve({ data: [], error: null })  // storeFilter activo pero sin ventas → 0
-          : Promise.resolve({ data: null, error: null }),  // sin filtro → usar RPC global
+        : Promise.resolve({ data: null, error: null }),
     ])
 
   // ── Compute filtered low stock count ───────────────────────────────────
@@ -162,7 +147,6 @@ export default async function DashboardPage({
 
   // Store-filtered debt counts
   const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
-  console.log('[DASH]', { storeFilter, storeSaleIdsLen: storeSaleIds?.length ?? 'null', debtPlans: filteredDebtPlans === null ? 'null' : filteredDebtPlans.length, debtResErr: (filteredDebtRes as any)?.error?.message ?? 'ok' })
   let filteredClientsWithDebt: number | null = null
   let filteredClientsOverdue: number | null = null
   if (filteredDebtPlans !== null) {
