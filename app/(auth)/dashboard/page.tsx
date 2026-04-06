@@ -6,6 +6,7 @@
  */
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import DashboardClient, { type DashboardMetrics } from '@/components/dashboard/DashboardClient'
 
 export const dynamic = 'force-dynamic'
@@ -103,9 +104,9 @@ export default async function DashboardPage({
             .in('warehouse_id', filteredWarehouseIds)
             .eq('products.active', true)
         : Promise.resolve({ data: null, error: null }),
-      // Planes de crédito filtrados via inner join sales.store_id (un solo query, sin two-step)
+      // Planes de crédito filtrados via service client (bypasses RLS) con inner join store
       storeFilter
-        ? supabase.from('credit_plans')
+        ? createServiceClient().from('credit_plans')
             .select('id, client_id, sales!inner(store_id)')
             .eq('sales.store_id', storeFilter)
             .eq('status', 'ACTIVE')
@@ -156,7 +157,7 @@ export default async function DashboardPage({
     // For overdue: check which active plan IDs have installments past due
     const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
     if (activePlanIds.length > 0) {
-      const { data: overdueRows } = await supabase
+      const { data: overdueRows } = await createServiceClient()
         .from('installments')
         .select('plan_id')
         .in('plan_id', activePlanIds)
@@ -179,7 +180,7 @@ export default async function DashboardPage({
   let filteredTotalOverdue: number | null = null
   if (filteredDebtPlans !== null && filteredDebtPlans.length > 0) {
     const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
-    const { data: installmentRows } = await supabase
+    const { data: installmentRows } = await createServiceClient()
       .from('installments')
       .select('amount, paid_amount, due_date, status')
       .in('plan_id', activePlanIds)
@@ -202,7 +203,7 @@ export default async function DashboardPage({
   if (filteredDebtPlans !== null) {
     const planIds = (filteredDebtPlans ?? []).map((p: any) => p.id)
     if (planIds.length > 0) {
-      const { data: payRows } = await supabase
+      const { data: payRows } = await createServiceClient()
         .from('payments')
         .select('amount')
         .in('plan_id', planIds)
