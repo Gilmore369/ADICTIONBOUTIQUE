@@ -8,6 +8,7 @@
  */
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import {
   ClientProfile,
   CreditSummary,
@@ -38,8 +39,10 @@ import { differenceInDays } from 'date-fns'
  */
 export async function fetchClientProfile(clientId: string): Promise<ClientProfile> {
   const supabase = await createServerClient()
-  
+  const service = createServiceClient()
+
   // Fetch all related data in parallel using Promise.all for performance
+  // NOTE: purchases, installments, collection_actions use service client to bypass RLS
   const [
     clientResult,
     purchasesResult,
@@ -55,9 +58,9 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       .select('*')
       .eq('id', clientId)
       .single(),
-    
-    // Fetch purchase history with items
-    supabase
+
+    // Fetch purchase history with items (service client bypasses RLS on sales)
+    service
       .from('sales')
       .select(`
         id, sale_number, created_at, total, subtotal, discount, sale_type, payment_status,
@@ -67,20 +70,21 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       `)
       .eq('client_id', clientId)
       .eq('voided', false)
-      .order('created_at', { ascending: false }), // Most recent first
-    
-    // Fetch credit plans
-    supabase
+      .order('created_at', { ascending: false }),
+
+    // Fetch credit plans (service client to bypass RLS)
+    service
       .from('credit_plans')
-      .select('*')
+      .select('id, sale_number, sale_id, total_amount, paid_amount, installments_count, status, created_at')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false }),
-    
-    // Fetch installments with credit plan info
-    supabase
+
+    // Fetch ALL installments for this client (service client to bypass RLS)
+    service
       .from('installments')
       .select(`
         id,
+        plan_id,
         installment_number,
         amount,
         due_date,
@@ -94,21 +98,21 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
         )
       `)
       .eq('credit_plans.client_id', clientId),
-    
+
     // Fetch action logs
     supabase
       .from('client_action_logs')
       .select('*')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false }),
-    
-    // Fetch collection actions
-    supabase
+
+    // Fetch collection actions (service client to bypass RLS)
+    service
       .from('collection_actions')
-      .select('*')
+      .select('id, client_id, action_type, result, notes, payment_promise_date, created_at, user_id')
       .eq('client_id', clientId)
-      .order('follow_up_date', { ascending: true }),
-    
+      .order('created_at', { ascending: false }),
+
     // Fetch client rating
     supabase
       .from('client_ratings')
@@ -217,17 +221,16 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
     created_at: new Date(log.created_at),
   }))
   
-  // Transform collection actions
-  const transformedCollectionActions: CollectionAction[] = collectionActions.map((action: any) => ({
+  // Transform collection actions — pass raw DB fields (notes, payment_promise_date)
+  const transformedCollectionActions: any[] = collectionActions.map((action: any) => ({
     id: action.id,
     client_id: action.client_id,
     action_type: action.action_type,
-    description: action.description,
-    follow_up_date: new Date(action.follow_up_date),
-    completed: action.completed || false,
-    completed_at: action.completed_at ? new Date(action.completed_at) : null,
+    result: action.result || '',
+    notes: action.notes || '',
+    payment_promise_date: action.payment_promise_date || null,
     user_id: action.user_id,
-    created_at: new Date(action.created_at),
+    created_at: action.created_at,
   }))
   
   // Transform rating if exists
