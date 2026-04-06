@@ -146,6 +146,15 @@ export default async function DashboardPage({
     ? (salesTodayRes.data ?? []).length
     : (raw.salesCountToday ?? 0)
 
+  // ── DEBUG: trace store filter ─────────────────────────────────────────────
+  console.log('[DASH-DEBUG]', JSON.stringify({
+    storeFilter,
+    storeCode,
+    debtResError: filteredDebtRes?.error ? String((filteredDebtRes.error as any)?.message) : null,
+    debtResCount: filteredDebtRes?.data?.length ?? 'null',
+    debtResFirst: filteredDebtRes?.data?.[0] ?? null,
+  }))
+
   // Store-filtered debt counts
   const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
   let filteredClientsWithDebt: number | null = null
