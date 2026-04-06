@@ -41,7 +41,7 @@ interface Sale {
 interface SalesHistoryViewProps {
   initialSales: Sale[]
   lockedStore?: string | null
-  initialPeriod?: 'TODAY' | 'WEEK' | 'MONTH' | 'ALL'
+  initialPeriod?: 'TODAY' | 'WEEK' | 'MONTH' | '3MONTHS' | '6MONTHS' | '12MONTHS' | 'ALL'
 }
 
 const STORE_CTX_MAP: Record<string, 'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'> = {
@@ -57,7 +57,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
   const [filterStore, setFilterStore] = useState<'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>(
     (lockedStore as any) || 'ALL'
   )
-  const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'ALL'>(initialPeriod)
+  const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | '3MONTHS' | '6MONTHS' | '12MONTHS' | 'ALL'>(initialPeriod)
 
   // Sincronizar con el selector global de tienda del header
   const { selectedStore } = useStore()
@@ -129,6 +129,18 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
         } else if (filterPeriod === 'MONTH') {
           const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
           if (saleDate < monthStart) return false
+        } else if (filterPeriod === '3MONTHS') {
+          const cutoff = new Date(today)
+          cutoff.setMonth(cutoff.getMonth() - 3)
+          if (saleDate < cutoff) return false
+        } else if (filterPeriod === '6MONTHS') {
+          const cutoff = new Date(today)
+          cutoff.setMonth(cutoff.getMonth() - 6)
+          if (saleDate < cutoff) return false
+        } else if (filterPeriod === '12MONTHS') {
+          const cutoff = new Date(today)
+          cutoff.setFullYear(cutoff.getFullYear() - 1)
+          if (saleDate < cutoff) return false
         }
       }
 
@@ -252,6 +264,9 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             <option value="TODAY">Hoy</option>
             <option value="WEEK">Última semana</option>
             <option value="MONTH">Este mes</option>
+            <option value="3MONTHS">Últimos 3 meses</option>
+            <option value="6MONTHS">Últimos 6 meses</option>
+            <option value="12MONTHS">Último año</option>
           </select>
 
           {/* Type Filter */}
