@@ -8,6 +8,8 @@
 import { createServerClient } from '@/lib/supabase/server'
 import DashboardClient, { type DashboardMetrics } from '@/components/dashboard/DashboardClient'
 
+export const dynamic = 'force-dynamic'
+
 interface TrendPoint {
   period: string
   label: string
@@ -50,7 +52,6 @@ export default async function DashboardPage({
   const canSwitchStore = isAdmin && userStores.length > 1
   let storeFilter: string | null = null   // used for sales.store_id filter ('Tienda Mujeres')
   let storeCode: string | null = null     // used for stores.code filter ('MUJERES')
-  console.log('[DASH] params.store:', params.store, '| isAdmin:', isAdmin, '| userStores:', userStores, '| canSwitch:', canSwitchStore)
   if (userStores.length === 1) {
     storeCode = (userStores[0] ?? '').toUpperCase()
     storeFilter = STORE_KEY_MAP[storeCode] ?? userStores[0]
@@ -62,7 +63,6 @@ export default async function DashboardPage({
   // NOTE: stock.warehouse_id and movements.warehouse_id store display names
   // ('Tienda Mujeres' / 'Tienda Hombres'), NOT UUIDs from the warehouses table.
   // storeFilter already holds the correct value ('Tienda Mujeres') for filtering.
-  console.log('[DASH] storeFilter:', storeFilter, '| storeSaleIds will be fetched if filter set')
   const filteredWarehouseIds: string[] = storeFilter ? [storeFilter] : []
 
   // ── All queries in parallel ─────────────────────────────────────────────
@@ -82,7 +82,6 @@ export default async function DashboardPage({
     }
   }
 
-  console.log('[DASH] storeSaleIds:', storeSaleIds?.length ?? 'null')
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
 
   const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
@@ -163,7 +162,6 @@ export default async function DashboardPage({
 
   // Store-filtered debt counts
   const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
-  console.log('[DASH] filteredDebtPlans:', filteredDebtPlans === null ? 'null' : filteredDebtPlans.length)
   let filteredClientsWithDebt: number | null = null
   let filteredClientsOverdue: number | null = null
   if (filteredDebtPlans !== null) {

@@ -371,10 +371,11 @@ export default function DashboardClient({
             <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
               {storeOptions.map(opt => {
                 const isActive = (activeStoreParam ?? 'ALL') === opt.value
+                const href = opt.value === 'ALL' ? '/dashboard' : `/dashboard?store=${opt.value}`
                 return (
-                  <Link
+                  <a
                     key={opt.value}
-                    href={opt.value === 'ALL' ? '/dashboard' : `/dashboard?store=${opt.value}`}
+                    href={href}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                       isActive
                         ? 'bg-white text-emerald-700 shadow-sm'
@@ -382,7 +383,7 @@ export default function DashboardClient({
                     }`}
                   >
                     {opt.label}
-                  </Link>
+                  </a>
                 )
               })}
             </div>
