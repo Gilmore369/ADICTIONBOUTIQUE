@@ -54,7 +54,12 @@ async function MovementsData() {
     type: m.type === 'ENTRADA' || m.type === 'IN' ? 'IN' : 'OUT'
   }))
 
-  return <MovementsTable data={normalizedMovements} />
+  // Single-store users: hide the store filter UI and "Tienda" column
+  const singleStoreName = !hasAllAccess && userStores.length > 0
+    ? (STORE_NAME_MAP[userStores[0].toUpperCase()] ?? userStores[0])
+    : undefined
+
+  return <MovementsTable data={normalizedMovements} singleStore={singleStoreName} />
 }
 
 export default function MovementsPage() {

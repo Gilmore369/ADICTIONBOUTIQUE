@@ -31,6 +31,7 @@ interface Movement {
 
 interface MovementsTableProps {
   data: Movement[]
+  singleStore?: string   // When set, hides store filter buttons and "Tienda" column
 }
 
 type SortField = 'fecha' | 'tipo' | 'producto' | 'tienda' | 'cantidad' | 'motivo'
@@ -38,7 +39,7 @@ type SortOrder = 'asc' | 'desc'
 
 type StoreFilter = 'all' | 'Tienda Mujeres' | 'Tienda Hombres'
 
-export function MovementsTable({ data }: MovementsTableProps) {
+export function MovementsTable({ data, singleStore }: MovementsTableProps) {
   const [sortField, setSortField] = useState<SortField>('fecha')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [storeFilter, setStoreFilter] = useState<StoreFilter>('all')
@@ -123,30 +124,32 @@ export function MovementsTable({ data }: MovementsTableProps) {
 
   return (
     <Card className="p-4">
-      {/* Store filter */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-sm text-gray-500 font-medium">Tienda:</span>
-        <div className="flex gap-1">
-          {storeOptions.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setStoreFilter(opt.value)}
-              className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-                storeFilter === opt.value
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      {/* Store filter — hidden for single-store users */}
+      {!singleStore && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-sm text-gray-500 font-medium">Tienda:</span>
+          <div className="flex gap-1">
+            {storeOptions.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setStoreFilter(opt.value)}
+                className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                  storeFilter === opt.value
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {storeFilter !== 'all' && (
+            <span className="text-xs text-gray-400 ml-1">
+              {filteredData.length} movimiento{filteredData.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
-        {storeFilter !== 'all' && (
-          <span className="text-xs text-gray-400 ml-1">
-            {filteredData.length} movimiento{filteredData.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
+      )}
 
       <div className="overflow-x-auto">
         <Table>
@@ -185,17 +188,19 @@ export function MovementsTable({ data }: MovementsTableProps) {
                   <SortIcon field="producto" />
                 </Button>
               </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleSort('tienda')}
-                  className="gap-2 h-auto p-0 hover:bg-transparent"
-                >
-                  Tienda
-                  <SortIcon field="tienda" />
-                </Button>
-              </TableHead>
+              {!singleStore && (
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSort('tienda')}
+                    className="gap-2 h-auto p-0 hover:bg-transparent"
+                  >
+                    Tienda
+                    <SortIcon field="tienda" />
+                  </Button>
+                </TableHead>
+              )}
               <TableHead className="text-right">
                 <Button
                   variant="ghost"
@@ -223,7 +228,7 @@ export function MovementsTable({ data }: MovementsTableProps) {
           <TableBody>
             {sortedData.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={singleStore ? 5 : 6} className="text-center text-gray-500 py-8">
                   No hay movimientos para la tienda seleccionada
                 </TableCell>
               </TableRow>
@@ -252,7 +257,7 @@ export function MovementsTable({ data }: MovementsTableProps) {
                     <div className="text-xs text-gray-500">{movement.products?.barcode}</div>
                   </div>
                 </TableCell>
-                <TableCell>{movement.warehouse_id}</TableCell>
+                {!singleStore && <TableCell>{movement.warehouse_id}</TableCell>}
                 <TableCell className="text-right font-semibold">
                   {movement.type === 'IN' || movement.type === 'ENTRADA' ? '+' : ''}{Math.abs(movement.quantity)}
                 </TableCell>
