@@ -1,11 +1,45 @@
 /**
  * Collection Actions API Route
- * 
+ *
+ * GET:  List all collection actions (global history)
  * POST: Create a new collection action
  */
 
 import { createServerClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 200)
+    const offset = parseInt(searchParams.get('offset') || '0')
+    const clientId = searchParams.get('client_id')
+
+    let query = supabase
+      .from('collection_actions')
+      .select(`
+        id, action_type, result, notes, payment_promise_date, created_at,
+        client_id, client_name,
+        users:user_id(name)
+      `)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (clientId) query = query.eq('client_id', clientId) as typeof query
+
+    const { data, error } = await query
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true, data: data || [] })
+  } catch (err) {
+    console.error('GET collection_actions error:', err)
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+  }
+}
 
 export async function POST(request: Request) {
   try {

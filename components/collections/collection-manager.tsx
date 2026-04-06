@@ -2,21 +2,20 @@
 
 /**
  * Collection Manager
- * Redesigned actions page:
- * - Left: Priority table (top debtors by score)
- * - Right: Client detail panel + action form + timeline history
+ * - Tab "Acciones": Priority table + client detail/form/timeline
+ * - Tab "Historial": Global log of all recorded collection actions
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useStore } from '@/contexts/store-context'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/currency'
 import {
   AlertTriangle, Phone, MessageCircle, Eye, ChevronRight,
-  Loader2, RefreshCw, Clock, CheckCircle2, XCircle, HelpCircle,
-  DollarSign, Users, Calendar, MapPin,
+  Loader2, RefreshCw, CheckCircle2, XCircle, HelpCircle,
+  DollarSign, Users, Calendar, MapPin, History,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -26,6 +25,18 @@ import {
 import { formatSafeDate } from '@/lib/utils/date'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
+interface HistoryRecord {
+  id: string
+  action_type: string
+  result: string
+  notes: string
+  payment_promise_date: string | null
+  created_at: string
+  client_id: string
+  client_name: string
+  users?: { name: string }
+}
+
 interface DebtorRow {
   id: string; name: string; dni: string; phone: string; rating: string
   totalDebt: number; overdueDebt: number; maxDaysOverdue: number
@@ -119,10 +130,135 @@ function TimelineItem({ action }: { action: ActionRecord }) {
   )
 }
 
+// ─── Global history view ────────────────────────────────────────────────────
+function GlobalHistory() {
+  const router = useRouter()
+  const [records, setRecords] = useState<HistoryRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/collections/actions?limit=200')
+      const data = await res.json()
+      setRecords(data.data || [])
+    } catch { toast.error('Error al cargar historial') }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const filtered = records.filter(r =>
+    !search ||
+    r.client_name?.toLowerCase().includes(search.toLowerCase()) ||
+    (r.users?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (ACTION_LABELS[r.action_type] || r.action_type).toLowerCase().includes(search.toLowerCase()) ||
+    (RESULT_LABELS[r.result]?.label || r.result).toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input
+            type="text"
+            placeholder="Buscar cliente, cobrador, tipo..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 h-9 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <button onClick={load} className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors" title="Actualizar">
+          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+        </button>
+        <span className="text-xs text-gray-400">{filtered.length} registros</span>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-300" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center text-sm text-gray-400">
+            <History className="h-8 w-8 mx-auto mb-2 text-gray-200" />
+            No hay acciones registradas
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Resultado</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Notas</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cobrador</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map(r => {
+                  const res = RESULT_LABELS[r.result] || { label: r.result, icon: HelpCircle, color: 'text-gray-500' }
+                  const ResIcon = res.icon
+                  return (
+                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {formatSafeDate(r.created_at, 'dd/MM/yy HH:mm')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => router.push(`/clients/${r.client_id}`)}
+                          className="font-medium text-gray-900 hover:text-blue-600 hover:underline text-left"
+                        >
+                          {r.client_name}
+                        </button>
+                        {r.payment_promise_date && (
+                          <div className="text-xs text-blue-600 mt-0.5">
+                            📅 Promete: {formatSafeDate(r.payment_promise_date, 'dd/MM/yyyy')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        {ACTION_LABELS[r.action_type] || r.action_type}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={cn('flex items-center gap-1.5 text-xs font-medium', res.color)}>
+                          <ResIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                          {res.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate">
+                        {r.notes || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                        {r.users?.name || '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 export function CollectionManager() {
   const { storeId, selectedStore } = useStore()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<'actions' | 'history'>(() =>
+    searchParams.get('tab') === 'history' ? 'history' : 'actions'
+  )
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'history') setActiveTab('history')
+  }, [searchParams])
 
   // Priority table
   const [debtors, setDebtors] = useState<DebtorRow[]>([])
@@ -213,6 +349,36 @@ export function CollectionManager() {
   }
 
   return (
+    <div className="space-y-5">
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('actions')}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            activeTab === 'actions'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> Prioridad de Cobranza</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+            activeTab === 'history'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <span className="flex items-center gap-1.5"><History className="h-4 w-4" /> Historial de Acciones</span>
+        </button>
+      </div>
+
+      {activeTab === 'history' ? (
+        <GlobalHistory />
+      ) : (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
       {/* ── LEFT: Priority table (3/5) ──────────────────────────────────── */}
       <div className="lg:col-span-3">
@@ -493,6 +659,8 @@ export function CollectionManager() {
           </>
         )}
       </div>
+    </div>
+      )}
     </div>
   )
 }

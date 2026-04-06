@@ -404,7 +404,7 @@ export default function DashboardClient({
       {(m.pendingCollectionActions > 0 || m.lowStockProducts > 0 || m.birthdaysThisMonth > 0) && (
         <div className="flex flex-wrap gap-2">
           {m.pendingCollectionActions > 0 && (
-            <Link href="/collections/actions"
+            <Link href="/collections/actions?tab=history"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-xs text-amber-700 font-medium hover:bg-amber-100 transition-colors">
               <AlertCircle className="h-3.5 w-3.5" />
               {fn(m.pendingCollectionActions)} acciones de cobranza pendientes
@@ -412,7 +412,7 @@ export default function DashboardClient({
             </Link>
           )}
           {m.lowStockProducts > 0 && (
-            <Link href="/inventory/stock"
+            <Link href="/inventory/stock?status=low"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-full text-xs text-rose-700 font-medium hover:bg-rose-100 transition-colors">
               <Package className="h-3.5 w-3.5" />
               {fn(m.lowStockProducts)} productos con stock bajo
@@ -494,7 +494,7 @@ export default function DashboardClient({
           subtext="productos bajo mínimo"
           icon={<Package />}
           accent={C.orange}
-          href="/inventory/stock"
+          href="/inventory/stock?status=low"
         />
         <KPICard
           label="Acciones Hoy"

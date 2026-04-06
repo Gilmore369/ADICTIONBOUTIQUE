@@ -7,7 +7,8 @@
  * Permite ajustar stock por producto con registro de movimiento.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -75,11 +76,28 @@ const TYPE_LABELS: Record<string, string> = {
   AJUSTE: 'Ajuste (valor exacto)',
 }
 
+type StatusFilter = 'all' | 'low' | 'sin_stock'
+
 export function StockManager({ initialData, stores = [] }: StockManagerProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [stock, setStock] = useState(initialData)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const s = searchParams.get('status')
+    if (s === 'low') return 'low'
+    if (s === 'sin_stock') return 'sin_stock'
+    return 'all'
+  })
   const { selectedStore, storeId } = useStore()
+
+  // Sync filter when URL param changes
+  useEffect(() => {
+    const s = searchParams.get('status')
+    if (s === 'low') setStatusFilter('low')
+    else if (s === 'sin_stock') setStatusFilter('sin_stock')
+    else setStatusFilter('all')
+  }, [searchParams])
 
   // Adjust dialog state
   const [dialogItem, setDialogItem] = useState<StockItem | null>(null)
@@ -164,14 +182,39 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
     return warehouseId.toUpperCase().includes(selectedStore)
   }
 
+  // Stock status logic — defined first, used in filter + counts + render
+  const getStockStatus = (qty: number, minStock: number) => {
+    if (qty === 0) return 'sin_stock'
+    if (minStock > 0 && qty <= minStock) return 'bajo'
+    return 'normal'
+  }
+
   const filteredStock = stock.filter((item) => {
     const matchesSearch =
       !search ||
       item.products?.name.toLowerCase().includes(search.toLowerCase()) ||
       item.products?.barcode?.includes(search) ||
       getWarehouseName(item.warehouse_id).toLowerCase().includes(search.toLowerCase())
-    return matchesSearch && warehouseMatchesStore(item.warehouse_id)
+    const status = getStockStatus(item.quantity, item.products?.min_stock || 0)
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'low' && (status === 'bajo' || status === 'sin_stock')) ||
+      (statusFilter === 'sin_stock' && status === 'sin_stock')
+    return matchesSearch && warehouseMatchesStore(item.warehouse_id) && matchesStatus
   })
+
+  // Counts for filter badges
+  const counts = {
+    all: stock.filter(i => warehouseMatchesStore(i.warehouse_id)).length,
+    low: stock.filter(i => {
+      const s = getStockStatus(i.quantity, i.products?.min_stock || 0)
+      return warehouseMatchesStore(i.warehouse_id) && (s === 'bajo' || s === 'sin_stock')
+    }).length,
+    sin_stock: stock.filter(i => {
+      const s = getStockStatus(i.quantity, i.products?.min_stock || 0)
+      return warehouseMatchesStore(i.warehouse_id) && s === 'sin_stock'
+    }).length,
+  }
 
   const groupedByWarehouse = filteredStock.reduce((acc, item) => {
     if (!acc[item.warehouse_id]) acc[item.warehouse_id] = []
@@ -179,18 +222,35 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
     return acc
   }, {} as Record<string, StockItem[]>)
 
-  // Stock status logic:
-  // - "Sin stock" if quantity = 0
-  // - "Bajo" if min_stock > 0 AND 0 < quantity <= min_stock
-  // - "Normal" otherwise
-  const getStockStatus = (qty: number, minStock: number) => {
-    if (qty === 0) return 'sin_stock'
-    if (minStock > 0 && qty <= minStock) return 'bajo'
-    return 'normal'
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Filter buttons */}
+      <div className="flex flex-wrap items-center gap-2">
+        {([
+          { key: 'all', label: 'Todos', count: counts.all },
+          { key: 'low', label: 'Stock bajo', count: counts.low, color: 'amber' },
+          { key: 'sin_stock', label: 'Sin stock', count: counts.sin_stock, color: 'red' },
+        ] as const).map(({ key, label, count, color }) => {
+          const active = statusFilter === key
+          const base = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer'
+          const styles =
+            active && key === 'all'   ? 'bg-gray-900 text-white border-gray-900' :
+            active && color === 'amber' ? 'bg-amber-500 text-white border-amber-500' :
+            active && color === 'red'  ? 'bg-red-500 text-white border-red-500' :
+            !active && color === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' :
+            !active && color === 'red'  ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+            'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+          return (
+            <button key={key} onClick={() => setStatusFilter(key)} className={`${base} ${styles}`}>
+              {label}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                active ? 'bg-white/30' : 'bg-gray-100 text-gray-500'
+              }`}>{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
