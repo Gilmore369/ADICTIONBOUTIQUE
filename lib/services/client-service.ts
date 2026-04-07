@@ -121,6 +121,20 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       .maybeSingle(),
   ])
   
+  // DEBUG: log result counts
+  console.log('[CLIENT-PROFILE-DEBUG]', JSON.stringify({
+    clientId,
+    clientError: clientResult.error?.message ?? null,
+    purchasesCount: purchasesResult.data?.length ?? 'null',
+    purchasesError: purchasesResult.error?.message ?? null,
+    plansCount: creditPlansResult.data?.length ?? 'null',
+    plansError: creditPlansResult.error?.message ?? null,
+    installmentsCount: installmentsResult.data?.length ?? 'null',
+    installmentsError: installmentsResult.error?.message ?? null,
+    actionsCount: collectionActionsResult.data?.length ?? 'null',
+    actionsError: collectionActionsResult.error?.message ?? null,
+  }))
+
   // Handle errors
   if (clientResult.error) {
     throw new Error(`Failed to fetch client: ${clientResult.error.message}`)
