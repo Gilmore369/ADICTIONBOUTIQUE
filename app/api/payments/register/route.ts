@@ -7,16 +7,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerClient()
+    const authClient = await createServerClient()
 
     // Verificar autenticación
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
+
+    // Use service client for all data operations (bypasses RLS)
+    const supabase = createServiceClient()
 
     const body = await request.json()
     const { installmentId, amount, paymentMethod, paymentDate, notes } = body
@@ -53,16 +57,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Insert payment record
+    // Insert payment record — columns: client_id, amount, payment_date, user_id, notes, installment_id, plan_id
+    const clientId = (installment as any).credit_plans?.client_id
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .insert({
+        client_id: clientId || null,
         installment_id: installmentId,
+        plan_id: (installment as any).plan_id || null,
         amount: amount,
-        payment_method: paymentMethod,
         payment_date: paymentDate,
+        user_id: user.id,
         notes: notes || null,
-        created_by: user.id,
       })
       .select()
       .single()
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
       .update({
         paid_amount: newPaidAmount,
         status: newStatus,
-        updated_at: new Date().toISOString(),
+        ...(newStatus === 'PAID' ? { paid_at: new Date().toISOString() } : {}),
       })
       .eq('id', installmentId)
 
@@ -99,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update client's credit_used (reduce by payment amount)
-    const clientId = installment.credit_plans.client_id
+    const clientId = (installment as any).credit_plans?.client_id
     const { error: clientError } = await supabase.rpc('update_client_credit_used', {
       p_client_id: clientId,
       p_amount_change: -amount,
