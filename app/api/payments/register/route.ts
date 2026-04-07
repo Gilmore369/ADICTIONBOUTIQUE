@@ -105,7 +105,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Update client's credit_used (reduce by payment amount)
-    const clientId = (installment as any).credit_plans?.client_id
     const { error: clientError } = await supabase.rpc('update_client_credit_used', {
       p_client_id: clientId,
       p_amount_change: -amount,
