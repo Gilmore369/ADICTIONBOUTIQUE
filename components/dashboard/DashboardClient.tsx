@@ -362,6 +362,7 @@ export default function DashboardClient({
           <p className="text-xs text-gray-400 mt-0.5 capitalize">
             {new Date().toLocaleDateString('es-PE', {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+              timeZone: 'America/Lima',
             })}
           </p>
         </div>

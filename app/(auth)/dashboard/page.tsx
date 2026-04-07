@@ -31,12 +31,26 @@ export default async function DashboardPage({
   searchParams?: Promise<{ store?: string }>
 }) {
   const supabase  = await createServerClient()
-  const today     = new Date().toISOString().split('T')[0]
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yStr      = yesterday.toISOString().split('T')[0]
-  const thirtyAgo = new Date()
-  thirtyAgo.setDate(thirtyAgo.getDate() - 30)
+
+  // ── Zona horaria Perú (UTC-5, sin DST) ─────────────────────────────────
+  // Perú medianoche = UTC 05:00. Todos los cortes de fecha deben usar esta
+  // referencia para que "hoy" coincida con el día calendario en Lima.
+  const PERU_OFFSET_MS = 5 * 60 * 60 * 1000 // 5 horas en ms
+  const nowUtc = new Date()
+  const nowPeru = new Date(nowUtc.getTime() - PERU_OFFSET_MS) // fecha local Perú
+  const peruDateStr = nowPeru.toISOString().split('T')[0]    // 'YYYY-MM-DD' en Lima
+
+  // Inicio de "hoy Perú" expresado en UTC: YYYY-MM-DDT05:00:00Z
+  const today    = peruDateStr + 'T05:00:00.000Z'
+
+  // Inicio de "ayer Perú" en UTC
+  const yPeru = new Date(nowPeru)
+  yPeru.setUTCDate(yPeru.getUTCDate() - 1)
+  const yStr = yPeru.toISOString().split('T')[0] + 'T05:00:00.000Z'
+
+  // Hace 30 días (en Lima)
+  const thirtyAgo = new Date(nowPeru)
+  thirtyAgo.setUTCDate(thirtyAgo.getUTCDate() - 30)
 
   // ── Resolver tienda según perfil del usuario ────────────────────────────
   const { data: { user } } = await supabase.auth.getUser()
@@ -70,7 +84,8 @@ export default async function DashboardPage({
   // Helper para agregar filtro de tienda a queries de sales
   const buildSalesQuery = (q: any) => storeFilter ? q.eq('store_id', storeFilter) : q
 
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+  // Inicio del mes actual en Lima → UTC 05:00 del día 1
+  const monthStart = `${nowPeru.getUTCFullYear()}-${String(nowPeru.getUTCMonth() + 1).padStart(2, '0')}-01T05:00:00.000Z`
 
   const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
          salesTodayRes, salesMonthRes, lowStockFilteredRes,
@@ -89,7 +104,7 @@ export default async function DashboardPage({
         .order('created_at', { ascending: false }).limit(6)),
       supabase.from('collection_actions').select('result').gte('created_at', today),
       buildSalesQuery(supabase.from('sales').select('total,sale_type')
-        .gte('created_at', thirtyAgo.toISOString()).eq('voided', false)),
+        .gte('created_at', thirtyAgo.toISOString().split('T')[0] + 'T05:00:00.000Z').eq('voided', false)),
       supabase.from('clients').select('address').eq('active', true).not('address', 'is', null),
       // Ventas hoy filtradas por tienda (override RPC)
       buildSalesQuery(supabase.from('sales').select('total')
@@ -162,7 +177,7 @@ export default async function DashboardPage({
         .select('plan_id')
         .in('plan_id', activePlanIds)
         .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-        .lt('due_date', today)
+        .lt('due_date', peruDateStr)
       const overdueClientIds = new Set(
         (overdueRows || []).map((r: any) => {
           const plan = filteredDebtPlans.find((p: any) => p.id === r.plan_id)
@@ -190,7 +205,7 @@ export default async function DashboardPage({
         (s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0
       )
       filteredTotalOverdue = installmentRows
-        .filter((r: any) => r.due_date < today)
+        .filter((r: any) => r.due_date < peruDateStr)
         .reduce((s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0)
     }
   } else if (filteredDebtPlans !== null && filteredDebtPlans.length === 0) {
