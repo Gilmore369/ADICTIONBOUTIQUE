@@ -18,9 +18,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { ExternalLink, Search, DollarSign } from 'lucide-react'
+import { ExternalLink, Search, TrendingUp, Calendar } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate } from '@/lib/utils/date'
+import { cn } from '@/lib/utils'
 
 interface Payment {
   id: string
@@ -35,39 +36,77 @@ interface Payment {
   users?: { name: string; stores: string[] } | null
 }
 
-type Period = '3M' | '6M' | '1Y'
+type Period = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'custom'
 
 interface Props {
   initialPayments: Payment[]
-  initialPeriod?: Period
+  initialPeriod?: '3M' | '6M' | '1Y'
   userStores?: string[]
 }
 
-const PERIOD_LABELS: Record<Period, string> = {
-  '3M': 'Últimos 3 meses',
-  '6M': 'Últimos 6 meses',
-  '1Y': 'Último año',
+const PERIODS: { key: Period; label: string; short: string }[] = [
+  { key: '1D', label: 'Hoy',             short: 'Hoy' },
+  { key: '1W', label: 'Última semana',   short: '7 días' },
+  { key: '1M', label: 'Último mes',      short: '1 mes' },
+  { key: '3M', label: 'Últimos 3 meses', short: '3 meses' },
+  { key: '6M', label: 'Últimos 6 meses', short: '6 meses' },
+  { key: '1Y', label: 'Último año',      short: '1 año' },
+  { key: 'custom', label: 'Personalizado', short: 'Rango' },
+]
+
+function toDateStr(d: Date): string {
+  return d.toISOString().split('T')[0]
 }
 
-function filterByPeriod(payments: Payment[], period: Period): Payment[] {
+function todayStr(): string { return toDateStr(new Date()) }
+
+function thisMonthStart(): string {
   const now = new Date()
-  let from: Date
-  if (period === '3M') {
-    from = new Date(now); from.setMonth(from.getMonth() - 3)
-  } else if (period === '6M') {
-    from = new Date(now); from.setMonth(from.getMonth() - 6)
-  } else {
-    from = new Date(now); from.setFullYear(from.getFullYear() - 1)
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+function periodRange(period: Period): { from: string; to: string } {
+  const now = new Date()
+  const to = todayStr()
+  if (period === '1D') return { from: to, to }
+  if (period === '1W') {
+    const d = new Date(now); d.setDate(d.getDate() - 6)
+    return { from: toDateStr(d), to }
   }
-  return payments.filter(p => new Date(p.payment_date) >= from)
+  if (period === '1M') {
+    const d = new Date(now); d.setMonth(d.getMonth() - 1)
+    return { from: toDateStr(d), to }
+  }
+  if (period === '3M') {
+    const d = new Date(now); d.setMonth(d.getMonth() - 3)
+    return { from: toDateStr(d), to }
+  }
+  if (period === '6M') {
+    const d = new Date(now); d.setMonth(d.getMonth() - 6)
+    return { from: toDateStr(d), to }
+  }
+  // 1Y
+  const d = new Date(now); d.setFullYear(d.getFullYear() - 1)
+  return { from: toDateStr(d), to }
 }
 
 export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Props) {
   const [period, setPeriod] = useState<Period>(initialPeriod)
   const [search, setSearch] = useState('')
 
+  // Custom date range state
+  const [customFrom, setCustomFrom] = useState(thisMonthStart)
+  const [customTo, setCustomTo]   = useState(todayStr)
+
+  const { from, to } = period === 'custom'
+    ? { from: customFrom, to: customTo }
+    : periodRange(period)
+
   const filtered = useMemo(() => {
-    let list = filterByPeriod(initialPayments, period)
+    let list = initialPayments.filter(p => {
+      const d = p.payment_date.slice(0, 10)
+      return d >= from && d <= to
+    })
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(p =>
@@ -77,55 +116,111 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
       )
     }
     return list
-  }, [initialPayments, period, search])
+  }, [initialPayments, from, to, search])
 
-  const total = filtered.reduce((s, p) => s + Number(p.amount), 0)
+  const total   = filtered.reduce((s, p) => s + Number(p.amount), 0)
+  const avg     = filtered.length > 0 ? total / filtered.length : 0
+  const maxPay  = filtered.length > 0 ? Math.max(...filtered.map(p => Number(p.amount))) : 0
+  const periodLabel = PERIODS.find(p => p.key === period)?.label ?? ''
 
   return (
     <div className="space-y-4">
-      {/* Period selector + search */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="flex gap-1 bg-muted rounded-lg p-1">
-          {(Object.keys(PERIOD_LABELS) as Period[]).map(p => (
+
+      {/* ── Period tabs ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1">
+          {PERIODS.map(p => (
             <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                period === p
-                  ? 'bg-white shadow text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className={cn(
+                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
+                period === p.key
+                  ? 'bg-white shadow text-gray-900'
+                  : 'text-gray-500 hover:text-gray-800'
+              )}
             >
-              {PERIOD_LABELS[p]}
+              {p.short}
             </button>
           ))}
         </div>
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+        {/* Custom date pickers — shown always but highlighted when custom */}
+        <div className="flex items-center gap-1.5">
+          <Calendar className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+          <input
+            type="date"
+            value={period === 'custom' ? customFrom : from}
+            onChange={e => { setPeriod('custom'); setCustomFrom(e.target.value) }}
+            className="h-8 px-2 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+          />
+          <span className="text-xs text-gray-400">→</span>
+          <input
+            type="date"
+            value={period === 'custom' ? customTo : to}
+            onChange={e => { setPeriod('custom'); setCustomTo(e.target.value) }}
+            className="h-8 px-2 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+          />
+        </div>
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="Buscar cliente, DNI o usuario..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-8 h-8 text-xs"
           />
         </div>
       </div>
 
-      {/* Summary */}
-      <Card className="p-4 flex items-center gap-3 bg-teal-50 border-teal-200">
-        <DollarSign className="h-5 w-5 text-teal-600" />
-        <div>
-          <p className="text-xs text-teal-600 font-medium uppercase tracking-wide">
-            Total cobrado — {PERIOD_LABELS[period]}
-          </p>
-          <p className="text-2xl font-bold text-teal-700">{formatCurrency(total)}</p>
+      {/* ── Compact summary bar ── */}
+      <div className="grid grid-cols-3 gap-3">
+        {/* Total */}
+        <div className="bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-teal-500 flex items-center justify-center flex-shrink-0">
+            <TrendingUp className="h-4 w-4 text-white" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] text-teal-600 font-semibold uppercase tracking-wide leading-tight">
+              Total cobrado
+            </p>
+            <p className="text-xl font-bold text-teal-700 leading-tight">{formatCurrency(total)}</p>
+            <p className="text-[10px] text-teal-500 truncate">{periodLabel}</p>
+          </div>
         </div>
-        <Badge variant="secondary" className="ml-auto">
-          {filtered.length} pago{filtered.length !== 1 ? 's' : ''}
-        </Badge>
-      </Card>
 
-      {/* Table */}
+        {/* Pagos */}
+        <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-bold text-blue-600">#</span>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide leading-tight">
+              Nº de cobros
+            </p>
+            <p className="text-xl font-bold text-gray-800 leading-tight">{filtered.length}</p>
+            <p className="text-[10px] text-gray-400">registros</p>
+          </div>
+        </div>
+
+        {/* Promedio */}
+        <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-purple-600">Ø</span>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide leading-tight">
+              Promedio
+            </p>
+            <p className="text-xl font-bold text-gray-800 leading-tight">{formatCurrency(avg)}</p>
+            <p className="text-[10px] text-gray-400">por cobro</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Table ── */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
@@ -184,6 +279,9 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
               ))}
             </TableBody>
           </Table>
+        </div>
+        <div className="px-4 py-2 border-t text-xs text-muted-foreground">
+          {filtered.length} registro{filtered.length !== 1 ? 's' : ''} · Mayor pago: {formatCurrency(maxPay)}
         </div>
       </Card>
     </div>
