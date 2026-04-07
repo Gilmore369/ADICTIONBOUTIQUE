@@ -25,8 +25,8 @@ import { CollectionActionsTable } from './collection-actions-table'
 import { ClientVisitsTable } from './client-visits-table'
 import { AddActionForm } from './add-action-form'
 import { AddCollectionActionForm } from './add-collection-action-form'
-import { ChevronDown, ChevronRight, CreditCard, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
-import { getActionTypeLabel, getResultLabel, getResultColor } from '@/lib/constants/collection-actions'
+import { ChevronDown, ChevronRight, CreditCard, AlertCircle, CheckCircle2, Clock, Phone, MessageSquare, Mail, FileText, MapPin, Video, Bike, Info, RefreshCw } from 'lucide-react'
+import { getActionTypeLabel, getResultLabel, getResultColor, COLLECTION_RESULTS } from '@/lib/constants/collection-actions'
 
 interface ClientProfileViewProps {
   profile: ClientProfile
@@ -37,7 +37,6 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
   const [visits, setVisits] = useState<any[]>([])
   const [loadingVisits, setLoadingVisits] = useState(false)
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
-  const [selectedAction, setSelectedAction] = useState<any | null>(null)
   const router = useRouter()
 
   // Group installments by plan_id for Credits tab
@@ -286,153 +285,178 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
         </TabsContent>
 
         {/* Actions Tab */}
-        <TabsContent value="actions" className="space-y-4">
-          <AddCollectionActionForm clientId={profile.client.id} />
+        <TabsContent value="actions">
+          <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
 
-          {/* Collection Actions table with click-to-detail */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Acciones de Cobranza
-                <span className="ml-auto text-xs font-normal text-muted-foreground">
-                  Click en una fila para ver detalle
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {(profile.collectionActions as any[]).length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No hay acciones registradas</p>
+            {/* Left column: forms */}
+            <div className="space-y-4">
+              <AddCollectionActionForm clientId={profile.client.id} />
+
+              {/* Common action form - collapsible */}
+              <details className="group">
+                <summary className="cursor-pointer list-none">
+                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border rounded-lg hover:bg-gray-100 transition-colors">
+                    <span className="text-sm font-medium text-gray-600">Registrar nota / acción simple</span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+                  </div>
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <AddActionForm clientId={profile.client.id} />
+                </div>
+              </details>
+            </div>
+
+            {/* Right column: unified history timeline */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gray-400" />
+                  Historial de Gestión
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({(profile.collectionActions as any[]).length + profile.actionLogs.length} registros)
+                  </span>
+                </h3>
+              </div>
+
+              {(profile.collectionActions as any[]).length === 0 && profile.actionLogs.length === 0 ? (
+                <div className="text-center py-16 text-sm text-muted-foreground border rounded-xl bg-gray-50">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  No hay acciones registradas
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {(profile.collectionActions as any[]).map((action: any) => (
-                    <button
-                      key={action.id}
-                      onClick={() => setSelectedAction(action)}
-                      className="w-full text-left border rounded-lg p-3 hover:bg-muted/40 transition-colors"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Badge variant="outline" className="text-xs flex-shrink-0">
-                            {getActionTypeLabel(action.action_type)}
-                          </Badge>
-                          <span className={`text-sm font-medium truncate ${getResultColor(action.result)}`}>
-                            {getResultLabel(action.result)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {action.payment_promise_date && (
-                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                              📅 {new Date(action.payment_promise_date).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit'})}
-                            </span>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(action.created_at).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'})}
-                          </span>
-                        </div>
-                      </div>
-                      {action.notes && (
-                        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{action.notes}</p>
-                      )}
-                    </button>
-                  ))}
+                <div className="relative">
+                  {/* Timeline line */}
+                  <div className="absolute left-[18px] top-0 bottom-0 w-0.5 bg-gray-100" />
+
+                  <div className="space-y-3">
+                    {/* Merge and sort all actions by date desc */}
+                    {[
+                      ...(profile.collectionActions as any[]).map(a => ({ ...a, _kind: 'collection' })),
+                      ...profile.actionLogs.map((l: any) => ({ ...l, _kind: 'log' })),
+                    ]
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                      .map((item: any) => {
+                        const isCollection = item._kind === 'collection'
+                        const dt = new Date(item.created_at)
+                        const dateStr = dt.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                        const timeStr = dt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+
+                        if (isCollection) {
+                          const resultMeta = COLLECTION_RESULTS.find(r => r.value === item.result)
+                          const dotBg =
+                            item.result === 'PAGO_REALIZADO' || item.result === 'PAGO_PARCIAL' ? 'bg-green-500' :
+                            item.result === 'SE_NIEGA_PAGAR' || item.result === 'DERIVADO_LEGAL' ? 'bg-red-500' :
+                            item.result === 'COMPROMISO_PAGO' ? 'bg-blue-500' :
+                            item.result === 'NO_CONTESTA' || item.result === 'NUMERO_EQUIVOCADO' ? 'bg-gray-400' :
+                            item.result === 'SOLICITA_REFINANCIACION' || item.result === 'SOLICITA_PLAZO' ? 'bg-orange-500' :
+                            'bg-purple-500'
+
+                          const typeIcon =
+                            item.action_type === 'LLAMADA' ? '📞' :
+                            item.action_type === 'WHATSAPP' ? '💬' :
+                            item.action_type === 'VISITA' ? '🚶' :
+                            item.action_type === 'EMAIL' ? '📧' :
+                            item.action_type === 'SMS' ? '📱' :
+                            item.action_type === 'CARTA' ? '📄' :
+                            item.action_type === 'MOTORIZADO' ? '🏍️' :
+                            item.action_type === 'VIDEOLLAMADA' ? '📹' : '📋'
+
+                          const promiseDate = item.payment_promise_date
+                            ? new Date(item.payment_promise_date).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                            : null
+
+                          return (
+                            <div key={item.id} className="relative pl-11">
+                              {/* Dot */}
+                              <div className={`absolute left-2.5 top-3 w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm border-2 border-white ${dotBg}`}>
+                                {typeIcon}
+                              </div>
+                              {/* Card */}
+                              <div className="bg-white border rounded-xl p-3.5 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-semibold text-gray-800">
+                                      {getActionTypeLabel(item.action_type)}
+                                    </span>
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 border ${
+                                      item.result === 'PAGO_REALIZADO' ? 'text-green-700 border-green-200 bg-green-50' :
+                                      item.result === 'PAGO_PARCIAL' ? 'text-green-600 border-green-200 bg-green-50' :
+                                      item.result === 'SE_NIEGA_PAGAR' ? 'text-red-700 border-red-200 bg-red-50' :
+                                      item.result === 'COMPROMISO_PAGO' ? 'text-blue-700 border-blue-200 bg-blue-50' :
+                                      item.result === 'NO_CONTESTA' ? 'text-gray-600 border-gray-200' :
+                                      'text-purple-700 border-purple-200 bg-purple-50'
+                                    }`}>
+                                      {resultMeta?.icon} {getResultLabel(item.result)}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs text-gray-400 whitespace-nowrap font-mono flex-shrink-0">
+                                    {dateStr} {timeStr}
+                                  </span>
+                                </div>
+
+                                {item.notes && (
+                                  <p className="text-sm text-gray-600 leading-relaxed mb-2">{item.notes}</p>
+                                )}
+
+                                {promiseDate && (
+                                  <div className="inline-flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full mb-2">
+                                    <span>📅</span>
+                                    <span className="font-medium">Promete pagar: {promiseDate}</span>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center justify-between mt-1">
+                                  <span className="text-xs text-gray-400">
+                                    por <span className="font-medium text-gray-500">{item.user_name || 'Usuario'}</span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        } else {
+                          // Common action log
+                          const logIcon =
+                            item.action_type === 'NOTA' ? '📝' :
+                            item.action_type === 'LLAMADA' ? '📞' :
+                            item.action_type === 'VISITA' ? '🚶' :
+                            item.action_type === 'MENSAJE' ? '💬' :
+                            item.action_type === 'REACTIVACION' ? '✅' : '📋'
+
+                          return (
+                            <div key={item.id} className="relative pl-11">
+                              {/* Dot */}
+                              <div className="absolute left-2.5 top-3 w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm border-2 border-white bg-gray-400">
+                                {logIcon}
+                              </div>
+                              {/* Card */}
+                              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 hover:shadow-sm transition-shadow">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                    {item.action_type}
+                                  </span>
+                                  <span className="text-xs text-gray-400 whitespace-nowrap font-mono flex-shrink-0">
+                                    {dateStr} {timeStr}
+                                  </span>
+                                </div>
+                                {item.description && (
+                                  <p className="text-sm text-gray-700 leading-relaxed">{item.description}</p>
+                                )}
+                                <span className="text-xs text-gray-400 mt-1 block">
+                                  por <span className="font-medium text-gray-500">{item.user_name || 'Usuario'}</span>
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        }
+                      })}
+                  </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Common Actions - Collapsible */}
-          <details className="group">
-            <summary className="cursor-pointer list-none">
-              <Card className="p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-700">Registro de Acciones Comunes</h3>
-                  <ChevronDown className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" />
-                </div>
-              </Card>
-            </summary>
-            <div className="mt-4 space-y-4">
-              <AddActionForm clientId={profile.client.id} />
-              <ActionLogsTable logs={profile.actionLogs} />
             </div>
-          </details>
+          </div>
         </TabsContent>
       </Tabs>
 
-      {/* Action Detail Modal */}
-      {selectedAction && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-          onClick={() => setSelectedAction(null)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-semibold">Detalle de Acción</h3>
-              <button
-                onClick={() => setSelectedAction(null)}
-                className="text-muted-foreground hover:text-foreground p-1"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Fecha</p>
-                <p className="font-medium">
-                  {new Date(selectedAction.created_at).toLocaleDateString('es-PE', {
-                    day: '2-digit', month: '2-digit', year: 'numeric'
-                  })}
-                  {' '}
-                  {new Date(selectedAction.created_at).toLocaleTimeString('es-PE', {
-                    hour: '2-digit', minute: '2-digit'
-                  })}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Tipo de Acción</p>
-                <Badge variant="outline">{getActionTypeLabel(selectedAction.action_type)}</Badge>
-              </div>
-              <div className="col-span-2">
-                <p className="text-xs text-muted-foreground mb-1">Resultado</p>
-                <span className={`font-semibold ${getResultColor(selectedAction.result)}`}>
-                  {getResultLabel(selectedAction.result)}
-                </span>
-              </div>
-              {selectedAction.payment_promise_date && (
-                <div className="col-span-2">
-                  <p className="text-xs text-muted-foreground mb-1">Fecha de Compromiso</p>
-                  <p className="font-medium text-blue-700">
-                    📅 {new Date(selectedAction.payment_promise_date).toLocaleDateString('es-PE', {
-                      weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
-                    })}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {selectedAction.notes && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Notas / Descripción</p>
-                <div className="bg-muted/40 rounded-lg p-3 text-sm leading-relaxed">
-                  {selectedAction.notes}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end pt-2">
-              <Button variant="outline" size="sm" onClick={() => setSelectedAction(null)}>
-                Cerrar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

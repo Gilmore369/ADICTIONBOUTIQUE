@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { formatSafeDate } from '@/lib/utils/date'
-import { RefreshCw, Loader2, ShoppingCart, DollarSign, Package, Phone, Filter, Download, Edit2 } from 'lucide-react'
+import { RefreshCw, Loader2, ShoppingCart, DollarSign, Package, Phone, Filter, Download, Edit2, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Category = 'all' | 'ventas' | 'cobros' | 'inventario' | 'cobranzas' | 'ediciones'
@@ -46,6 +46,15 @@ const CAT_BADGE: Record<string, string> = {
   edicion:   'bg-rose-100 text-rose-700',
 }
 
+// Returns the first day of current month as 'YYYY-MM-DD'
+function thisMonthStart() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+}
+function today() {
+  return new Date().toISOString().split('T')[0]
+}
+
 export default function AdminLogsPage() {
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
@@ -53,12 +62,39 @@ export default function AdminLogsPage() {
   const [category, setCategory] = useState<Category>('all')
   const [userId, setUserId] = useState('')
   const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState(thisMonthStart())
+  const [dateTo, setDateTo] = useState(today())
+
+  const applyPreset = (preset: 'today' | 'week' | 'month' | 'lastmonth' | 'year') => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+    if (preset === 'today') {
+      setDateFrom(fmt(now)); setDateTo(fmt(now))
+    } else if (preset === 'week') {
+      const start = new Date(now); start.setDate(now.getDate() - 6)
+      setDateFrom(fmt(start)); setDateTo(fmt(now))
+    } else if (preset === 'month') {
+      setDateFrom(`${y}-${pad(m+1)}-01`); setDateTo(fmt(now))
+    } else if (preset === 'lastmonth') {
+      const lm = m === 0 ? 11 : m - 1
+      const ly = m === 0 ? y - 1 : y
+      const last = new Date(ly, lm + 1, 0)
+      setDateFrom(`${ly}-${pad(lm+1)}-01`); setDateTo(fmt(last))
+    } else if (preset === 'year') {
+      setDateFrom(`${y}-01-01`); setDateTo(fmt(now))
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ category, limit: '300' })
+      const params = new URLSearchParams({ category, limit: '500' })
       if (userId) params.set('user_id', userId)
+      if (dateFrom) params.set('date_from', `${dateFrom}T00:00:00.000Z`)
+      if (dateTo) params.set('date_to', `${dateTo}T23:59:59.999Z`)
       const res = await fetch(`/api/admin/logs?${params}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error')
@@ -69,7 +105,7 @@ export default function AdminLogsPage() {
     } finally {
       setLoading(false)
     }
-  }, [category, userId])
+  }, [category, userId, dateFrom, dateTo])
 
   useEffect(() => { load() }, [load])
 
@@ -120,6 +156,47 @@ export default function AdminLogsPage() {
               </button>
             )
           })}
+        </div>
+
+        {/* Date range row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">Desde</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="h-8 px-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">Hasta</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="h-8 px-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+          {/* Quick presets */}
+          <div className="flex flex-wrap gap-1">
+            {([
+              { key: 'today',     label: 'Hoy' },
+              { key: 'week',      label: '7 días' },
+              { key: 'month',     label: 'Este mes' },
+              { key: 'lastmonth', label: 'Mes anterior' },
+              { key: 'year',      label: 'Este año' },
+            ] as const).map(p => (
+              <button
+                key={p.key}
+                onClick={() => applyPreset(p.key)}
+                className="px-2.5 py-1 rounded-full text-xs border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-3">

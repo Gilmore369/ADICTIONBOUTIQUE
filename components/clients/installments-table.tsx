@@ -115,12 +115,12 @@ export function InstallmentsTable({ installments }: InstallmentsTableProps) {
                         <TableCell>
                           {installment.dueDate.toLocaleDateString()}
                         </TableCell>
-                        <TableCell>${installment.amount.toFixed(2)}</TableCell>
+                        <TableCell>S/. {installment.amount.toFixed(2)}</TableCell>
                         <TableCell>
-                          ${installment.paidAmount.toFixed(2)}
+                          S/. {installment.paidAmount.toFixed(2)}
                         </TableCell>
                         <TableCell className={isOverdue ? 'font-bold text-red-600' : ''}>
-                          ${pending.toFixed(2)}
+                          S/. {pending.toFixed(2)}
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(installment.status, installment.daysOverdue)}

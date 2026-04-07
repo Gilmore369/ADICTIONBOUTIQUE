@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '200'), 500)
   const category = searchParams.get('category') || 'all'
   const filterUserId = searchParams.get('user_id') || null
+  const dateFrom = searchParams.get('date_from') || null   // ISO string, e.g. '2026-03-01T00:00:00Z'
+  const dateTo = searchParams.get('date_to') || null       // ISO string, e.g. '2026-03-31T23:59:59Z'
 
   const entries: any[] = []
 
@@ -41,6 +43,8 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit)
     if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
+    if (dateFrom) q = q.gte('created_at', dateFrom) as typeof q
+    if (dateTo) q = q.lte('created_at', dateTo) as typeof q
     const { data } = await q
     for (const r of data || []) {
       entries.push({
@@ -65,6 +69,8 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit)
     if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
+    if (dateFrom) q = q.gte('created_at', dateFrom) as typeof q
+    if (dateTo) q = q.lte('created_at', dateTo) as typeof q
     const { data } = await q
     for (const r of data || []) {
       entries.push({
@@ -89,6 +95,8 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit)
     if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
+    if (dateFrom) q = q.gte('created_at', dateFrom) as typeof q
+    if (dateTo) q = q.lte('created_at', dateTo) as typeof q
     const { data } = await q
     for (const r of data || []) {
       const isIn = r.type === 'IN' || r.type === 'ENTRADA'
@@ -114,6 +122,8 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit)
     if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
+    if (dateFrom) q = q.gte('created_at', dateFrom) as typeof q
+    if (dateTo) q = q.lte('created_at', dateTo) as typeof q
     const { data } = await q
     for (const r of data || []) {
       entries.push({
@@ -138,6 +148,8 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit)
     if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
+    if (dateFrom) q = q.gte('created_at', dateFrom) as typeof q
+    if (dateTo) q = q.lte('created_at', dateTo) as typeof q
     const { data } = await q
     for (const r of data || []) {
       const actionLabel = r.action === 'DELETE' ? 'Eliminado' : r.action === 'UPDATE' ? 'Editado' : 'Creado'

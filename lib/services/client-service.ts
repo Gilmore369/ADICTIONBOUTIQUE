@@ -37,9 +37,35 @@ import { differenceInDays } from 'date-fns'
  * console.log(`Credit available: ${profile.creditSummary.creditAvailable}`)
  * ```
  */
-export async function fetchClientProfile(clientId: string): Promise<ClientProfile> {
+export async function fetchClientProfile(
+  clientId: string,
+  storeFilter?: string | null
+): Promise<ClientProfile> {
   const supabase = await createServerClient()
   const service = createServiceClient()
+
+  // Build sales query — optionally filtered by store
+  let salesQuery = service
+    .from('sales')
+    .select(`
+      id, sale_number, created_at, total, subtotal, discount, sale_type, payment_status,
+      sale_items (
+        id, quantity, unit_price, subtotal, product_id,
+        products ( base_name, base_code )
+      )
+    `)
+    .eq('client_id', clientId)
+    .eq('voided', false)
+    .order('created_at', { ascending: false })
+  if (storeFilter) salesQuery = salesQuery.eq('store_id', storeFilter)
+
+  // Build credit_plans query — optionally filtered by store via inner join on sales
+  let creditPlansQuery = service
+    .from('credit_plans')
+    .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, sales!inner(sale_number, store_id)')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false })
+  if (storeFilter) creditPlansQuery = creditPlansQuery.eq('sales.store_id', storeFilter)
 
   // Fetch all related data in parallel using Promise.all for performance
   // NOTE: purchases, installments, collection_actions use service client to bypass RLS
@@ -47,7 +73,6 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
     clientResult,
     purchasesResult,
     creditPlansResult,
-    installmentsResult,
     actionLogsResult,
     collectionActionsResult,
     ratingResult,
@@ -60,30 +85,47 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       .single(),
 
     // Fetch purchase history with items (service client bypasses RLS on sales)
-    // NOTE: sale_items has no product_name column — join products to get base_name
-    service
-      .from('sales')
-      .select(`
-        id, sale_number, created_at, total, subtotal, discount, sale_type, payment_status,
-        sale_items (
-          id, quantity, unit_price, subtotal, product_id,
-          products ( base_name, base_code )
-        )
-      `)
-      .eq('client_id', clientId)
-      .eq('voided', false)
-      .order('created_at', { ascending: false }),
+    salesQuery,
 
     // Fetch credit plans (service client to bypass RLS)
-    // NOTE: credit_plans has no sale_number column — join sales to get it
+    creditPlansQuery,
+
+    // Fetch action logs (service client to bypass RLS + join user name)
     service
-      .from('credit_plans')
-      .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, sales(sale_number)')
+      .from('client_action_logs')
+      .select('id, client_id, action_type, description, user_id, created_at, users:user_id(name)')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false }),
 
-    // Fetch ALL installments for this client (service client to bypass RLS)
+    // Fetch collection actions (service client to bypass RLS + join user name)
     service
+      .from('collection_actions')
+      .select('id, client_id, action_type, result, notes, payment_promise_date, created_at, user_id, users:user_id(name)')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false }),
+
+    // Fetch client rating
+    supabase
+      .from('client_ratings')
+      .select('*')
+      .eq('client_id', clientId)
+      .maybeSingle(),
+  ])
+
+  // Handle errors
+  if (clientResult.error) {
+    throw new Error(`Failed to fetch client: ${clientResult.error.message}`)
+  }
+
+  const client = clientResult.data as any
+  const purchases = (purchasesResult.data || []) as any[]
+  const creditPlans = (creditPlansResult.data || []) as any[]
+
+  // Fetch installments for the resolved plan IDs (already store-filtered via credit_plans)
+  const planIds = creditPlans.map((p: any) => p.id)
+  let installmentsResult: { data: any[] | null; error: any } = { data: [], error: null }
+  if (planIds.length > 0) {
+    installmentsResult = await service
       .from('installments')
       .select(`
         id,
@@ -99,38 +141,9 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
           client_id
         )
       `)
-      .eq('credit_plans.client_id', clientId),
-
-    // Fetch action logs
-    supabase
-      .from('client_action_logs')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false }),
-
-    // Fetch collection actions (service client to bypass RLS)
-    service
-      .from('collection_actions')
-      .select('id, client_id, action_type, result, notes, payment_promise_date, created_at, user_id')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false }),
-
-    // Fetch client rating
-    supabase
-      .from('client_ratings')
-      .select('*')
-      .eq('client_id', clientId)
-      .maybeSingle(),
-  ])
-  
-  // Handle errors
-  if (clientResult.error) {
-    throw new Error(`Failed to fetch client: ${clientResult.error.message}`)
+      .in('plan_id', planIds) as any
   }
-  
-  const client = clientResult.data as any
-  const purchases = (purchasesResult.data || []) as any[]
-  const creditPlans = (creditPlansResult.data || []) as any[]
+
   const installments = (installmentsResult.data || []) as any[]
   const actionLogs = (actionLogsResult.data || []) as any[]
   const collectionActions = (collectionActionsResult.data || []) as any[]
@@ -225,9 +238,10 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
     action_type: log.action_type,
     description: log.description,
     user_id: log.user_id,
+    user_name: (log.users as any)?.name || null,
     created_at: new Date(log.created_at),
   }))
-  
+
   // Transform collection actions — pass raw DB fields (notes, payment_promise_date)
   const transformedCollectionActions: any[] = collectionActions.map((action: any) => ({
     id: action.id,
@@ -237,6 +251,7 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
     notes: action.notes || '',
     payment_promise_date: action.payment_promise_date || null,
     user_id: action.user_id,
+    user_name: (action.users as any)?.name || null,
     created_at: action.created_at,
   }))
   
