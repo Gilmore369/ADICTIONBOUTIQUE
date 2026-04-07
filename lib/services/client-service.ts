@@ -60,12 +60,14 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       .single(),
 
     // Fetch purchase history with items (service client bypasses RLS on sales)
+    // NOTE: sale_items has no product_name column — join products to get base_name
     service
       .from('sales')
       .select(`
         id, sale_number, created_at, total, subtotal, discount, sale_type, payment_status,
         sale_items (
-          id, quantity, unit_price, subtotal, product_name, product_id
+          id, quantity, unit_price, subtotal, product_id,
+          products ( base_name, base_code )
         )
       `)
       .eq('client_id', clientId)
@@ -121,20 +123,6 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       .maybeSingle(),
   ])
   
-  // DEBUG: log result counts
-  console.log('[CLIENT-PROFILE-DEBUG]', JSON.stringify({
-    clientId,
-    clientError: clientResult.error?.message ?? null,
-    purchasesCount: purchasesResult.data?.length ?? 'null',
-    purchasesError: purchasesResult.error?.message ?? null,
-    plansCount: creditPlansResult.data?.length ?? 'null',
-    plansError: creditPlansResult.error?.message ?? null,
-    installmentsCount: installmentsResult.data?.length ?? 'null',
-    installmentsError: installmentsResult.error?.message ?? null,
-    actionsCount: collectionActionsResult.data?.length ?? 'null',
-    actionsError: collectionActionsResult.error?.message ?? null,
-  }))
-
   // Handle errors
   if (clientResult.error) {
     throw new Error(`Failed to fetch client: ${clientResult.error.message}`)
@@ -163,7 +151,7 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       quantity: item.quantity,
       unit_price: item.unit_price,
       subtotal: item.subtotal,
-      product_name: item.product_name || 'Producto',
+      product_name: item.products?.base_name || item.products?.base_code || 'Producto',
       product_id: item.product_id || null,
     })),
   }))

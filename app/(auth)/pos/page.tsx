@@ -178,7 +178,7 @@ export default function POSPage() {
   const handleSaleTypeChange = (type: SaleType) => {
     setSaleType(type)
     if (type === 'CONTADO') {
-      setSelectedClient(null)
+      // Keep selectedClient so it can be used optionally
       setInstallments(1)
     }
   }
@@ -212,14 +212,11 @@ export default function POSPage() {
       formData.append('sale_type', saleType)
       formData.append('discount', cart.discount.toString())
       
-      // Add client_id and installments for CREDITO sales
-      if (saleType === 'CREDITO' && selectedClient) {
-        console.log('[POS] Adding client to FormData:', {
-          client_id: selectedClient.id,
-          client_id_type: typeof selectedClient.id,
-          client_name: selectedClient.name
-        })
+      // client_id: required for CREDITO, optional for CONTADO
+      if (selectedClient) {
         formData.append('client_id', selectedClient.id)
+      }
+      if (saleType === 'CREDITO') {
         formData.append('installments', installments.toString())
       }
       
@@ -381,68 +378,71 @@ export default function POSPage() {
             disabled={processing}
           />
 
-          {/* Client Selector (only for credit sales) */}
-          {saleType === 'CREDITO' && (
-            <>
-              <Card className="p-4 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <label className="text-sm font-medium">Cliente *</label>
-                  <CreateClientDialog
-                    trigger={
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 text-xs text-primary hover:underline"
-                        title="Crear nuevo cliente"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/><path d="M19 8h6M22 5v6"/></svg>
-                        Nuevo cliente
-                      </button>
-                    }
-                    onSuccess={client => {
-                      setSelectedClient({
-                        id:           client.id,
-                        name:         client.name,
-                        dni:          client.dni ?? undefined,
-                        credit_limit: client.credit_limit,
-                        credit_used:  client.credit_used,
-                        blacklisted:  (client as any).blacklisted ?? false,
-                        rating:       (client as any).rating ?? undefined,
-                      })
-                    }}
-                  />
-                </div>
-                <ClientSelector
-                  value={selectedClient}
-                  onChange={setSelectedClient}
-                  disabled={processing}
-                  required
-                />
-              </Card>
+          {/* Client Selector — required for CREDITO, optional for CONTADO */}
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-medium">
+                Cliente {saleType === 'CREDITO' ? <span className="text-red-500">*</span> : <span className="text-gray-400 font-normal">(opcional)</span>}
+              </label>
+              <CreateClientDialog
+                trigger={
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    title="Crear nuevo cliente"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/><path d="M19 8h6M22 5v6"/></svg>
+                    Nuevo cliente
+                  </button>
+                }
+                onSuccess={client => {
+                  setSelectedClient({
+                    id:           client.id,
+                    name:         client.name,
+                    dni:          client.dni ?? undefined,
+                    credit_limit: client.credit_limit,
+                    credit_used:  client.credit_used,
+                    blacklisted:  (client as any).blacklisted ?? false,
+                    rating:       (client as any).rating ?? undefined,
+                  })
+                }}
+              />
+            </div>
+            <ClientSelector
+              value={selectedClient}
+              onChange={setSelectedClient}
+              disabled={processing}
+              required={saleType === 'CREDITO'}
+            />
+            {saleType === 'CONTADO' && !selectedClient && (
+              <p className="text-xs text-gray-400">
+                Si seleccionas un cliente, la compra quedará registrada en su historial.
+              </p>
+            )}
+          </Card>
 
-              {/* Installments Input */}
-              {selectedClient && (
-                <Card className="p-4">
-                  <label htmlFor="installments" className="text-sm font-medium mb-2 block">
-                    Número de Cuotas (1-6)
-                  </label>
-                  <Input
-                    id="installments"
-                    type="number"
-                    min="1"
-                    max="6"
-                    value={installments}
-                    onChange={(e) => setInstallments(Number(e.target.value))}
-                    disabled={processing}
-                    className="w-full"
-                  />
-                  {installments > 0 && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      Cuota mensual: S/ {(cart.total / installments).toFixed(2)}
-                    </p>
-                  )}
-                </Card>
+          {/* Installments Input — only for CREDITO */}
+          {saleType === 'CREDITO' && selectedClient && (
+            <Card className="p-4">
+              <label htmlFor="installments" className="text-sm font-medium mb-2 block">
+                Número de Cuotas (1-6)
+              </label>
+              <Input
+                id="installments"
+                type="number"
+                min="1"
+                max="6"
+                value={installments}
+                onChange={(e) => setInstallments(Number(e.target.value))}
+                disabled={processing}
+                className="w-full"
+              />
+              {installments > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Cuota mensual: S/ {(cart.total / installments).toFixed(2)}
+                </p>
               )}
-            </>
+            </Card>
           )}
         </div>
 
