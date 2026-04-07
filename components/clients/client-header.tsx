@@ -10,15 +10,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { ClientRating } from '@/lib/types/crm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Phone, MapPin, Mail, Calendar, UserX, RefreshCw } from 'lucide-react'
+import { User, Phone, MapPin, Mail, Calendar, UserX } from 'lucide-react'
 import { DeactivateClientDialog } from './deactivate-client-dialog'
 import { EditClientDialog } from './edit-client-dialog'
-import { calculateAndUpdateRating } from '@/actions/ratings'
 
 interface ClientHeaderProps {
   client: any
@@ -29,18 +27,6 @@ interface ClientHeaderProps {
 export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [recalculating, setRecalculating] = useState(false)
-  const router = useRouter()
-
-  const handleRecalculate = async () => {
-    setRecalculating(true)
-    try {
-      await calculateAndUpdateRating(client.id)
-      router.refresh()
-    } finally {
-      setRecalculating(false)
-    }
-  }
   
   // Get rating color based on category
   const getRatingColor = (category: string) => {
@@ -219,36 +205,21 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
             </div>
 
             {/* Rating Badge */}
-            <div className="flex flex-col items-center gap-2 p-4 border rounded-lg min-w-[110px]">
-              {rating ? (
-                <>
-                  <Badge className={`${getRatingColor(rating.rating)} text-white text-lg px-4 py-2`}>
-                    {rating.rating}
-                  </Badge>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold">{rating.score}</p>
-                    <p className="text-xs text-muted-foreground">Puntuación</p>
-                  </div>
-                  <div className="text-xs text-muted-foreground text-center">
-                    <p>Puntualidad: {rating.payment_punctuality}%</p>
-                    <p>Frecuencia: {rating.purchase_frequency}</p>
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground text-center">Sin clasificación</p>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRecalculate}
-                disabled={recalculating}
-                className="w-full text-xs gap-1 mt-1"
-                title="Recalcular clasificación"
-              >
-                <RefreshCw className={`h-3 w-3 ${recalculating ? 'animate-spin' : ''}`} />
-                {recalculating ? 'Calculando...' : 'Recalcular'}
-              </Button>
-            </div>
+            {rating && (
+              <div className="flex flex-col items-center gap-2 p-4 border rounded-lg">
+                <Badge className={`${getRatingColor(rating.rating)} text-white text-lg px-4 py-2`}>
+                  {rating.rating}
+                </Badge>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{rating.score}</p>
+                  <p className="text-xs text-muted-foreground">Puntuación</p>
+                </div>
+                <div className="text-xs text-muted-foreground text-center">
+                  <p>Puntualidad: {rating.payment_punctuality}%</p>
+                  <p>Frecuencia: {rating.purchase_frequency}</p>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
