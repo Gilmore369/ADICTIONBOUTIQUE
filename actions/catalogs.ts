@@ -18,6 +18,7 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
@@ -1364,8 +1365,11 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
     )
   }
 
+  // Use service client for writes to bypass RLS
+  const service = createServiceClient()
+
   // Update client
-  const { data, error } = await supabase
+  const { data, error } = await service
     .from('clients')
     .update(validated.data as any)
     .eq('id', id)
@@ -1374,6 +1378,38 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
 
   if (error) {
     return { success: false, error: error.message }
+  }
+
+  // If rating was manually changed, sync client_ratings table
+  // (profile view reads from client_ratings, not clients.rating)
+  if (validated.data.rating) {
+    const { data: existingRating } = await service
+      .from('client_ratings')
+      .select('score, payment_punctuality, purchase_frequency, total_purchases, client_tenure_days')
+      .eq('client_id', id)
+      .maybeSingle()
+
+    if (existingRating) {
+      // Keep existing metric scores, just update the rating label
+      await service
+        .from('client_ratings')
+        .update({ rating: validated.data.rating, last_calculated: new Date().toISOString() })
+        .eq('client_id', id)
+    } else {
+      // No existing record — insert with neutral scores
+      await service
+        .from('client_ratings')
+        .insert({
+          client_id: id,
+          rating: validated.data.rating,
+          score: 50,
+          payment_punctuality: 50,
+          purchase_frequency: 0,
+          total_purchases: 0,
+          client_tenure_days: 0,
+          last_calculated: new Date().toISOString(),
+        })
+    }
   }
 
   // Revalidate cache
