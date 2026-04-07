@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { calculateClientRating } from '@/lib/services/rating-service'
 
 /**
@@ -38,27 +39,44 @@ export async function calculateAndUpdateRating(clientId: string) {
       throw new Error('No tiene permisos para realizar esta acción')
     }
 
-    // Calculate rating
+    // Calculate rating (uses service client internally — correct data access)
     const rating = await calculateClientRating(clientId)
-    
-    // Update clients table with rating
-    const { error: updateError } = await supabase
+
+    // Use service client for writes to bypass RLS
+    const service = createServiceClient()
+
+    // Update clients table with rating (triggers auto credit_limit update in DB)
+    const { error: updateError } = await service
       .from('clients')
       .update({
         rating: rating.rating,
         rating_score: rating.score,
       })
       .eq('id', clientId)
-    
+
     if (updateError) {
       throw new Error(`Error updating client rating: ${updateError.message}`)
     }
-    
+
+    // Also upsert client_ratings table (used by profile view)
+    await service
+      .from('client_ratings')
+      .upsert({
+        client_id: clientId,
+        rating: rating.rating,
+        score: rating.score,
+        payment_punctuality: rating.payment_punctuality,
+        purchase_frequency: rating.purchase_frequency,
+        total_purchases: rating.total_purchases,
+        client_tenure_days: rating.client_tenure_days,
+        last_calculated: new Date().toISOString(),
+      }, { onConflict: 'client_id' })
+
     // Revalidate paths
     revalidatePath(`/clients/${clientId}`)
     revalidatePath('/clients')
     revalidatePath('/clients/dashboard')
-    
+
     return { success: true, rating }
   } catch (error) {
     console.error('Error calculating and updating rating:', error)
@@ -96,8 +114,10 @@ export async function recalculateAllRatings() {
       throw new Error('Se requieren permisos de administrador')
     }
 
+    const serviceAll = createServiceClient()
+
     // Get all active clients
-    const { data: clients, error: clientsError } = await supabase
+    const { data: clients, error: clientsError } = await serviceAll
       .from('clients')
       .select('id')
       .eq('active', true)
@@ -117,15 +137,25 @@ export async function recalculateAllRatings() {
     for (const client of clients) {
       try {
         const rating = await calculateClientRating(client.id)
-        
-        await supabase
+
+        await serviceAll
           .from('clients')
-          .update({
-            rating: rating.rating,
-            rating_score: rating.score,
-          })
+          .update({ rating: rating.rating, rating_score: rating.score })
           .eq('id', client.id)
-        
+
+        await serviceAll
+          .from('client_ratings')
+          .upsert({
+            client_id: client.id,
+            rating: rating.rating,
+            score: rating.score,
+            payment_punctuality: rating.payment_punctuality,
+            purchase_frequency: rating.purchase_frequency,
+            total_purchases: rating.total_purchases,
+            client_tenure_days: rating.client_tenure_days,
+            last_calculated: new Date().toISOString(),
+          }, { onConflict: 'client_id' })
+
         successCount++
       } catch (error) {
         console.error(`Error calculating rating for client ${client.id}:`, error)

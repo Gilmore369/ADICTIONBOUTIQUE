@@ -18,7 +18,7 @@
  * - E: 0-39 (Nuevo/Riesgo)
  */
 
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { ClientRating, RatingCategory } from '@/lib/types/crm'
 import { differenceInDays, differenceInMonths } from 'date-fns'
 
@@ -35,7 +35,7 @@ import { differenceInDays, differenceInMonths } from 'date-fns'
  * ```
  */
 export async function calculateClientRating(clientId: string): Promise<ClientRating> {
-  const supabase = await createServerClient()
+  const supabase = createServiceClient()
   
   // Step 1: Fetch all required data in parallel
   const [installmentsResult, purchasesResult, clientResult] = await Promise.all([
