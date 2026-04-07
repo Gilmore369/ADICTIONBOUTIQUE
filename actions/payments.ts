@@ -12,6 +12,7 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
@@ -55,11 +56,14 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   }
 
   // Get authenticated user
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authClient = await createServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
   if (!user) {
     return { success: false, error: 'Unauthorized: User not authenticated' }
   }
+
+  // Use service client for all data operations (bypasses RLS on credit_plans, installments, payments)
+  const supabase = createServiceClient()
 
   // 2. Parse and validate input
   const receiptUrl = formData.get('receipt_url')
