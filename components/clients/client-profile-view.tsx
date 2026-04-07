@@ -158,7 +158,8 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                   const planInsts: any[] = installmentsByPlan[plan.id] || []
                   const paid = planInsts.filter(i => i.status === 'PAID').length
                   const total = planInsts.length || plan.installments_count || 0
-                  const paidAmt = plan.paid_amount || 0
+                  // paid_amount doesn't exist in credit_plans; compute from installments
+                  const paidAmt = planInsts.reduce((s: number, i: any) => s + (i.paidAmount || 0), 0)
                   const totalAmt = plan.total_amount || 0
                   const pendingAmt = Math.max(0, totalAmt - paidAmt)
                   const progress = totalAmt > 0 ? Math.round((paidAmt / totalAmt) * 100) : 0
@@ -179,7 +180,9 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                               : <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
                             <div className="min-w-0">
                               <p className="font-semibold text-sm">
-                                {plan.sale_number ? `Venta #${plan.sale_number}` : 'Plan de crédito'}
+                                {(plan.sales as any)?.sale_number
+                                  ? `Venta #${(plan.sales as any).sale_number}`
+                                  : `Plan de crédito`}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(plan.created_at).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'})}

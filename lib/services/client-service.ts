@@ -73,9 +73,10 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
       .order('created_at', { ascending: false }),
 
     // Fetch credit plans (service client to bypass RLS)
+    // NOTE: credit_plans has no sale_number column — join sales to get it
     service
       .from('credit_plans')
-      .select('id, sale_number, sale_id, total_amount, paid_amount, installments_count, status, created_at')
+      .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, sales(sale_number)')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false }),
 
@@ -93,7 +94,6 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
         paid_at,
         credit_plans!inner(
           id,
-          sale_number,
           client_id
         )
       `)
@@ -154,23 +154,28 @@ export async function fetchClientProfile(clientId: string): Promise<ClientProfil
     })),
   }))
   
+  // Build a map of plan_id → plan for saleNumber lookup
+  const planMap = new Map(creditPlans.map((p: any) => [p.id, p]))
+
   // Transform installments and calculate days overdue
   const today = new Date()
   const installmentsWithPlan: InstallmentWithPlan[] = installments
     .map((inst: any) => {
       const dueDate = new Date(inst.due_date)
       const daysOverdue = dueDate < today ? differenceInDays(today, dueDate) : 0
-      
+      const plan = planMap.get(inst.plan_id) || inst.credit_plans || {}
+      const saleNumber = (plan as any).sales?.sale_number || ''
+
       return {
         id: inst.id,
-        planId: inst.credit_plans.id,
+        planId: inst.plan_id || inst.credit_plans?.id || '',
         installmentNumber: inst.installment_number,
         amount: inst.amount,
         dueDate,
         paidAmount: inst.paid_amount || 0,
         status: inst.status as 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE',
         paidAt: inst.paid_at ? new Date(inst.paid_at) : null,
-        saleNumber: inst.credit_plans.sale_number || '',
+        saleNumber,
         daysOverdue,
       }
     })
