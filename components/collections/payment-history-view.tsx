@@ -35,7 +35,7 @@ interface Payment {
   users?: { name: string; stores: string[] } | null
 }
 
-type Period = 'TODAY' | 'WEEK' | 'MONTH' | 'ALL'
+type Period = '3M' | '6M' | '1Y'
 
 interface Props {
   initialPayments: Payment[]
@@ -44,27 +44,25 @@ interface Props {
 }
 
 const PERIOD_LABELS: Record<Period, string> = {
-  TODAY: 'Hoy',
-  WEEK: 'Última semana',
-  MONTH: 'Este mes',
-  ALL: 'Todo',
+  '3M': 'Últimos 3 meses',
+  '6M': 'Últimos 6 meses',
+  '1Y': 'Último año',
 }
 
 function filterByPeriod(payments: Payment[], period: Period): Payment[] {
-  if (period === 'ALL') return payments
   const now = new Date()
   let from: Date
-  if (period === 'TODAY') {
-    from = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  } else if (period === 'WEEK') {
-    from = new Date(now); from.setDate(from.getDate() - 7)
+  if (period === '3M') {
+    from = new Date(now); from.setMonth(from.getMonth() - 3)
+  } else if (period === '6M') {
+    from = new Date(now); from.setMonth(from.getMonth() - 6)
   } else {
-    from = new Date(now.getFullYear(), now.getMonth(), 1)
+    from = new Date(now); from.setFullYear(from.getFullYear() - 1)
   }
   return payments.filter(p => new Date(p.payment_date) >= from)
 }
 
-export function PaymentHistoryView({ initialPayments, initialPeriod = 'MONTH' }: Props) {
+export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Props) {
   const [period, setPeriod] = useState<Period>(initialPeriod)
   const [search, setSearch] = useState('')
 
@@ -120,7 +118,7 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = 'MONTH' }:
           <p className="text-xs text-teal-600 font-medium uppercase tracking-wide">
             Total cobrado — {PERIOD_LABELS[period]}
           </p>
-          <p className="text-2xl font-bold text-teal-700">S/ {formatCurrency(total)}</p>
+          <p className="text-2xl font-bold text-teal-700">{formatCurrency(total)}</p>
         </div>
         <Badge variant="secondary" className="ml-auto">
           {filtered.length} pago{filtered.length !== 1 ? 's' : ''}
@@ -161,7 +159,7 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = 'MONTH' }:
                     )}
                   </TableCell>
                   <TableCell className="text-right font-semibold text-teal-700">
-                    S/ {formatCurrency(Number(p.amount))}
+                    {formatCurrency(Number(p.amount))}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {p.users?.name ?? '—'}

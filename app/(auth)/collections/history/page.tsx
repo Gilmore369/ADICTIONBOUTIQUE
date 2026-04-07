@@ -47,23 +47,17 @@ export default async function PaymentHistoryPage({
     // This is passed to the client component
   }
 
-  // Resolve period param
+  // Resolve period param — new values: 3M, 6M, 1Y
   const params = await (searchParams ?? Promise.resolve({}))
-  const periodParam = (params.period || 'MONTH').toUpperCase()
-  const validPeriods = ['TODAY', 'WEEK', 'MONTH', 'ALL']
-  const initialPeriod = validPeriods.includes(periodParam) ? periodParam : 'MONTH'
+  const periodParam = (params.period || '3M').toUpperCase()
+  const validPeriods = ['3M', '6M', '1Y']
+  const initialPeriod = validPeriods.includes(periodParam) ? periodParam : '3M'
 
-  // Build date filter for initial load
+  // Always load 1 full year from DB; client-side filtering handles narrower periods
   const now = new Date()
-  let fromDate: string | null = null
-  if (initialPeriod === 'TODAY') {
-    fromDate = now.toISOString().split('T')[0]
-  } else if (initialPeriod === 'WEEK') {
-    const d = new Date(now); d.setDate(d.getDate() - 7)
-    fromDate = d.toISOString().split('T')[0]
-  } else if (initialPeriod === 'MONTH') {
-    fromDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-  }
+  const oneYearAgo = new Date(now)
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+  const fromDate = oneYearAgo.toISOString().split('T')[0]
 
   // Fetch payments with client and user info
   let query = supabase
@@ -110,7 +104,7 @@ export default async function PaymentHistoryPage({
       </div>
       <PaymentHistoryView
         initialPayments={filtered as any[]}
-        initialPeriod={initialPeriod as any}
+        initialPeriod={initialPeriod as '3M' | '6M' | '1Y'}
         userStores={userStores}
       />
     </div>
