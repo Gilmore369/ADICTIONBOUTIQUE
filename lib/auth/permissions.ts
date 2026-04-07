@@ -46,6 +46,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.MANAGE_PRODUCTS,
     Permission.CREATE_SALE,
     Permission.MANAGE_CLIENTS,
+    Permission.RECORD_PAYMENT,
     Permission.VIEW_REPORTS
   ],
   [Role.CAJERO]: [

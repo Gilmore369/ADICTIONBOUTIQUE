@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { fetchDashboardMetrics } from '@/lib/services/dashboard-service'
 
 export async function GET(request: Request) {
@@ -14,10 +15,22 @@ export async function GET(request: Request) {
     MUJERES: 'Tienda Mujeres',
     HOMBRES: 'Tienda Hombres',
   }
-  const storeId = storeCode && STORE_TEXT[storeCode] ? STORE_TEXT[storeCode] : null
+  let storeId = storeCode && STORE_TEXT[storeCode] ? STORE_TEXT[storeCode] : null
+
+  // Enforce store permissions — if user has exactly 1 store, force it
+  const service = createServiceClient()
+  const { data: userProfile } = await service
+    .from('users')
+    .select('stores')
+    .eq('id', user.id)
+    .single()
+  const userStores: string[] = ((userProfile as any)?.stores || []).map((s: string) => s.toUpperCase())
+  if (userStores.length === 1) {
+    storeId = STORE_TEXT[userStores[0]] || storeId
+  }
 
   try {
-    // 1. Base metrics via RPC
+    // 1. Base metrics via RPC (global) or filtered if store is forced
     const metrics = await fetchDashboardMetrics()
 
     // 2. Debt aging buckets — overdue installments grouped by days past due
@@ -102,6 +115,15 @@ export async function GET(request: Request) {
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 10)
+
+    // When store filter is active, override debt KPIs with store-filtered values
+    if (storeId) {
+      const allClients = Object.values(clientMap)
+      ;(metrics as any).totalOutstandingDebt = allClients.reduce((s, c) => s + c.totalDebt, 0)
+      ;(metrics as any).totalOverdueDebt = allClients.reduce((s, c) => s + c.overdueDebt, 0)
+      ;(metrics as any).clientsWithDebt = allClients.filter(c => c.totalDebt > 0).length
+      ;(metrics as any).clientsWithOverdueDebt = allClients.filter(c => c.overdueDebt > 0).length
+    }
 
     // 4. Monthly trend — last 6 months: credit plans created + payments made
     const sixMonthsAgo = new Date()

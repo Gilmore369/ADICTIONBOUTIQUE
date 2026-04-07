@@ -11,6 +11,7 @@
  */
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { ROLE_PERMISSIONS, Permission, Role } from './permissions'
 
 /**
@@ -18,6 +19,7 @@ import { ROLE_PERMISSIONS, Permission, Role } from './permissions'
  * Returns null if not authenticated, empty array if no roles.
  *
  * SECURE BY DEFAULT: any exception → returns null → all permission checks deny.
+ * Uses service client to bypass RLS on the users table (user can always read own roles).
  */
 async function getUserRoles(): Promise<string[] | null> {
   try {
@@ -26,7 +28,9 @@ async function getUserRoles(): Promise<string[] | null> {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    const { data: profile } = await supabase
+    // Use service client to bypass RLS — a user must always be able to read their own roles
+    const service = createServiceClient()
+    const { data: profile } = await service
       .from('users')
       .select('roles')
       .eq('id', user.id)

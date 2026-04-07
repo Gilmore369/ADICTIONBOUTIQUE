@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { CrmDashboard } from '@/components/clients/crm-dashboard'
 
 export default async function ClientDashboardPage() {
@@ -7,7 +8,8 @@ export default async function ClientDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const service = createServiceClient()
+  const { data: profile } = await service
     .from('users')
     .select('roles')
     .eq('id', user.id)
