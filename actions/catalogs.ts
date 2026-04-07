@@ -840,11 +840,12 @@ export async function createSupplier(formData: FormData): Promise<ActionResponse
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
-  // Insert supplier
+  // Insert supplier — exclude 'notes' until migration adds the column
+  const { notes: _notes, ...insertData } = validated.data as any
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from('suppliers')
-    .insert(validated.data as any)
+    .insert(insertData)
     .select()
     .single()
 
@@ -887,11 +888,12 @@ export async function updateSupplier(id: string, formData: FormData): Promise<Ac
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
-  // Update supplier
+  // Update supplier — exclude 'notes' until migration adds the column
+  const { notes: _notes2, ...updateData } = validated.data as any
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from('suppliers')
-    .update(validated.data as any)
+    .update(updateData)
     .eq('id', id)
     .select()
     .single()
