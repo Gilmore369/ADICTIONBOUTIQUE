@@ -15,7 +15,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import {
   AlertTriangle, Phone, MessageCircle, Eye, ChevronRight,
   Loader2, RefreshCw, CheckCircle2, XCircle, HelpCircle,
-  DollarSign, Users, Calendar, MapPin, History,
+  DollarSign, Users, Calendar, MapPin, History, Pencil, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -96,12 +96,152 @@ const RESULT_LABELS: Record<string, { label: string; icon: any; color: string }>
   OTRO:                   { label: 'Otro', icon: HelpCircle, color: 'text-gray-500' },
 }
 
+// ─── Edit action modal ──────────────────────────────────────────────────────
+function EditActionModal({
+  action,
+  onClose,
+  onSaved,
+}: {
+  action: ActionRecord
+  onClose: () => void
+  onSaved: (updated: ActionRecord) => void
+}) {
+  const [actionType, setActionType] = useState(action.action_type)
+  const [result, setResult]         = useState(action.result)
+  const [notes, setNotes]           = useState(action.notes || '')
+  const [promiseDate, setPromiseDate] = useState(
+    action.payment_promise_date ? action.payment_promise_date.slice(0, 10) : ''
+  )
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/collections/actions/${action.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action_type: actionType,
+          result,
+          notes: notes || null,
+          payment_promise_date: promiseDate || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || 'Error al guardar'); return }
+      toast.success('Acción actualizada')
+      onSaved({ ...action, action_type: actionType, result, notes, payment_promise_date: promiseDate || null })
+      onClose()
+    } catch { toast.error('Error al guardar') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-gray-400" /> Editar Acción
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Tipo */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Tipo de acción</label>
+            <select
+              value={actionType}
+              onChange={e => setActionType(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {Object.entries(ACTION_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Resultado */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Resultado *</label>
+            <select
+              value={result}
+              onChange={e => setResult(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {Object.entries(RESULT_LABELS).map(([v, r]) => (
+                <option key={v} value={v}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Fecha promesa */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Fecha de promesa de pago</label>
+            <input
+              type="date"
+              value={promiseDate}
+              onChange={e => setPromiseDate(e.target.value)}
+              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+
+          {/* Notas */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Notas</label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Detalles de la gestión..."
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !result}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Timeline item ──────────────────────────────────────────────────────────
-function TimelineItem({ action }: { action: ActionRecord }) {
+function TimelineItem({
+  action,
+  onEdit,
+  onDelete,
+}: {
+  action: ActionRecord
+  onEdit?: (action: ActionRecord) => void
+  onDelete?: (id: string) => void
+}) {
   const res = RESULT_LABELS[action.result] || { label: action.result, icon: HelpCircle, color: 'text-gray-500' }
   const Icon = res.icon
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3 group">
       <div className="flex flex-col items-center">
         <div className={cn('w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0', res.color)}>
           <Icon className="h-3.5 w-3.5" />
@@ -109,9 +249,34 @@ function TimelineItem({ action }: { action: ActionRecord }) {
         <div className="w-px flex-1 bg-gray-100 mt-1" />
       </div>
       <div className="pb-4 min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-gray-700">{ACTION_LABELS[action.action_type] || action.action_type}</span>
-          <span className="text-xs text-gray-400">{formatSafeDate(action.created_at, 'dd/MM/yy HH:mm')}</span>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-xs font-semibold text-gray-700">{ACTION_LABELS[action.action_type] || action.action_type}</span>
+            <span className="text-xs text-gray-400 ml-2">{formatSafeDate(action.created_at, 'dd/MM/yy HH:mm')}</span>
+          </div>
+          {/* Edit / Delete buttons — visible on hover */}
+          {(onEdit || onDelete) && (
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(action)}
+                  className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                  title="Editar acción"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(action.id)}
+                  className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                  title="Eliminar acción"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className={cn('text-xs font-medium mt-0.5', res.color)}>{res.label}</div>
         {action.payment_promise_date && (
@@ -131,10 +296,58 @@ function TimelineItem({ action }: { action: ActionRecord }) {
 }
 
 // ─── Action detail modal ────────────────────────────────────────────────────
-function ActionDetailModal({ record, onClose }: { record: HistoryRecord; onClose: () => void }) {
+function ActionDetailModal({
+  record,
+  onClose,
+  onDeleted,
+  onEdited,
+}: {
+  record: HistoryRecord
+  onClose: () => void
+  onDeleted?: (id: string) => void
+  onEdited?: (updated: HistoryRecord) => void
+}) {
   const router = useRouter()
   const res = RESULT_LABELS[record.result] || { label: record.result, icon: HelpCircle, color: 'text-gray-500' }
   const ResIcon = res.icon
+  const [showEdit, setShowEdit] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!confirm('¿Eliminar esta acción de cobranza? Esta acción no se puede deshacer.')) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/collections/actions/${record.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error || 'Error al eliminar'); return }
+      toast.success('Acción eliminada')
+      onDeleted?.(record.id)
+      onClose()
+    } catch { toast.error('Error al eliminar') }
+    finally { setDeleting(false) }
+  }
+
+  if (showEdit) {
+    const asActionRecord: ActionRecord = {
+      id: record.id,
+      action_type: record.action_type,
+      result: record.result,
+      notes: record.notes,
+      payment_promise_date: record.payment_promise_date,
+      created_at: record.created_at,
+    }
+    return (
+      <EditActionModal
+        action={asActionRecord}
+        onClose={() => setShowEdit(false)}
+        onSaved={updated => {
+          onEdited?.({ ...record, ...updated } as HistoryRecord)
+          setShowEdit(false)
+          onClose()
+        }}
+      />
+    )
+  }
 
   return (
     <div
@@ -170,12 +383,10 @@ function ActionDetailModal({ record, onClose }: { record: HistoryRecord; onClose
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Fecha */}
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Fecha y hora</p>
               <p className="text-sm text-gray-900">{formatSafeDate(record.created_at, 'dd/MM/yyyy HH:mm')}</p>
             </div>
-            {/* Cobrador */}
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Cobrador</p>
               <p className="text-sm text-gray-900">{record.users?.name || '—'}</p>
@@ -183,12 +394,10 @@ function ActionDetailModal({ record, onClose }: { record: HistoryRecord; onClose
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Tipo */}
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipo de acción</p>
               <p className="text-sm text-gray-900">{ACTION_LABELS[record.action_type] || record.action_type}</p>
             </div>
-            {/* Resultado */}
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Resultado</p>
               <span className={cn('flex items-center gap-1.5 text-sm font-medium', res.color)}>
@@ -198,7 +407,6 @@ function ActionDetailModal({ record, onClose }: { record: HistoryRecord; onClose
             </div>
           </div>
 
-          {/* Fecha promesa */}
           {record.payment_promise_date && (
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Promesa de pago</p>
@@ -208,7 +416,6 @@ function ActionDetailModal({ record, onClose }: { record: HistoryRecord; onClose
             </div>
           )}
 
-          {/* Notas */}
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Notas</p>
             {record.notes ? (
@@ -221,8 +428,24 @@ function ActionDetailModal({ record, onClose }: { record: HistoryRecord; onClose
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
+        {/* Footer with Edit / Delete */}
+        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Eliminar
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 transition-colors"
@@ -266,7 +489,18 @@ function GlobalHistory() {
   return (
     <div className="space-y-4">
       {selectedRecord && (
-        <ActionDetailModal record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+        <ActionDetailModal
+          record={selectedRecord}
+          onClose={() => setSelectedRecord(null)}
+          onDeleted={id => {
+            setRecords(prev => prev.filter(r => r.id !== id))
+            setSelectedRecord(null)
+          }}
+          onEdited={updated => {
+            setRecords(prev => prev.map(r => r.id === updated.id ? updated : r))
+            setSelectedRecord(null)
+          }}
+        />
       )}
       {/* Toolbar */}
       <div className="flex items-center gap-3">
@@ -377,6 +611,7 @@ export function CollectionManager() {
   const [clientDetail, setClientDetail] = useState<ClientDetail | null>(null)
   const [clientInstallments, setClientInstallments] = useState<ClientInstallment[]>([])
   const [clientActions, setClientActions] = useState<ActionRecord[]>([])
+  const [editingAction, setEditingAction] = useState<ActionRecord | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   // Action form
@@ -757,9 +992,34 @@ export function CollectionManager() {
             {clientActions.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial</h3>
+                {/* Edit modal for timeline */}
+                {editingAction && (
+                  <EditActionModal
+                    action={editingAction}
+                    onClose={() => setEditingAction(null)}
+                    onSaved={updated => {
+                      setClientActions(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a))
+                      setEditingAction(null)
+                    }}
+                  />
+                )}
                 <div>
                   {clientActions.map(action => (
-                    <TimelineItem key={action.id} action={action} />
+                    <TimelineItem
+                      key={action.id}
+                      action={action}
+                      onEdit={a => setEditingAction(a)}
+                      onDelete={async id => {
+                        if (!confirm('¿Eliminar esta acción?')) return
+                        const res = await fetch(`/api/collections/actions/${id}`, { method: 'DELETE' })
+                        if (res.ok) {
+                          setClientActions(prev => prev.filter(a => a.id !== id))
+                          toast.success('Acción eliminada')
+                        } else {
+                          toast.error('Error al eliminar')
+                        }
+                      }}
+                    />
                   ))}
                 </div>
               </div>
