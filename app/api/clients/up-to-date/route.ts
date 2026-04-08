@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 export async function GET() {
   try {
@@ -21,7 +22,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = getTodayPeru()
 
     // Get all clients with active credit plans
     const { data: activePlans, error: plansError } = await supabase

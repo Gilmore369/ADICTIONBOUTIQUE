@@ -16,6 +16,7 @@ import { processPayment } from '@/actions/payments'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/currency'
+import { PERU_TZ } from '@/lib/utils/timezone'
 import {
   Search, Loader2, AlertTriangle, CheckCircle2, Clock,
   Upload, X, ChevronDown, DollarSign, CreditCard, Smartphone,
@@ -339,7 +340,7 @@ export function SmartPaymentPanel() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-gray-500 text-xs">#{inst.installment_number}</span>
                         <span className="text-gray-600 text-xs truncate">
-                          {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}
+                          {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', timeZone: PERU_TZ })}
                         </span>
                         <StatusBadge status={inst.status} days={inst.days_overdue} isOverdue={inst.is_overdue} />
                       </div>
@@ -507,7 +508,7 @@ export function SmartPaymentPanel() {
                     </span>
                   </div>
                   <div className="text-xs text-gray-500 flex justify-between">
-                    <span>Vence: {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+                    <span>Vence: {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: '2-digit', timeZone: PERU_TZ })}</span>
                     <span>Pendiente: {formatCurrency(inst.amount - inst.paid_amount)}</span>
                   </div>
                 </div>

@@ -1,20 +1,17 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 
 export async function getReturnsAction() {
-  const supabase = await createServerClient()
+  const service = createServiceClient()
 
-  const { data, error } = await supabase
+  const { data, error } = await service
     .from('returns')
     .select(`
       *,
-      clients (
-        id,
-        name,
-        dni
-      )
+      clients ( id, name, dni )
     `)
     .order('created_at', { ascending: false })
 
@@ -76,14 +73,30 @@ export async function createReturnAction(formData: {
 }
 
 export async function approveReturnAction(returnId: string) {
-  const supabase = await createServerClient()
+  const authClient = await createServerClient()
+  const service    = createServiceClient()
 
-  const { data, error } = await supabase
+  // Auth check
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { success: false, error: 'No autorizado' }
+
+  // ── 1. Fetch the full return record ──────────────────────────────────────
+  const { data: ret, error: fetchErr } = await service
     .from('returns')
-    .update({
-      status: 'APROBADA',
-      approved_at: new Date().toISOString()
-    })
+    .select('id, return_type, total_amount, client_id, store_id, sale_id, sale_number, return_number')
+    .eq('id', returnId)
+    .single()
+
+  if (fetchErr || !ret) {
+    return { success: false, error: fetchErr?.message || 'Devolución no encontrada' }
+  }
+
+  const returnAmount = Number(ret.total_amount)
+
+  // ── 2. Mark approved ─────────────────────────────────────────────────────
+  const { data, error } = await service
+    .from('returns')
+    .update({ status: 'APROBADA', approved_at: new Date().toISOString() })
     .eq('id', returnId)
     .select()
     .single()
@@ -93,7 +106,67 @@ export async function approveReturnAction(returnId: string) {
     return { success: false, error: error.message }
   }
 
+  // ── 3. Cash effect (REEMBOLSO → egreso en caja) ──────────────────────────
+  if (ret.return_type === 'REEMBOLSO' && returnAmount > 0) {
+    try {
+      // Find the open cash shift for the store
+      const { data: shift } = await service
+        .from('cash_shifts')
+        .select('id')
+        .eq('store_id', ret.store_id)
+        .eq('status', 'OPEN')
+        .order('opened_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      await service.from('cash_expenses').insert({
+        shift_id:    shift?.id ?? null,
+        amount:      returnAmount,
+        category:    'DEVOLUCION',
+        description: `Reembolso devolución ${ret.return_number} — venta ${ret.sale_number}`,
+        user_id:     user.id,
+      })
+    } catch (cashErr) {
+      // Non-blocking: log but don't fail the approval
+      console.warn('[approveReturn] Could not register cash expense:', cashErr)
+    }
+  }
+
+  // ── 4. Credit restoration (if sale was on credit) ────────────────────────
+  if (ret.client_id && ret.sale_id && returnAmount > 0) {
+    try {
+      // Check if the original sale had a credit plan
+      const { data: creditPlan } = await service
+        .from('credit_plans')
+        .select('id, total_amount')
+        .eq('sale_id', ret.sale_id)
+        .maybeSingle()
+
+      if (creditPlan) {
+        // Reduce credit_used by return amount (floor at 0)
+        const { data: client } = await service
+          .from('clients')
+          .select('credit_used')
+          .eq('id', ret.client_id)
+          .single()
+
+        if (client) {
+          const newCreditUsed = Math.max(0, Number(client.credit_used) - returnAmount)
+          await service
+            .from('clients')
+            .update({ credit_used: newCreditUsed })
+            .eq('id', ret.client_id)
+        }
+      }
+    } catch (creditErr) {
+      // Non-blocking: log but don't fail the approval
+      console.warn('[approveReturn] Could not restore credit:', creditErr)
+    }
+  }
+
   revalidatePath('/returns')
+  revalidatePath('/cash')
+  revalidatePath('/clients')
   return { success: true, data }
 }
 
@@ -121,11 +194,12 @@ export async function rejectReturnAction(returnId: string, adminNotes: string) {
 
 export async function completeReturnAction(returnId: string, refundAmount?: number) {
   const supabase = await createServerClient()
+  const service  = createServiceClient()
 
   // Fetch the return to get returned_items for stock restoration
-  const { data: returnRecord, error: fetchError } = await supabase
+  const { data: returnRecord, error: fetchError } = await service
     .from('returns')
-    .select('returned_items, store_id')
+    .select('returned_items, store_id, return_type, total_amount, client_id, sale_id, return_number, sale_number, status')
     .eq('id', returnId)
     .single()
 
@@ -134,7 +208,7 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     return { success: false, error: fetchError.message }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await service
     .from('returns')
     .update({
       status: 'COMPLETADA',
@@ -149,27 +223,25 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     return { success: false, error: error.message }
   }
 
-  // Restore stock for each returned item that has a product_id
+  // ── Restore stock for each returned item ─────────────────────────────────
   const returnedItems: Array<{ product_id?: string; quantity?: number }> =
     Array.isArray(returnRecord?.returned_items) ? returnRecord.returned_items : []
 
   for (const item of returnedItems) {
     if (!item.product_id || !item.quantity || item.quantity <= 0) continue
-    // Increment stock quantity — uses RPC if available, otherwise direct upsert
-    const { error: stockError } = await supabase.rpc('increment_stock', {
+    const { error: stockError } = await service.rpc('increment_stock', {
       p_product_id: item.product_id,
       p_quantity: item.quantity,
     })
     if (stockError) {
-      // Fallback: direct update on stock table
       console.warn('[returns] increment_stock RPC failed, trying direct update:', stockError.message)
-      const { data: existing } = await supabase
+      const { data: existing } = await service
         .from('stock')
         .select('quantity')
         .eq('product_id', item.product_id)
         .maybeSingle()
       if (existing) {
-        await supabase
+        await service
           .from('stock')
           .update({ quantity: (existing.quantity ?? 0) + item.quantity })
           .eq('product_id', item.product_id)
@@ -177,8 +249,40 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     }
   }
 
+  // ── Cash effect if not already processed at approval ─────────────────────
+  // (only if status was PENDIENTE → directly completed without APROBADA step)
+  if (
+    returnRecord?.status === 'PENDIENTE' &&
+    returnRecord?.return_type === 'REEMBOLSO'
+  ) {
+    const amt = Number(refundAmount || returnRecord?.total_amount || 0)
+    if (amt > 0) {
+      try {
+        const { data: shift } = await service
+          .from('cash_shifts')
+          .select('id')
+          .eq('store_id', returnRecord.store_id)
+          .eq('status', 'OPEN')
+          .order('opened_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        await service.from('cash_expenses').insert({
+          shift_id:    shift?.id ?? null,
+          amount:      amt,
+          category:    'DEVOLUCION',
+          description: `Reembolso devolución ${returnRecord.return_number} — venta ${returnRecord.sale_number}`,
+          user_id:     null,
+        })
+      } catch (e) {
+        console.warn('[completeReturn] Could not register cash expense:', e)
+      }
+    }
+  }
+
   revalidatePath('/returns')
   revalidatePath('/inventory/stock')
+  revalidatePath('/cash')
   return { success: true, data }
 }
 

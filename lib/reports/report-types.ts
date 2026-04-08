@@ -2,6 +2,8 @@
  * Tipos de reportes disponibles
  */
 
+import { getTodayPeru } from '@/lib/utils/timezone'
+
 export const REPORT_TYPES = {
   // Reportes de Inventario
   INVENTORY_ROTATION: {
@@ -229,8 +231,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_inventory_rotation',
     availableFilters: ['startDate', 'endDate', 'warehouseId', 'categoryId', 'productId'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 90)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Lima' }),
+      endDate: getTodayPeru()
     }
   },
   'inventory-valuation': {
@@ -261,8 +263,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_kardex',
     availableFilters: ['startDate', 'endDate', 'productId', 'warehouseId'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   
@@ -275,8 +277,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_sales_timeline',
     availableFilters: ['startDate', 'endDate'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   'sales-by-month': {
@@ -287,8 +289,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_sales_by_month',
     availableFilters: ['startDate', 'endDate'],
     defaultFilters: {
-      startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(new Date().getFullYear(), 0, 1).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   'sales-by-product': {
@@ -299,8 +301,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_sales_by_product',
     availableFilters: ['startDate', 'endDate', 'categoryId', 'productId'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   'sales-by-category': {
@@ -311,8 +313,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_sales_by_category',
     availableFilters: ['startDate', 'endDate', 'categoryId'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   'credit-vs-cash': {
@@ -323,8 +325,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_credit_vs_cash',
     availableFilters: ['startDate', 'endDate'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   'sales-summary': {
@@ -335,8 +337,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_sales_summary',
     availableFilters: ['startDate', 'endDate'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   'sales-by-store': {
@@ -347,8 +349,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_sales_by_store',
     availableFilters: ['startDate', 'endDate'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   
@@ -361,8 +363,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_purchases_by_supplier',
     availableFilters: ['startDate', 'endDate', 'supplierId'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 90)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Lima' }),
+      endDate: getTodayPeru()
     }
   },
   'purchases-by-period': {
@@ -373,8 +375,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_purchases_by_period',
     availableFilters: ['startDate', 'endDate', 'supplierId'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 90)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Lima' }),
+      endDate: getTodayPeru()
     }
   },
   
@@ -405,8 +407,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_collection_effectiveness',
     availableFilters: ['startDate', 'endDate'],
     defaultFilters: {
-      startDate: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 3 * 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   
@@ -419,8 +421,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_profit_margin',
     availableFilters: ['startDate', 'endDate', 'categoryId', 'productId'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   },
   'cash-flow': {
@@ -431,8 +433,8 @@ export const REPORT_CONFIGS: Record<string, ReportConfig> = {
     rpcFunction: 'report_cash_flow',
     availableFilters: ['startDate', 'endDate'],
     defaultFilters: {
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0]
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Lima" }),
+      endDate: getTodayPeru()
     }
   }
 }

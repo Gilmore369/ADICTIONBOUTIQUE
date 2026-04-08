@@ -1,6 +1,6 @@
 /**
  * Date Utilities
- * 
+ *
  * Safe date formatting functions that handle null/undefined/invalid dates
  */
 
@@ -8,7 +8,10 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 /**
- * Safely format a date string, returning fallback if invalid
+ * Safely format a date string, returning fallback if invalid.
+ *
+ * TIMEZONE FIX: date-only strings ("YYYY-MM-DD") are parsed as local noon
+ * (T12:00:00) to avoid UTC midnight → day-before shift in UTC-5 zones.
  */
 export function formatSafeDate(
   date: string | null | undefined,
@@ -16,9 +19,11 @@ export function formatSafeDate(
   fallback: string = '-'
 ): string {
   if (!date) return fallback
-  
   try {
-    const parsed = new Date(date)
+    // date-only strings (YYYY-MM-DD) must be parsed as local noon
+    // to avoid UTC midnight → day-before shift in UTC-5 zones
+    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(date)
+    const parsed = isDateOnly ? new Date(date + 'T12:00:00') : new Date(date)
     if (isNaN(parsed.getTime())) return fallback
     return format(parsed, formatStr, { locale: es })
   } catch {

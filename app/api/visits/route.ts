@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { peruMidnightUTC, peruEndOfDayUTC } from '@/lib/utils/timezone'
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -52,10 +53,10 @@ export async function GET(request: NextRequest) {
     if (clientId)  query = query.eq('client_id', clientId)
     if (visitType) query = query.eq('visit_type', visitType)
     if (date) {
-      // Filter visits on a specific calendar day
+      // Filter visits on a specific calendar day in Peru timezone
       query = query
-        .gte('visit_date', `${date}T00:00:00.000Z`)
-        .lt('visit_date',  `${date}T23:59:59.999Z`)
+        .gte('visit_date', peruMidnightUTC(date))
+        .lte('visit_date', peruEndOfDayUTC(date))
     }
 
     const { data, error } = await query

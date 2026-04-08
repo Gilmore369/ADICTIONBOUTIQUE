@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ShoppingCart, ChevronDown, ChevronRight, Receipt } from 'lucide-react'
 import { SaleReceipt } from '@/components/pos/sale-receipt'
+import { PERU_TZ } from '@/lib/utils/timezone'
 
 interface PurchaseHistoryTableProps {
   purchases: Purchase[]
@@ -141,7 +142,7 @@ export function PurchaseHistoryTable({ purchases, clientName }: PurchaseHistoryT
                             {purchase.saleNumber}
                           </TableCell>
                           <TableCell onClick={() => hasItems && toggleRow(purchase.id)}>
-                            {new Date(purchase.date).toLocaleDateString('es-PE')}
+                            {new Date(purchase.date).toLocaleDateString('es-PE', { timeZone: PERU_TZ })}
                           </TableCell>
                           <TableCell onClick={() => hasItems && toggleRow(purchase.id)}>
                             {getSaleTypeBadge(purchase.saleType)}

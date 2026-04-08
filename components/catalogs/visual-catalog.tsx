@@ -36,6 +36,7 @@ import {
   Package, Star, Upload, Trash2, Filter, Camera,
   ShoppingCart, Plus, Minus, ArrowRight, Check,
   Grid3x3, List, Store, TrendingUp, AlertCircle, Sparkles,
+  Bookmark, BookmarkCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -78,6 +79,7 @@ interface ModelCard {
   primary_image_url: string | null
   color_images: Record<string, string>  // color (lowercase) → public_url
   variants: ModelVariant[]  // per-variant real stock
+  catalog_visible: boolean  // featured in the visual catalog
 }
 
 interface ProductImage {
@@ -375,6 +377,12 @@ function ModelCardItem({
             <ShoppingCart className="h-2.5 w-2.5" />
           </div>
         )}
+        {/* Catalog visible indicator */}
+        {model.catalog_visible && !isInCart && (
+          <div className="absolute top-1.5 left-1.5 bg-violet-500/90 text-white px-1.5 py-0.5 rounded-full shadow" title="En catálogo">
+            <BookmarkCheck className="h-2.5 w-2.5" />
+          </div>
+        )}
       </div>
 
       {/* ── Card body ── */}
@@ -525,12 +533,14 @@ function ModelDetailModal({
   onClose,
   onRefresh,
   onAddToCart,
+  catalogCount,
 }: {
   model: ModelCard | null
   open: boolean
   onClose: () => void
   onRefresh: () => void
   onAddToCart: (variant: ModelVariant) => void
+  catalogCount: number
 }) {
   const [images, setImages] = useState<ProductImage[]>([])
   const [galleryIdx, setGalleryIdx] = useState(0)
@@ -544,6 +554,9 @@ function ModelDetailModal({
   const [editingColor, setEditingColor] = useState(false)
   const [editColorValue, setEditColorValue] = useState('')
   const [savingColor, setSavingColor] = useState(false)
+  // Catalog visibility toggle
+  const [catalogVisible, setCatalogVisible] = useState(false)
+  const [togglingCatalog, setTogglingCatalog] = useState(false)
 
   const loadImages = useCallback(async (m: ModelCard) => {
     const supabase = createBrowserClient()
@@ -588,6 +601,7 @@ function ModelDetailModal({
       loadImages(model)
       setGalleryIdx(0)
       setColorFilter(null)
+      setCatalogVisible(model.catalog_visible)
     }
   }, [model?.base_code, open, loadImages])
 
@@ -697,6 +711,33 @@ function ModelDetailModal({
     }
   }, [editColorValue, onRefresh])
 
+  const handleToggleCatalog = useCallback(async () => {
+    if (!model) return
+    // Check limit before enabling (catalogCount = number of distinct models in catalog)
+    if (!catalogVisible && catalogCount >= 50) {
+      toast.error('Límite alcanzado: solo puedes tener 50 modelos en el catálogo visual')
+      return
+    }
+    setTogglingCatalog(true)
+    try {
+      const supabase = createBrowserClient()
+      const newVal = !catalogVisible
+      const { error } = await supabase
+        .from('products')
+        .update({ catalog_visible: newVal })
+        .eq('base_code', model.base_code)
+      if (error) {
+        toast.error('Error al actualizar visibilidad')
+      } else {
+        setCatalogVisible(newVal)
+        toast.success(newVal ? 'Modelo agregado al catálogo' : 'Modelo quitado del catálogo')
+        onRefresh()
+      }
+    } finally {
+      setTogglingCatalog(false)
+    }
+  }, [model, catalogVisible, catalogCount, onRefresh])
+
   // Early return AFTER all hooks
   if (!model) return null
   
@@ -710,6 +751,24 @@ function ModelDetailModal({
           <DialogTitle className="text-base flex items-center gap-2 flex-wrap">
             <span className="font-mono text-muted-foreground text-xs bg-muted px-1.5 py-0.5 rounded">{model.base_code}</span>
             <span>{model.base_name}</span>
+            <button
+              onClick={handleToggleCatalog}
+              disabled={togglingCatalog}
+              title={catalogVisible ? 'Quitar del catálogo' : 'Agregar al catálogo visual'}
+              className={[
+                'ml-auto inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium transition-colors flex-shrink-0',
+                catalogVisible
+                  ? 'bg-violet-100 text-violet-700 border border-violet-300 hover:bg-violet-200'
+                  : 'bg-muted text-muted-foreground border border-border hover:bg-muted/80',
+                togglingCatalog ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+              ].join(' ')}
+            >
+              {catalogVisible
+                ? <BookmarkCheck className="h-3.5 w-3.5" />
+                : <Bookmark className="h-3.5 w-3.5" />
+              }
+              {catalogVisible ? 'En catálogo' : 'Agregar a catálogo'}
+            </button>
           </DialogTitle>
         </DialogHeader>
 
@@ -1217,6 +1276,7 @@ export function VisualCatalog() {
   const [filterCategory,  setFilterCategory]  = useState('all')
   const [filterBrand,     setFilterBrand]     = useState('all')
   const [filterColor,     setFilterColor]     = useState('')
+  const [catalogOnly,     setCatalogOnly]     = useState(false)
   const [page,            setPage]            = useState(1)
 
   // ── UI state ───────────────────────────────────────────────────────────────
@@ -1386,7 +1446,7 @@ export function VisualCatalog() {
       .select(`
         id, barcode, name, size, color, base_code, base_name,
         purchase_price, price, category_id, brand_id, line_id,
-        image_url, entry_date,
+        image_url, entry_date, catalog_visible,
         categories ( id, name, line_id, lines ( id, name ) ),
         brands ( id, name ),
         stock ( quantity )
@@ -1459,7 +1519,11 @@ export function VisualCatalog() {
           primary_image_url: pAny.image_url ?? null,
           color_images:   {},
           variants:       [],
+          catalog_visible: Boolean(pAny.catalog_visible),
         }
+      } else if (pAny.catalog_visible) {
+        // If any variant has catalog_visible=true, mark the whole model
+        grouped[groupKey].catalog_visible = true
       }
 
       const g = grouped[groupKey]
@@ -1556,9 +1620,14 @@ export function VisualCatalog() {
     setPage(1)
   }, [loadData, storeId])
 
+  // Catalog stats
+  const catalogCount = useMemo(() => models.filter(m => m.catalog_visible).length, [models])
+  const CATALOG_LIMIT = 50
+
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let out = models
+    if (catalogOnly)              out = out.filter(m => m.catalog_visible)
     if (filterLine     !== 'all') out = out.filter(m => m.line_id     === filterLine)
     if (filterCategory !== 'all') out = out.filter(m => m.category_id === filterCategory)
     if (filterBrand    !== 'all') out = out.filter(m => m.brand_id    === filterBrand)
@@ -1573,7 +1642,7 @@ export function VisualCatalog() {
       )
     }
     return out
-  }, [models, filterLine, filterCategory, filterBrand, filterColor, search])
+  }, [models, catalogOnly, filterLine, filterCategory, filterBrand, filterColor, search])
 
   // ── Sorting ────────────────────────────────────────────────────────────────
   const sorted = useMemo(() => {
@@ -1612,11 +1681,11 @@ export function VisualCatalog() {
   const paginated       = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
   const cartCount       = cartItems.reduce((s, i) => s + i.quantity, 0)
   const cartProductIds  = useMemo(() => new Set(cartItems.map(i => i.product_id)), [cartItems])
-  const hasFilters      = search || filterLine !== 'all' || filterCategory !== 'all' || filterBrand !== 'all' || filterColor
+  const hasFilters      = search || filterLine !== 'all' || filterCategory !== 'all' || filterBrand !== 'all' || filterColor || catalogOnly
 
   const resetFilters = () => {
     setSearch(''); setFilterLine('all'); setFilterCategory('all')
-    setFilterBrand('all'); setFilterColor(''); setPage(1)
+    setFilterBrand('all'); setFilterColor(''); setCatalogOnly(false); setPage(1)
   }
 
   // Filters component (reusable for sidebar and modal)
@@ -1717,6 +1786,30 @@ export function VisualCatalog() {
               </div>
             </>
           )}
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <Bookmark className="h-3.5 w-3.5 text-violet-500" />
+            <span className="font-semibold">{catalogCount}</span>
+            <span className="text-muted-foreground">en catálogo</span>
+            <span className="text-muted-foreground/50">/ {CATALOG_LIMIT}</span>
+          </div>
+          <div className="ml-auto">
+            <button
+              onClick={() => { setCatalogOnly(v => !v); setPage(1) }}
+              className={[
+                'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors',
+                catalogOnly
+                  ? 'bg-violet-100 text-violet-700 border border-violet-300'
+                  : 'bg-muted text-muted-foreground border border-border hover:bg-muted/80',
+              ].join(' ')}
+            >
+              {catalogOnly
+                ? <BookmarkCheck className="h-3 w-3" />
+                : <Bookmark className="h-3 w-3" />
+              }
+              {catalogOnly ? 'Solo catálogo' : 'Ver catálogo'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2005,6 +2098,7 @@ export function VisualCatalog() {
         open={!!selected}
         onClose={() => setSelected(null)}
         onRefresh={() => loadData(storeId)}
+        catalogCount={catalogCount}
         onAddToCart={variant => {
           if (selected) {
             addToCart(selected, variant)

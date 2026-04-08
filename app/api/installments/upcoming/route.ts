@@ -18,6 +18,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,10 +44,10 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(requestedLimit, 1), 100)
     
     // Calculate date range
-    const today = new Date().toISOString().split('T')[0]
-    const futureDate = new Date()
+    const today = getTodayPeru()
+    const futureDate = new Date(today + 'T12:00:00') // parse at noon to avoid DST edge
     futureDate.setDate(futureDate.getDate() + days)
-    const futureDateStr = futureDate.toISOString().split('T')[0]
+    const futureDateStr = futureDate.toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
     
     // Build query
     let query = supabase

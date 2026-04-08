@@ -10,6 +10,7 @@
 'use server'
 
 import { formatCurrency } from '@/lib/utils/currency'
+import { PERU_TZ } from '@/lib/utils/timezone'
 
 interface TicketItem {
   quantity: number
@@ -66,7 +67,7 @@ function generateReceiptPDFHTML(data: TicketData): string {
               <tr>
                 <td style="padding: 5px 0; color: #666;">Cuota ${i + 1}:</td>
                 <td style="padding: 5px 0; text-align: right; font-family: monospace; color: #1a1a1a; font-weight: 600;">
-                  ${formatCurrency(installmentAmount)} - Vence: ${dueDate.toLocaleDateString('es-PE')}
+                  ${formatCurrency(installmentAmount)} - Vence: ${dueDate.toLocaleDateString('es-PE', { timeZone: PERU_TZ })}
                 </td>
               </tr>
             `
@@ -197,12 +198,13 @@ function generateReceiptPDFHTML(data: TicketData): string {
     <div class="info">
       <div class="info-row">
         <span><strong>Ticket:</strong> <span style="font-family: monospace; font-weight: 700;">${data.saleNumber}</span></span>
-        <span><strong>Fecha:</strong> ${new Date(data.date).toLocaleString('es-PE', { 
-          year: 'numeric', 
-          month: '2-digit', 
+        <span><strong>Fecha:</strong> ${new Date(data.date).toLocaleString('es-PE', {
+          year: 'numeric',
+          month: '2-digit',
           day: '2-digit',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZone: PERU_TZ,
         })}</span>
       </div>
       <div class="info-row">

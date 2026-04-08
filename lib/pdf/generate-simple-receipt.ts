@@ -8,6 +8,7 @@
 
 import QRCode from 'qrcode'
 import { formatCurrency } from '@/lib/utils/currency'
+import { PERU_TZ } from '@/lib/utils/timezone'
 import fs from 'fs'
 import path from 'path'
 import jsPDF from 'jspdf'
@@ -133,7 +134,8 @@ export async function generateSimpleReceiptPDF(data: SimpleReceiptData): Promise
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: PERU_TZ,
     })
     
     doc.setFont('helvetica', 'normal')
@@ -257,7 +259,7 @@ export async function generateSimpleReceiptPDF(data: SimpleReceiptData): Promise
       for (let i = 0; i < numInstallments; i++) {
         const dueDate = new Date()
         dueDate.setMonth(dueDate.getMonth() + i + 1)
-        const dueDateStr = dueDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const dueDateStr = dueDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: PERU_TZ })
         
         doc.text(`Cuota ${i + 1}:`, 10, yPos)
         doc.setFont('courier', 'normal')

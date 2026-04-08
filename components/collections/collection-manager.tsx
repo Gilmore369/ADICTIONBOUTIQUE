@@ -670,7 +670,7 @@ export function CollectionManager() {
       fd.append('client_name', clientDetail.name)
       fd.append('action_type', formActionType)
       fd.append('result', formResult)
-      if (formPromiseDate) fd.append('payment_promise_date', new Date(formPromiseDate).toISOString())
+      if (formPromiseDate) fd.append('payment_promise_date', formPromiseDate) // pass YYYY-MM-DD directly, no UTC conversion
       if (formNotes) fd.append('notes', formNotes)
 
       const res = await fetch('/api/collections/actions', { method: 'POST', body: fd })

@@ -894,6 +894,7 @@ export default function DashboardClient({
                       {new Date(sale.created_at).toLocaleString('es-PE', {
                         day: '2-digit', month: '2-digit',
                         hour: '2-digit', minute: '2-digit',
+                        timeZone: 'America/Lima',
                       })}
                     </p>
                   </div>

@@ -46,6 +46,7 @@ import {
   generateDatabaseBackup
 } from '@/actions/reports'
 import { useStore } from '@/contexts/store-context'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 // ─── Captura SVG de recharts como imagen PNG ──────────────────────────────────
 async function captureChartsAsPng(
@@ -126,11 +127,11 @@ async function captureChartsAsPng(
 
 // ─── Fechas por defecto por tipo de reporte ───────────────────────────────────
 function getDefaultDates(reportId: string) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getTodayPeru()
   const now = new Date()
-  const firstOfYear = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  const firstOfYear = new Date(now.getFullYear(), 0, 1).toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
 
   if (reportId === 'sales-by-month') {
     return { startDate: firstOfYear, endDate: today }
@@ -149,8 +150,8 @@ export function ReportsGenerator() {
   const [showFilters, setShowFilters] = useState(false)
   const [activeTab, setActiveTab] = useState<'stats' | 'data'>('stats')
   const [filters, setFilters] = useState<ReportFilters>({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA', { timeZone: 'America/Lima' }),
+    endDate: getTodayPeru(),
     warehouse: undefined
   })
 

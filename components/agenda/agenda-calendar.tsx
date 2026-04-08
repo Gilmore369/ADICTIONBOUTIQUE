@@ -19,6 +19,7 @@ import {
   CalendarCheck, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface AgendaEvent {
@@ -608,7 +609,7 @@ export function AgendaCalendar() {
   const goToday   = () => { setYear(today.getFullYear()); setMonth(today.getMonth() + 1) }
 
   const calDays    = buildCalendarDays(year, month)
-  const todayStr   = today.toISOString().split('T')[0]
+  const todayStr   = getTodayPeru()
 
   const eventsByDate: Record<string, AgendaEvent[]> = {}
   if (data?.events) {

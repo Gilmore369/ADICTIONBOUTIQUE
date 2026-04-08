@@ -6,6 +6,7 @@
  */
 
 import { formatCurrency } from '@/lib/utils/currency'
+import { PERU_TZ } from '@/lib/utils/timezone'
 
 interface ReceiptEmailData {
   saleNumber: string
@@ -60,7 +61,7 @@ export function generateReceiptEmailHTML(data: ReceiptEmailData): string {
             <tr>
               <td style="padding: 5px 0; color: #666;">Cuota ${i + 1}:</td>
               <td style="padding: 5px 0; text-align: right; font-family: 'Courier New', monospace; color: #1a1a1a; font-weight: 600;">
-                ${formatCurrency(data.installmentAmount)} - Vence: ${dueDate.toLocaleDateString('es-PE')}
+                ${formatCurrency(data.installmentAmount)} - Vence: ${dueDate.toLocaleDateString('es-PE', { timeZone: PERU_TZ })}
               </td>
             </tr>
           `
@@ -225,7 +226,8 @@ export function generateReceiptEmailHTML(data: ReceiptEmailData): string {
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: PERU_TZ,
           })}
         </p>
         ${data.clientName ? `<p><strong>Cliente:</strong> ${data.clientName}</p>` : ''}

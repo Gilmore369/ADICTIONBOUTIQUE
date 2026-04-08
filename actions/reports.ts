@@ -2,6 +2,23 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { ReportFilters, ReportTypeId } from '@/lib/reports/report-types'
+import { PERU_TZ, peruMidnightUTC, peruEndOfDayUTC, getTodayPeru } from '@/lib/utils/timezone'
+
+/**
+ * Convert a YYYY-MM-DD filter string to Peru-aware UTC start (00:00 Lima = 05:00 UTC).
+ * If already an ISO timestamp, return as-is.
+ */
+function toPeruStart(dateStr: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? peruMidnightUTC(dateStr) : dateStr
+}
+
+/**
+ * Convert a YYYY-MM-DD filter string to Peru-aware UTC end (23:59:59 Lima = next 04:59:59 UTC).
+ * If already an ISO timestamp, return as-is.
+ */
+function toPeruEnd(dateStr: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? peruEndOfDayUTC(dateStr) : dateStr
+}
 
 // Mapa de clave de tienda del usuario → nombre en BD
 const STORE_KEY_MAP: Record<string, string> = {
@@ -152,8 +169,8 @@ export async function generateStockRotationReport(filters: ReportFilters) {
     .from('movements')
     .select('*, products(id, name, barcode, purchase_price, price)')
     .eq('type', 'SALIDA')
-    .gte('created_at', filters.startDate || ninetyAgo.toISOString())
-    .lte('created_at', filters.endDate || new Date().toISOString())
+    .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
+    .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
 
   const productSales = movements?.reduce((acc: any, mov: any) => {
     const productId = mov.product_id
@@ -246,15 +263,15 @@ export async function generateKardexReport(filters: ReportFilters) {
     .select('*, products(name, barcode)')
     .order('created_at', { ascending: false })
 
-  if (filters.startDate) query = query.gte('created_at', filters.startDate)
-  if (filters.endDate) query = query.lte('created_at', filters.endDate)
+  if (filters.startDate) query = query.gte('created_at', toPeruStart(filters.startDate))
+  if (filters.endDate) query = query.lte('created_at', toPeruEnd(filters.endDate))
   if (filters.productId) query = query.eq('product_id', filters.productId)
   if (filters.warehouseId) query = query.eq('warehouse_id', filters.warehouseId)
 
   const { data: movements } = await query
 
   return (movements || []).map((mov: any) => ({
-    date: new Date(mov.created_at).toLocaleDateString('es-PE'),
+    date: new Date(mov.created_at).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
     barcode: mov.products?.barcode || 'N/A',
     product: mov.products?.name || 'N/A',
     warehouse: mov.warehouse_id || 'N/A',
@@ -282,14 +299,14 @@ export async function generateSalesByPeriodReport(filters: ReportFilters) {
     .eq('voided', false)
     .order('created_at', { ascending: false })
 
-  query = query.gte('created_at', filters.startDate || firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate || lastDay.toISOString())
+  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
 
   return (sales || []).map((sale: any) => ({
-    fecha: new Date(sale.created_at).toLocaleDateString('es-PE'),
+    fecha: new Date(sale.created_at).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
     numeroVenta: sale.sale_number,
     tienda: sale.store_id === 'Tienda Hombres' ? 'Tienda Hombres' : 'Tienda Mujeres',
     tipo: sale.sale_type === 'CREDITO' ? 'Credito' : 'Contado',
@@ -317,8 +334,8 @@ export async function generateSalesByMonthReport(filters: ReportFilters) {
     .eq('voided', false)
     .order('created_at', { ascending: true })
 
-  query = query.gte('created_at', filters.startDate || defaultStart.toISOString())
-  query = query.lte('created_at', filters.endDate || now.toISOString())
+  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : defaultStart.toISOString())
+  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : now.toISOString())
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
@@ -327,7 +344,7 @@ export async function generateSalesByMonthReport(filters: ReportFilters) {
   const salesByMonth = (sales || []).reduce((acc: any, sale: any) => {
     const d = new Date(sale.created_at)
     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const monthLabel = d.toLocaleDateString('es-PE', { year: 'numeric', month: 'short' })
+    const monthLabel = d.toLocaleDateString('es-PE', { year: 'numeric', month: 'short', timeZone: PERU_TZ })
 
     if (!acc[monthKey]) {
       acc[monthKey] = {
@@ -362,8 +379,8 @@ export async function generateSalesSummaryReport(filters: ReportFilters) {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
   let query = supabase.from('sales').select('*').eq('voided', false)
-  query = query.gte('created_at', filters.startDate || firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate || lastDay.toISOString())
+  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
@@ -390,8 +407,8 @@ export async function generateSalesByProductReport(filters: ReportFilters) {
     .select('quantity, unit_price, subtotal, sales!inner(created_at, voided, store_id), products(name, barcode, purchase_price)')
     .eq('sales.voided', false)
 
-  if (filters.startDate) query = query.gte('sales.created_at', filters.startDate)
-  if (filters.endDate) query = query.lte('sales.created_at', filters.endDate)
+  if (filters.startDate) query = query.gte('sales.created_at', toPeruStart(filters.startDate))
+  if (filters.endDate) query = query.lte('sales.created_at', toPeruEnd(filters.endDate))
   if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
 
   const { data: items } = await query
@@ -436,8 +453,8 @@ export async function generateSalesByCategoryReport(filters: ReportFilters) {
     .select('quantity, unit_price, subtotal, sales!inner(created_at, voided, store_id), products!inner(name, barcode, purchase_price, categories(name))')
     .eq('sales.voided', false)
 
-  query = query.gte('sales.created_at', filters.startDate || firstDay.toISOString())
-  query = query.lte('sales.created_at', filters.endDate || lastDay.toISOString())
+  query = query.gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+  query = query.lte('sales.created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
 
   const { data: items } = await query
@@ -477,8 +494,8 @@ export async function generateCreditVsCashReport(filters: ReportFilters) {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
   let query = supabase.from('sales').select('*').eq('voided', false)
-  query = query.gte('created_at', filters.startDate || firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate || lastDay.toISOString())
+  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
@@ -509,8 +526,8 @@ export async function generateSalesByStoreReport(filters: ReportFilters) {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
   let query = supabase.from('sales').select('*').eq('voided', false)
-  query = query.gte('created_at', filters.startDate || firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate || lastDay.toISOString())
+  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
@@ -548,8 +565,8 @@ export async function generatePurchasesBySupplierReport(filters: ReportFilters) 
     .eq('type', 'ENTRADA')
     .order('created_at', { ascending: false })
 
-  query = query.gte('created_at', filters.startDate || ninetyAgo.toISOString())
-  query = query.lte('created_at', filters.endDate || new Date().toISOString())
+  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
+  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
 
   const { data: movements } = await query
 
@@ -586,13 +603,13 @@ export async function generatePurchasesByPeriodReport(filters: ReportFilters) {
     .eq('type', 'ENTRADA')
     .order('created_at', { ascending: false })
 
-  query = query.gte('created_at', filters.startDate || ninetyAgo.toISOString())
-  query = query.lte('created_at', filters.endDate || new Date().toISOString())
+  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
+  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
 
   const { data: movements } = await query
 
   return (movements || []).map((mov: any) => ({
-    fecha: new Date(mov.created_at).toLocaleDateString('es-PE'),
+    fecha: new Date(mov.created_at).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
     producto: mov.products?.name || 'N/A',
     codigoBarras: mov.products?.barcode || 'N/A',
     cantidad: mov.quantity,
@@ -693,7 +710,7 @@ export async function generateOverdueInstallmentsReport(filters: ReportFilters) 
     client: inst.credit_plans?.clients?.name || 'N/A',
     phone: inst.credit_plans?.clients?.phone || 'N/A',
     installmentNumber: inst.installment_number,
-    dueDate: new Date(inst.due_date).toLocaleDateString('es-PE'),
+    dueDate: new Date(inst.due_date).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
     amount: Number(inst.amount),
     paidAmount: Number(inst.paid_amount || 0),
     pending: Number(inst.amount) - Number(inst.paid_amount || 0),
@@ -716,13 +733,13 @@ export async function generateCollectionEffectivenessReport(filters: ReportFilte
     supabase
       .from('payments')
       .select('amount, payment_date')
-      .gte('payment_date', filters.startDate || firstDay.toISOString().split('T')[0])
-      .lte('payment_date', filters.endDate || lastDay.toISOString().split('T')[0]),
+      .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
+      .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ })),
     supabase
       .from('installments')
       .select('amount, paid_amount, due_date')
       .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-      .lt('due_date', new Date().toISOString().split('T')[0])
+      .lt('due_date', getTodayPeru())
   ])
 
   const totalCollected = (payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0)
@@ -749,8 +766,8 @@ export async function generateProfitMarginReport(filters: ReportFilters) {
     .from('sale_items')
     .select('quantity, unit_price, subtotal, sales!inner(created_at, voided, store_id), products(name, barcode, purchase_price)')
     .eq('sales.voided', false)
-    .gte('sales.created_at', filters.startDate || firstDay.toISOString())
-    .lte('sales.created_at', filters.endDate || lastDay.toISOString())
+    .gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    .lte('sales.created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) profitQuery = profitQuery.eq('sales.store_id', filters.warehouse)
   const { data: items } = await profitQuery
 
@@ -798,23 +815,23 @@ export async function generateCashFlowReport(filters: ReportFilters) {
     .from('sales')
     .select('total, created_at, sale_type, store_id')
     .eq('voided', false)
-    .gte('created_at', filters.startDate || firstDay.toISOString())
-    .lte('created_at', filters.endDate || lastDay.toISOString())
+    .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) salesQ = salesQ.eq('store_id', filters.warehouse)
 
   let cashExpQ = supabase
     .from('cash_expenses')
     .select('amount, description, created_at')
-    .gte('created_at', filters.startDate || firstDay.toISOString())
-    .lte('created_at', filters.endDate || lastDay.toISOString())
+    .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
 
   const [{ data: sales }, { data: payments }, { data: expenses }] = await Promise.all([
     salesQ,
     supabase
       .from('payments')
       .select('amount, payment_date')
-      .gte('payment_date', filters.startDate || firstDay.toISOString().split('T')[0])
-      .lte('payment_date', filters.endDate || lastDay.toISOString().split('T')[0]),
+      .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
+      .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ })),
     cashExpQ
   ])
 

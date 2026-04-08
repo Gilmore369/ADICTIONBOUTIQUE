@@ -39,7 +39,23 @@ export async function GET(
         total,
         sale_type,
         created_at,
-        voided
+        voided,
+        sale_items (
+          id,
+          product_id,
+          quantity,
+          unit_price,
+          subtotal,
+          products (
+            id,
+            name,
+            barcode,
+            size,
+            color,
+            base_name,
+            base_code
+          )
+        )
       `)
       .eq('sale_number', saleNumber.toUpperCase())
       .maybeSingle()

@@ -157,8 +157,8 @@ export function CollectionActionForm({ onSuccess, onCancel }: CollectionActionFo
       formData.append('action_type', data.action_type)
       formData.append('result', data.result)
       if (data.payment_promise_date) {
-        // Convert date to ISO datetime format
-        formData.append('payment_promise_date', new Date(data.payment_promise_date).toISOString())
+        // Pass YYYY-MM-DD directly — no UTC conversion to avoid day-shift in Peru (UTC-5)
+        formData.append('payment_promise_date', data.payment_promise_date.slice(0, 10))
       }
       if (data.notes) {
         formData.append('notes', data.notes)

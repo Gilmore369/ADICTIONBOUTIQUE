@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { fetchDashboardMetrics } from '@/lib/services/dashboard-service'
+import { getTodayPeru, PERU_TZ } from '@/lib/utils/timezone'
 
 export async function GET(request: Request) {
   const supabase = await createServerClient()
@@ -135,13 +136,13 @@ export async function GET(request: Request) {
     const { data: plansRows } = await supabase
       .from('credit_plans')
       .select('total_amount, created_at, sale_id, sales!inner(store_id)')
-      .gte('created_at', sixMonthsAgo.toISOString().split('T')[0])
+      .gte('created_at', sixMonthsAgo.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
 
     // Payments per month
     const { data: paymentsRows } = await supabase
       .from('payments')
       .select('amount, payment_date')
-      .gte('payment_date', sixMonthsAgo.toISOString().split('T')[0])
+      .gte('payment_date', sixMonthsAgo.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
 
     // Build 6-month labels
     const monthLabels: string[] = []
@@ -150,7 +151,7 @@ export async function GET(request: Request) {
       const d = new Date()
       d.setMonth(d.getMonth() - i)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const label = d.toLocaleString('es-PE', { month: 'short' })
+      const label = d.toLocaleString('es-PE', { month: 'short', timeZone: PERU_TZ })
         .replace('.', '')
         .replace(/^\w/, c => c.toUpperCase())
       monthLabels.push(label)

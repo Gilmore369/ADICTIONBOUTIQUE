@@ -314,12 +314,6 @@ export function BulkProductEntryV2() {
       // Cargar tallas y esperar a que termine
       await loadSizesForCategory(value)
       
-      // Solo generar código si el modelo no tiene uno (es nuevo)
-      const currentModel = models.find(m => m.id === id)
-      if (!currentModel?.baseCode) {
-        generateCodeForModel(id, value)
-      }
-      
       // Actualizar estado con nueva categoría, resetear variantes, mantener expanded
       setModels(models.map(m => 
         m.id === id 

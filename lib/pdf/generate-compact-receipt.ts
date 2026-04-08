@@ -12,6 +12,7 @@
 
 import QRCode from 'qrcode'
 import { formatCurrency } from '@/lib/utils/currency'
+import { PERU_TZ } from '@/lib/utils/timezone'
 
 interface CompactReceiptData {
   saleNumber: string
@@ -77,7 +78,7 @@ async function generateCompactHTML(data: CompactReceiptData): Promise<string> {
             <tr>
               <td style="padding: 3px 0;">Cuota ${i + 1}:</td>
               <td style="padding: 3px 0; text-align: right; font-family: 'Courier New', monospace;">
-                ${formatCurrency(installmentAmount)} - ${dueDate.toLocaleDateString('es-PE')}
+                ${formatCurrency(installmentAmount)} - ${dueDate.toLocaleDateString('es-PE', { timeZone: PERU_TZ })}
               </td>
             </tr>
           `
@@ -253,12 +254,13 @@ async function generateCompactHTML(data: CompactReceiptData): Promise<string> {
       </div>
       <div class="ticket-info-row">
         <span><strong>FECHA:</strong></span>
-        <span>${new Date(data.date).toLocaleString('es-PE', { 
-          year: 'numeric', 
-          month: '2-digit', 
+        <span>${new Date(data.date).toLocaleString('es-PE', {
+          year: 'numeric',
+          month: '2-digit',
           day: '2-digit',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZone: PERU_TZ,
         })}</span>
       </div>
       <div class="ticket-info-row">

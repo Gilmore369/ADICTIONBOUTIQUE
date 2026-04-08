@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 export async function GET() {
   try {
@@ -24,8 +25,8 @@ export async function GET() {
     const sevenDaysFromNow = new Date(today)
     sevenDaysFromNow.setDate(today.getDate() + 7)
 
-    const todayStr = today.toISOString().split('T')[0]
-    const sevenDaysStr = sevenDaysFromNow.toISOString().split('T')[0]
+    const todayStr = getTodayPeru()
+    const sevenDaysStr = sevenDaysFromNow.toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
 
     // Get clients with upcoming installments (next 7 days)
     const { data: upcomingInstallments, error: installmentsError } = await supabase

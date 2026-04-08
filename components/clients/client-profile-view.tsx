@@ -27,6 +27,7 @@ import { AddActionForm } from './add-action-form'
 import { AddCollectionActionForm } from './add-collection-action-form'
 import { ChevronDown, ChevronRight, CreditCard, AlertCircle, CheckCircle2, Clock, Phone, MessageSquare, Mail, FileText, MapPin, Video, Bike, Info, RefreshCw } from 'lucide-react'
 import { getActionTypeLabel, getResultLabel, getResultColor, COLLECTION_RESULTS } from '@/lib/constants/collection-actions'
+import { PERU_TZ } from '@/lib/utils/timezone'
 
 interface ClientProfileViewProps {
   profile: ClientProfile
@@ -184,7 +185,7 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                   : `Plan de crédito`}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(plan.created_at).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'})}
+                                {new Date(plan.created_at).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:PERU_TZ})}
                                 {total > 0 && ` · ${paid}/${total} cuotas pagadas`}
                               </p>
                             </div>
@@ -246,8 +247,8 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                           <td className="px-4 py-2 font-medium"># {inst.installmentNumber}</td>
                                           <td className="px-4 py-2 text-muted-foreground">
                                             {inst.dueDate instanceof Date
-                                              ? inst.dueDate.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'})
-                                              : new Date(inst.dueDate).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'})}
+                                              ? inst.dueDate.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:PERU_TZ})
+                                              : new Date(inst.dueDate).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:PERU_TZ})}
                                           </td>
                                           <td className="px-4 py-2 text-right">S/ {inst.amount.toFixed(2)}</td>
                                           <td className="px-4 py-2 text-right text-green-700">S/ {inst.paidAmount.toFixed(2)}</td>
@@ -338,8 +339,8 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                       .map((item: any) => {
                         const isCollection = item._kind === 'collection'
                         const dt = new Date(item.created_at)
-                        const dateStr = dt.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' })
-                        const timeStr = dt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+                        const dateStr = dt.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: PERU_TZ })
+                        const timeStr = dt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: PERU_TZ })
 
                         if (isCollection) {
                           const resultMeta = COLLECTION_RESULTS.find(r => r.value === item.result)
@@ -361,8 +362,13 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                             item.action_type === 'MOTORIZADO' ? '🏍️' :
                             item.action_type === 'VIDEOLLAMADA' ? '📹' : '📋'
 
+                          // Fix: date-only strings must use local noon to avoid UTC day-shift (Peru UTC-5)
                           const promiseDate = item.payment_promise_date
-                            ? new Date(item.payment_promise_date).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                            ? new Date(
+                                /^\d{4}-\d{2}-\d{2}$/.test(item.payment_promise_date)
+                                  ? item.payment_promise_date + 'T12:00:00'
+                                  : item.payment_promise_date
+                              ).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: PERU_TZ })
                             : null
 
                           return (

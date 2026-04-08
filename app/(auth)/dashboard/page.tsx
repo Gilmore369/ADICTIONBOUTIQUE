@@ -8,6 +8,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import DashboardClient, { type DashboardMetrics } from '@/components/dashboard/DashboardClient'
+import { getTodayPeru, peruMidnightUTC, PERU_TZ } from '@/lib/utils/timezone'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,25 +33,24 @@ export default async function DashboardPage({
 }) {
   const supabase  = await createServerClient()
 
-  // ── Zona horaria Perú (UTC-5, sin DST) ─────────────────────────────────
-  // Perú medianoche = UTC 05:00. Todos los cortes de fecha deben usar esta
-  // referencia para que "hoy" coincida con el día calendario en Lima.
-  const PERU_OFFSET_MS = 5 * 60 * 60 * 1000 // 5 horas en ms
-  const nowUtc = new Date()
-  const nowPeru = new Date(nowUtc.getTime() - PERU_OFFSET_MS) // fecha local Perú
-  const peruDateStr = nowPeru.toISOString().split('T')[0]    // 'YYYY-MM-DD' en Lima
+  // ── Zona horaria Perú (America/Lima, UTC-5) ────────────────────────────
+  // Usamos getTodayPeru() y peruMidnightUTC() del módulo de timezone para que
+  // "hoy" coincida con el día calendario en Lima, sin hardcodear el offset.
+  const peruDateStr = getTodayPeru()               // 'YYYY-MM-DD' en Lima
 
   // Inicio de "hoy Perú" expresado en UTC: YYYY-MM-DDT05:00:00Z
-  const today    = peruDateStr + 'T05:00:00.000Z'
+  const today = peruMidnightUTC(peruDateStr)
 
   // Inicio de "ayer Perú" en UTC
-  const yPeru = new Date(nowPeru)
-  yPeru.setUTCDate(yPeru.getUTCDate() - 1)
-  const yStr = yPeru.toISOString().split('T')[0] + 'T05:00:00.000Z'
+  const yesterdayDate = new Date(peruDateStr + 'T12:00:00') // parse at noon to avoid DST edge
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const yDateStr = yesterdayDate.toLocaleDateString('en-CA', { timeZone: PERU_TZ })
+  const yStr = peruMidnightUTC(yDateStr)
 
   // Hace 30 días (en Lima)
-  const thirtyAgo = new Date(nowPeru)
-  thirtyAgo.setUTCDate(thirtyAgo.getUTCDate() - 30)
+  const thirtyAgoDt = new Date(peruDateStr + 'T12:00:00')
+  thirtyAgoDt.setDate(thirtyAgoDt.getDate() - 30)
+  const thirtyAgoStr = thirtyAgoDt.toLocaleDateString('en-CA', { timeZone: PERU_TZ })
 
   // ── Resolver tienda según perfil del usuario ────────────────────────────
   const { data: { user } } = await supabase.auth.getUser()
@@ -85,7 +85,8 @@ export default async function DashboardPage({
   const buildSalesQuery = (q: any) => storeFilter ? q.eq('store_id', storeFilter) : q
 
   // Inicio del mes actual en Lima → UTC 05:00 del día 1
-  const monthStart = `${nowPeru.getUTCFullYear()}-${String(nowPeru.getUTCMonth() + 1).padStart(2, '0')}-01T05:00:00.000Z`
+  const monthFirstStr = peruDateStr.substring(0, 7) + '-01' // 'YYYY-MM-01'
+  const monthStart = peruMidnightUTC(monthFirstStr)
 
   const [metricsRes, trendRes, yRes, recentRes, actionsRes, cvcRes, clientsAddressRes,
          salesTodayRes, salesMonthRes, lowStockFilteredRes,
@@ -104,7 +105,7 @@ export default async function DashboardPage({
         .order('created_at', { ascending: false }).limit(6)),
       supabase.from('collection_actions').select('result').gte('created_at', today),
       buildSalesQuery(supabase.from('sales').select('total,sale_type')
-        .gte('created_at', thirtyAgo.toISOString().split('T')[0] + 'T05:00:00.000Z').eq('voided', false)),
+        .gte('created_at', peruMidnightUTC(thirtyAgoStr)).eq('voided', false)),
       supabase.from('clients').select('address').eq('active', true).not('address', 'is', null),
       // Ventas hoy filtradas por tienda (override RPC)
       buildSalesQuery(supabase.from('sales').select('total')

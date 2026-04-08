@@ -20,6 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle } from 'lucide-react'
 import { getActionTypeLabel, getResultLabel, getResultColor } from '@/lib/constants/collection-actions'
+import { PERU_TZ } from '@/lib/utils/timezone'
 
 interface CollectionAction {
   id: string
@@ -67,7 +68,8 @@ export function CollectionActionsTable({ actions }: CollectionActionsTableProps)
                       {new Date(action.created_at).toLocaleDateString('es-PE', {
                         day: '2-digit',
                         month: '2-digit',
-                        year: 'numeric'
+                        year: 'numeric',
+                        timeZone: PERU_TZ,
                       })}
                     </TableCell>
                     <TableCell>
@@ -86,10 +88,16 @@ export function CollectionActionsTable({ actions }: CollectionActionsTableProps)
                     <TableCell className="whitespace-nowrap">
                       {action.payment_promise_date ? (
                         <span className="text-sm">
-                          {new Date(action.payment_promise_date).toLocaleDateString('es-PE', {
+                          {new Date(
+                            // Fix UTC day-shift: add local noon for date-only strings
+                            /^\d{4}-\d{2}-\d{2}$/.test(action.payment_promise_date)
+                              ? action.payment_promise_date + 'T12:00:00'
+                              : action.payment_promise_date
+                          ).toLocaleDateString('es-PE', {
                             day: '2-digit',
                             month: '2-digit',
-                            year: 'numeric'
+                            year: 'numeric',
+                            timeZone: PERU_TZ,
                           })}
                         </span>
                       ) : (

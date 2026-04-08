@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 export async function GET() {
   try {
@@ -21,7 +22,7 @@ export async function GET() {
     }
 
     const todayDate = new Date()
-    const today = todayDate.toISOString().split('T')[0]
+    const today = getTodayPeru()
 
     // Get clients with overdue installments
     const { data: overdueInstallments, error: installmentsError } = await supabase

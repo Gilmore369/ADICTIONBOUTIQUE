@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 export async function GET(req: NextRequest) {
   const supabase = await createServerClient()
@@ -16,7 +17,8 @@ export async function GET(req: NextRequest) {
   const month = parseInt(searchParams.get('month') || String(now.getMonth() + 1))
 
   const startStr = `${year}-${String(month).padStart(2,'0')}-01`
-  const endStr   = new Date(year, month, 0).toISOString().split('T')[0]
+  const lastDay = new Date(year, month, 0).getDate()
+  const endStr  = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
 
   const { data, error } = await supabase
     .from('agenda_reminders')

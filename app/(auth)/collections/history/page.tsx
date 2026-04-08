@@ -8,6 +8,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getTodayPeru } from '@/lib/utils/timezone'
 import { PaymentHistoryView } from '@/components/collections/payment-history-view'
 
 export const metadata = {
@@ -57,7 +58,7 @@ export default async function PaymentHistoryPage({
   const now = new Date()
   const oneYearAgo = new Date(now)
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-  const fromDate = oneYearAgo.toISOString().split('T')[0]
+  const fromDate = oneYearAgo.toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
 
   // Fetch payments with client and user info
   let query = supabase

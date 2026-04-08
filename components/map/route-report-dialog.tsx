@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils/currency'
+import { PERU_TZ } from '@/lib/utils/timezone'
 import { X, Download, FileText, CheckCircle2, Clock, MapPin, DollarSign } from 'lucide-react'
 import { formatSafeDate } from '@/lib/utils/date'
 import type { VisitEntry } from './visit-panel'
@@ -40,7 +41,8 @@ export function RouteReportDialog({ entries, visitType, onClose }: Props) {
     // Generate report content
     const reportDate = new Date().toLocaleString('es-PE', {
       dateStyle: 'full',
-      timeStyle: 'short'
+      timeStyle: 'short',
+      timeZone: PERU_TZ,
     })
     
     let reportContent = `
@@ -64,11 +66,12 @@ DETALLE DE VISITAS
 
     visitedEntries.forEach((entry, idx) => {
       const { client, visitedResult, visitedAt } = entry
-      const time = visitedAt ? new Date(visitedAt).toLocaleTimeString('es-PE', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      const time = visitedAt ? new Date(visitedAt).toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: PERU_TZ,
       }) : '--:--'
-      
+
       reportContent += `
 ${idx + 1}. ${client.name}
    Hora: ${time}
@@ -166,9 +169,10 @@ ${idx + 1}. ${client.name}
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {visitedEntries.map((entry, idx) => {
                 const { client, visitedResult, visitedAt } = entry
-                const time = visitedAt ? new Date(visitedAt).toLocaleTimeString('es-PE', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
+                const time = visitedAt ? new Date(visitedAt).toLocaleTimeString('es-PE', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  timeZone: PERU_TZ,
                 }) : '--:--'
                 
                 const resultColors: Record<string, string> = {

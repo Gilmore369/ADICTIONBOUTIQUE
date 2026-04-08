@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { formatSafeDate } from '@/lib/utils/date'
+import { getTodayPeru, peruMidnightUTC, peruEndOfDayUTC } from '@/lib/utils/timezone'
 import { RefreshCw, Loader2, ShoppingCart, DollarSign, Package, Phone, Filter, Download, Edit2, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -52,7 +53,7 @@ function thisMonthStart() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 }
 function today() {
-  return new Date().toISOString().split('T')[0]
+  return getTodayPeru()
 }
 
 export default function AdminLogsPage() {
@@ -93,8 +94,8 @@ export default function AdminLogsPage() {
     try {
       const params = new URLSearchParams({ category, limit: '500' })
       if (userId) params.set('user_id', userId)
-      if (dateFrom) params.set('date_from', `${dateFrom}T00:00:00.000Z`)
-      if (dateTo) params.set('date_to', `${dateTo}T23:59:59.999Z`)
+      if (dateFrom) params.set('date_from', peruMidnightUTC(dateFrom))
+      if (dateTo) params.set('date_to', peruEndOfDayUTC(dateTo))
       const res = await fetch(`/api/admin/logs?${params}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error')

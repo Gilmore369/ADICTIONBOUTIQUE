@@ -15,6 +15,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 /**
  * Standard response type for server actions
@@ -264,7 +265,7 @@ export async function createBulkProducts(
             purchase_price: product.purchase_price,
             price: product.price,
             min_stock: product.min_stock || 5,
-            entry_date: new Date().toISOString().split('T')[0],
+            entry_date: getTodayPeru(),
             active: true
           })
           .select('id')

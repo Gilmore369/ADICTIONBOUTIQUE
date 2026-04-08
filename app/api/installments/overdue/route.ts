@@ -17,6 +17,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
-      .lt('due_date', new Date().toISOString().split('T')[0]) // due_date < today
+      .lt('due_date', getTodayPeru()) // due_date < today (Peru timezone)
       .in('status', ['PENDING', 'PARTIAL', 'OVERDUE']) // Only unpaid or partially paid
     
     // Apply optional filters

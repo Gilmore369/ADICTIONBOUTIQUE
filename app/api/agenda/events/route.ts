@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 const STORE_KEY_MAP: Record<string, string> = {
   MUJERES: 'Tienda Mujeres',
@@ -48,13 +49,13 @@ export async function GET(req: NextRequest) {
   const year  = parseInt(searchParams.get('year')  || String(now.getFullYear()))
   const month = parseInt(searchParams.get('month') || String(now.getMonth() + 1))
 
-  // ── Usar fecha LOCAL (no UTC) para evitar desfase de zona horaria (Perú UTC-5)
+  // ── Usar fecha de Perú (America/Lima, UTC-5) para evitar desfase de zona horaria
   const pad = (n: number) => String(n).padStart(2, '0')
   const lastDay = new Date(year, month, 0).getDate()
   const startStr = `${year}-${pad(month)}-01`
   const endStr   = `${year}-${pad(month)}-${pad(lastDay)}`
-  // Fecha de hoy en hora local del servidor (no UTC)
-  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  // Fecha de hoy en hora de Perú (no UTC del servidor)
+  const todayStr = getTodayPeru()
 
   const events: {
     id: string

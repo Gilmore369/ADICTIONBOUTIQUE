@@ -23,6 +23,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { Navigation, Loader2, ListChecks, X, CalendarDays } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { VisitPanel, type VisitEntry } from './visit-panel'
+import { PERU_TZ } from '@/lib/utils/timezone'
 
 type FilterType = 'overdue' | 'upcoming' | 'up-to-date' | 'all' | 'activation'
 type RouteType = 'Cobranza' | 'Activación' | 'Seguimiento' | 'Prospección'
@@ -686,7 +687,7 @@ export function DebtorsMap() {
                       <p className="font-bold text-yellow-600">{formatCurrency(selectedClient.upcoming_amount || 0)}</p>
                       {selectedClient.next_due_date && (
                         <p className="text-xs text-gray-500 mt-1">
-                          Vence: {new Date(selectedClient.next_due_date).toLocaleDateString('es-PE')}
+                          Vence: {new Date(selectedClient.next_due_date).toLocaleDateString('es-PE', { timeZone: PERU_TZ })}
                         </p>
                       )}
                     </div>
