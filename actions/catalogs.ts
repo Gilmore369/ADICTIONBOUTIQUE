@@ -965,6 +965,33 @@ export async function deleteSupplier(id: string): Promise<ActionResponse> {
   return { success: true }
 }
 
+/**
+ * Updates the brands associated with a supplier.
+ * Replaces the current set of brands with the provided list.
+ */
+export async function updateSupplierBrands(supplierId: string, brandIds: string[]): Promise<ActionResponse> {
+  const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
+  if (!hasPermission) {
+    return { success: false, error: 'Forbidden: Insufficient permissions' }
+  }
+
+  const supabase = await createServerClient()
+
+  // Delete existing links for this supplier
+  await supabase.from('supplier_brands').delete().eq('supplier_id', supplierId)
+
+  // Insert new links (if any)
+  if (brandIds.length > 0) {
+    const records = brandIds.map(brandId => ({ supplier_id: supplierId, brand_id: brandId }))
+    const { error } = await supabase.from('supplier_brands').insert(records)
+    if (error) return { success: false, error: error.message }
+  }
+
+  revalidatePath('/catalogs/suppliers')
+  revalidatePath('/catalogs/brands')
+  return { success: true }
+}
+
 // ============================================================================
 // PRODUCT ACTIONS
 // ============================================================================
@@ -1038,9 +1065,21 @@ export async function createProduct(formData: FormData): Promise<ActionResponse>
     return { success: false, error: error.message }
   }
 
+  // Create initial stock entries (quantity 0) for both warehouses
+  try {
+    const service = createServiceClient()
+    await service.from('stock').upsert([
+      { product_id: data.id, warehouse_id: 'Tienda Mujeres', quantity: 0 },
+      { product_id: data.id, warehouse_id: 'Tienda Hombres', quantity: 0 },
+    ], { onConflict: 'product_id,warehouse_id', ignoreDuplicates: true })
+  } catch (stockErr) {
+    console.warn('[createProduct] Could not create initial stock entries:', stockErr)
+  }
+
   // Revalidate cache
   revalidatePath('/catalogs/products')
   revalidatePath('/api/products/search', 'page')
+  revalidatePath('/inventory/stock')
 
   return { success: true, data }
 }

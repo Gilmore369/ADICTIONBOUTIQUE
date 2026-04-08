@@ -74,6 +74,9 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
   // Per-item selection: saleItemId → SelectedItem | null (null = not selected)
   const [selected, setSelected] = useState<Record<string, SelectedItem>>({})
 
+  const [manualAmount, setManualAmount] = useState('')
+  const [useManualAmount, setUseManualAmount] = useState(false)
+
   // ── Look up sale ─────────────────────────────────────────────────────────────
   const handleLookupSale = async () => {
     if (!saleNumber.trim()) { setLookupError('Ingrese un número de venta'); return }
@@ -153,12 +156,25 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
   }
 
   // ── Derived totals ────────────────────────────────────────────────────────────
-  const { returnAmount, selectedCount } = useMemo(() => {
+  const { returnAmount, effectiveReturnAmount, discountRatio, hasDiscount, selectedCount } = useMemo(() => {
     const items = Object.values(selected)
-    const returnAmount  = items.reduce((s, i) => s + i.unitPrice * i.returnQty, 0)
+    const rawReturn = items.reduce((s, i) => s + i.unitPrice * i.returnQty, 0)
     const selectedCount = items.length
-    return { returnAmount, selectedCount }
-  }, [selected])
+
+    // Detect discount: compare sale total to sum of all item subtotals
+    const saleItemsTotal = foundSale?.sale_items?.reduce((s, i) => s + Number(i.subtotal), 0) ?? 0
+    const saleTotal = Number(foundSale?.total ?? 0)
+    const discountRatio = saleItemsTotal > 0 && saleTotal < saleItemsTotal - 0.01
+      ? saleTotal / saleItemsTotal
+      : 1
+    const hasDiscount = discountRatio < 0.999
+
+    // Effective return = proportional to actual paid
+    const effectiveReturnAmount = rawReturn * discountRatio
+    const returnAmount = rawReturn
+
+    return { returnAmount, effectiveReturnAmount, discountRatio, hasDiscount, selectedCount }
+  }, [selected, foundSale])
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +193,10 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
         subtotal:     i.unitPrice * i.returnQty,
       }))
 
+      const finalAmount = useManualAmount && manualAmount
+        ? Number(manualAmount)
+        : (hasDiscount ? effectiveReturnAmount : returnAmount)
+
       const result = await createReturnAction({
         saleId:        foundSale.id,
         saleNumber:    foundSale.sale_number,
@@ -186,7 +206,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
         reason,
         reasonType,
         returnType,
-        totalAmount:   returnAmount,
+        totalAmount:   finalAmount,
         returnedItems,
         notes: notes || undefined,
       })
@@ -388,13 +408,47 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
 
                 {/* Return amount summary */}
                 {selectedCount > 0 && (
-                  <div className="mt-2 flex items-center justify-between px-3 py-2.5 bg-rose-50 border border-rose-200 rounded-lg">
-                    <span className="text-sm font-medium text-rose-700">
-                      Monto a devolver ({selectedCount} prod.)
-                    </span>
-                    <span className="text-base font-bold text-rose-700">
-                      {formatCurrency(returnAmount)}
-                    </span>
+                  <div className="mt-2 space-y-2">
+                    {hasDiscount && (
+                      <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs">
+                        <span className="text-amber-700">
+                          ⚠️ La venta tenía descuento ({Math.round((1 - discountRatio) * 100)}%).
+                          Precio ticket: {formatCurrency(returnAmount)} → Monto efectivo: {formatCurrency(effectiveReturnAmount)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-rose-50 border border-rose-200 rounded-lg">
+                      <span className="text-sm font-medium text-rose-700">
+                        Monto a devolver ({selectedCount} prod.)
+                      </span>
+                      <span className="text-base font-bold text-rose-700">
+                        {useManualAmount && manualAmount
+                          ? formatCurrency(Number(manualAmount))
+                          : formatCurrency(hasDiscount ? effectiveReturnAmount : returnAmount)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 px-1">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={useManualAmount}
+                          onChange={e => setUseManualAmount(e.target.checked)}
+                          className="h-3.5 w-3.5"
+                        />
+                        Monto personalizado
+                      </label>
+                      {useManualAmount && (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={manualAmount}
+                          onChange={e => setManualAmount(e.target.value)}
+                          className="ml-2 w-28 px-2 py-1 border rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        />
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -488,7 +542,13 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
           <div className="flex items-center justify-between gap-3 px-5 py-4 border-t bg-gray-50/50 flex-shrink-0">
             <div className="text-sm text-gray-500">
               {selectedCount > 0
-                ? <span className="font-medium text-gray-700">Total: {formatCurrency(returnAmount)}</span>
+                ? <span className="font-medium text-gray-700">
+                    Total: {formatCurrency(
+                      useManualAmount && manualAmount
+                        ? Number(manualAmount)
+                        : (hasDiscount ? effectiveReturnAmount : returnAmount)
+                    )}
+                  </span>
                 : foundSale ? 'Selecciona los productos a devolver' : ''
               }
             </div>
@@ -503,7 +563,11 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
               >
                 {loading
                   ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creando...</>
-                  : `Crear Devolución${selectedCount > 0 ? ` (${formatCurrency(returnAmount)})` : ''}`
+                  : `Crear Devolución${selectedCount > 0 ? ` (${formatCurrency(
+                      useManualAmount && manualAmount
+                        ? Number(manualAmount)
+                        : (hasDiscount ? effectiveReturnAmount : returnAmount)
+                    )})` : ''}`
                 }
               </Button>
             </div>

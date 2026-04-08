@@ -259,14 +259,13 @@ export function ProductFormMultiSize({ onSuccess, onCancel }: ProductFormMultiSi
               Código Base <span className="text-red-500">*</span>
             </Label>
             <Input
-              placeholder="Se genera automáticamente"
+              placeholder="Se genera al seleccionar categoría"
               value={baseCode}
-              readOnly
-              disabled
-              className="bg-gray-50"
+              onChange={e => setBaseCode(e.target.value.toUpperCase())}
+              className="font-mono"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Se genera al seleccionar categoría
+              Se genera al seleccionar categoría · o escribe uno manualmente
             </p>
           </div>
 

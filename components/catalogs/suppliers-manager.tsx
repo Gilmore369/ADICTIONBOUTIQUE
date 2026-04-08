@@ -7,16 +7,16 @@
  * that shows all products entered under each supplier.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Eye, Package, ChevronDown, ChevronRight, Loader2, Hash } from 'lucide-react'
+import { Plus, Eye, Package, ChevronDown, ChevronRight, Loader2, Hash, Tag, Check, Save } from 'lucide-react'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
 import { SupplierForm } from './supplier-form'
 import { SearchFilter } from './search-filter'
-import { createSupplier, updateSupplier, deleteSupplier } from '@/actions/catalogs'
+import { createSupplier, updateSupplier, deleteSupplier, updateSupplierBrands } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 import { createBrowserClient } from '@/lib/supabase/client'
 import {
@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -431,6 +432,156 @@ function SupplierProductsModal({
   )
 }
 
+// ── Supplier Brands Modal ─────────────────────────────────────────────────────
+
+interface BrandItem {
+  id: string
+  name: string
+  description?: string | null
+}
+
+function SupplierBrandsModal({
+  supplier,
+  open,
+  onClose,
+}: {
+  supplier: Supplier | null
+  open: boolean
+  onClose: () => void
+}) {
+  const [allBrands, setAllBrands]       = useState<BrandItem[]>([])
+  const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set())
+  const [loading, setLoading]           = useState(false)
+  const [saving, setSaving]             = useState(false)
+  const [search, setSearch]             = useState('')
+
+  // Load all brands + currently linked brands when modal opens
+  useEffect(() => {
+    if (!open || !supplier) return
+    setSearch('')
+    const load = async () => {
+      setLoading(true)
+      const supabase = createBrowserClient()
+      const [allRes, linkedRes] = await Promise.all([
+        supabase.from('brands').select('id, name, description').eq('active', true).order('name'),
+        supabase.from('supplier_brands').select('brand_id').eq('supplier_id', supplier.id),
+      ])
+      setAllBrands(allRes.data || [])
+      setSelectedIds(new Set((linkedRes.data || []).map(r => r.brand_id)))
+      setLoading(false)
+    }
+    load()
+  }, [open, supplier])
+
+  const toggleBrand = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const handleSave = async () => {
+    if (!supplier) return
+    setSaving(true)
+    const result = await updateSupplierBrands(supplier.id, [...selectedIds])
+    setSaving(false)
+    if (result.success) {
+      toast.success('Marcas actualizadas correctamente')
+      onClose()
+    } else {
+      toast.error(result.error || 'Error al guardar marcas')
+    }
+  }
+
+  const filtered = allBrands.filter(b =>
+    !search || b.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
+      <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Tag className="h-4 w-4 text-purple-600" />
+            Marcas de {supplier?.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <p className="text-xs text-gray-500 -mt-1">
+          Selecciona las marcas que este proveedor comercializa. Esto permite filtrar marcas al ingresar productos.
+        </p>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            <input
+              type="text"
+              placeholder="Buscar marca..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+
+            <div className="overflow-y-auto flex-1 border rounded-lg divide-y">
+              {filtered.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">No hay marcas registradas</p>
+              ) : (
+                filtered.map(brand => {
+                  const isLinked = selectedIds.has(brand.id)
+                  return (
+                    <label
+                      key={brand.id}
+                      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                        isLinked ? 'bg-purple-50' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                        isLinked ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                      }`}
+                        onClick={() => toggleBrand(brand.id)}
+                      >
+                        {isLinked && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{brand.name}</p>
+                        {brand.description && (
+                          <p className="text-xs text-gray-500 truncate">{brand.description}</p>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-xs text-gray-500">
+                {selectedIds.size} marca{selectedIds.size !== 1 ? 's' : ''} seleccionada{selectedIds.size !== 1 ? 's' : ''}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>
+                  Cancelar
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+                  {saving
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Save className="h-3.5 w-3.5" />
+                  }
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
@@ -444,6 +595,10 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
   const [productsOpen, setProductsOpen]             = useState(false)
   const [selectedForProducts, setSelectedForProducts] = useState<Supplier | null>(null)
 
+  // Brands management modal
+  const [brandsOpen, setBrandsOpen]             = useState(false)
+  const [selectedForBrands, setSelectedForBrands] = useState<Supplier | null>(null)
+
   const columns: CatalogTableColumn<Supplier>[] = [
     { key: 'name', label: 'Nombre' },
     { key: 'contact_name', label: 'Contacto' },
@@ -453,6 +608,24 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
       key: 'created_at',
       label: 'Fecha de creación',
       render: (supplier) => formatSafeDate(supplier.created_at, 'dd/MM/yyyy')
+    },
+    {
+      key: '_brands' as any,
+      label: 'Marcas',
+      render: (supplier) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            setSelectedForBrands(supplier)
+            setBrandsOpen(true)
+          }}
+          className="inline-flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 font-medium transition-colors"
+          title="Gestionar marcas de este proveedor"
+        >
+          <Tag className="h-3.5 w-3.5" />
+          Marcas
+        </button>
+      ),
     },
     {
       key: '_products' as any,
@@ -564,6 +737,13 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
         supplier={selectedForProducts}
         open={productsOpen}
         onClose={() => { setProductsOpen(false); setSelectedForProducts(null) }}
+      />
+
+      {/* Brands management modal */}
+      <SupplierBrandsModal
+        supplier={selectedForBrands}
+        open={brandsOpen}
+        onClose={() => { setBrandsOpen(false); setSelectedForBrands(null) }}
       />
     </div>
   )

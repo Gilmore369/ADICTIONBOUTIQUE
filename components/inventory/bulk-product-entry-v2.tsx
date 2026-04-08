@@ -126,7 +126,15 @@ export function BulkProductEntryV2() {
     try {
       const response = await fetch(`/api/suppliers/${supplierId}/brands`)
       const { data } = await response.json()
-      setBrands(data || [])
+      if (data && data.length > 0) {
+        setBrands(data)
+      } else {
+        // Fallback: show all brands if supplier has none linked
+        const allBrandsRes = await fetch('/api/catalogs/brands')
+        const allBrandsData = await allBrandsRes.json()
+        const allBrands = Array.isArray(allBrandsData) ? allBrandsData : (allBrandsData.data || [])
+        setBrands(allBrands)
+      }
     } catch (error) {
       console.error('[loadBrandsForSupplier] Error loading brands:', error)
       setBrands([])
@@ -310,20 +318,28 @@ export function BulkProductEntryV2() {
     // Si cambia la categoría, cargar tallas ANTES de actualizar el estado
     if (field === 'categoryId' && value) {
       console.log('[updateModel] Category changed to:', value)
-      
+
+      // Capturar el modelo actual ANTES de actualizar estado
+      const currentModel = models.find(m => m.id === id)
+
       // Cargar tallas y esperar a que termine
       await loadSizesForCategory(value)
-      
+
       // Actualizar estado con nueva categoría, resetear variantes, mantener expanded
-      setModels(models.map(m => 
-        m.id === id 
+      setModels(prev => prev.map(m =>
+        m.id === id
           ? { ...m, categoryId: value, variants: [], expanded: true }
           : m
       ))
+
+      // Auto-generate code if not already set
+      if (!currentModel?.baseCode) {
+        generateCodeForModel(id, value)
+      }
     } else {
       // Para otros campos, actualizar normalmente
-      setModels(models.map(m => 
-        m.id === id 
+      setModels(prev => prev.map(m =>
+        m.id === id
           ? { ...m, [field]: value }
           : m
       ))
@@ -750,17 +766,28 @@ export function BulkProductEntryV2() {
                     <Label className="text-xs">
                       Código Base <span className="text-red-500">*</span>
                     </Label>
-                    <Input
-                      placeholder="Se genera automáticamente"
-                      value={model.baseCode}
-                      readOnly
-                      disabled
-                      className="flex-1 bg-gray-50"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Se genera al seleccionar categoría"
+                        value={model.baseCode}
+                        onChange={e => updateModel(model.id, 'baseCode', e.target.value.toUpperCase())}
+                        className={`flex-1 font-mono ${!model.baseCode ? 'border-red-300' : ''}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => model.categoryId && generateCodeForModel(model.id, model.categoryId)}
+                        disabled={!model.categoryId}
+                        title="Generar código automáticamente"
+                      >
+                        <Wand2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      {model.baseCode 
-                        ? 'Código del modelo (compartido por todos los colores)' 
-                        : 'Se genera automáticamente al seleccionar categoría'}
+                      {model.baseCode
+                        ? 'Código del modelo (compartido por todos los colores)'
+                        : 'Se genera al seleccionar categoría · o escribe uno manualmente'}
                     </p>
                   </div>
 

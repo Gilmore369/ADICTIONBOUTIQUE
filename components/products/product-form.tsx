@@ -43,7 +43,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { productSchema } from '@/lib/validations/catalogs'
 import { createProduct, updateProduct } from '@/actions/catalogs'
 import { toast } from '@/lib/toast'
@@ -122,6 +122,21 @@ export function ProductForm({
     },
   })
 
+  // Watch line_id to filter categories
+  const watchedLineId = form.watch('line_id')
+  const [allCategories, setAllCategories] = useState<CatalogOption[]>([])
+  const filteredCategories = useMemo(() => {
+    if (!watchedLineId || watchedLineId === 'none') return allCategories
+    return (allCategories as any[]).filter((c: any) => !c.line_id || c.line_id === watchedLineId)
+  }, [allCategories, watchedLineId])
+
+  // Reset category when line changes
+  useEffect(() => {
+    if (watchedLineId) {
+      form.setValue('category_id', '')
+    }
+  }, [watchedLineId])
+
   // Load catalog data (lines, categories, brands, suppliers)
   useEffect(() => {
     const loadCatalogs = async () => {
@@ -143,7 +158,9 @@ export function ProductForm({
         ])
 
         setLines(Array.isArray(linesData) ? linesData : (linesData.data || []))
-        setCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData.data || []))
+        const cats = Array.isArray(categoriesData) ? categoriesData : (categoriesData.data || [])
+        setAllCategories(cats)
+        setCategories(cats)
         setBrands(Array.isArray(brandsData) ? brandsData : (brandsData.data || []))
         setSuppliers(Array.isArray(suppliersData) ? suppliersData : (suppliersData.data || []))
       } catch (error) {
@@ -328,7 +345,7 @@ export function ProductForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {categories.map((category) => (
+                    {filteredCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
                       </SelectItem>

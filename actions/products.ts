@@ -98,39 +98,26 @@ export async function createBulkProducts(
     }
   }
 
-  // 3. Validate supplier-brand relationships
+  // 3. Auto-link supplier-brand relationships if missing
+  // Instead of failing, we create the link automatically so the workflow isn't blocked
   const uniqueBrandSupplierPairs = new Set(
     products.map(p => `${p.brand_id}:${p.supplier_id}`)
   )
 
   for (const pair of uniqueBrandSupplierPairs) {
     const [brandId, supplierId] = pair.split(':')
-    
-    const { data: relationship, error: relationError } = await supabase
+    if (!brandId || !supplierId) continue
+
+    const { data: relationship } = await supabase
       .from('supplier_brands')
       .select('id')
       .eq('supplier_id', supplierId)
       .eq('brand_id', brandId)
-      .single()
+      .maybeSingle()
 
-    if (relationError || !relationship) {
-      // Get brand and supplier names for better error message
-      const { data: brand } = await supabase
-        .from('brands')
-        .select('name')
-        .eq('id', brandId)
-        .single()
-      
-      const { data: supplier } = await supabase
-        .from('suppliers')
-        .select('name')
-        .eq('id', supplierId)
-        .single()
-
-      return {
-        success: false,
-        error: `El proveedor "${supplier?.name || 'desconocido'}" no vende la marca "${brand?.name || 'desconocida'}". Por favor verifica la relación proveedor-marca.`
-      }
+    if (!relationship) {
+      // Auto-create the supplier-brand link so the workflow isn't blocked
+      await supabase.from('supplier_brands').insert({ supplier_id: supplierId, brand_id: brandId })
     }
   }
 
