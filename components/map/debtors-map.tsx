@@ -26,7 +26,7 @@ import { VisitPanel, type VisitEntry } from './visit-panel'
 import { PERU_TZ } from '@/lib/utils/timezone'
 
 type FilterType = 'overdue' | 'upcoming' | 'up-to-date' | 'all' | 'activation'
-type RouteType = 'Cobranza' | 'Activación' | 'Seguimiento' | 'Prospección'
+type RouteType = 'Cobranza' | 'Delivery'
 
 interface Client {
   id: string
@@ -126,7 +126,7 @@ function optimizeRoute(origin: { lat: number; lng: number }, clients: Client[], 
 
 const MAX_ROUTE_STOPS = 9 // Google Maps URL limit (~10 stops including origin)
 
-const ROUTE_TYPES: RouteType[] = ['Cobranza', 'Activación', 'Seguimiento', 'Prospección']
+const ROUTE_TYPES: RouteType[] = ['Cobranza', 'Delivery']
 const DAYS_FILTERS = [
   { label: 'Todos',   value: 0   },
   { label: '+15 días', value: 15 },
