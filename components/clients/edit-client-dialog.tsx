@@ -47,6 +47,7 @@ export function EditClientDialog({ client, open, onOpenChange }: EditClientDialo
             lng: client.lng,
             credit_limit: client.credit_limit,
             credit_used: client.credit_used,
+            rating: client.rating,
             dni_photo_url: client.dni_photo_url,
             client_photo_url: client.client_photo_url,
             birthday: client.birthday,

@@ -117,7 +117,7 @@ export const clientSchema = z.object({
   credit_used: z.number()
     .nonnegative('Credit used must be non-negative')
     .default(0),
-  rating: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
+  rating: z.enum(['S', 'A', 'B', 'C', 'D', 'E']).optional(),
   blacklisted: z.boolean().optional(),
   dni_photo_url: z.string().url('Invalid DNI photo URL').optional().or(z.literal('')),
   client_photo_url: z.string().url('Invalid client photo URL').optional().or(z.literal('')),
@@ -160,7 +160,7 @@ export const clientUpdateSchema = z.object({
   credit_used: z.number()
     .nonnegative('Credit used must be non-negative')
     .default(0),
-  rating: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
+  rating: z.enum(['S', 'A', 'B', 'C', 'D', 'E']).optional(),
   blacklisted: z.boolean().optional(),
   dni_photo_url: z.string().url('Invalid DNI photo URL').optional().or(z.literal('')),
   client_photo_url: z.string().url('Invalid client photo URL').optional().or(z.literal('')),

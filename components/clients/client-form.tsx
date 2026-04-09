@@ -293,6 +293,8 @@ export function ClientForm({
           formData.append(key, String(value))
         }
       })
+      // rating is managed via local state (not a registered FormField) — append explicitly
+      formData.set('rating', selectedRating)
 
       const result = mode === 'create' 
         ? await createClient(formData)
