@@ -386,7 +386,7 @@ export function DebtorsMap() {
   const currentFilter = filterConfig[filter]
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 transition-all duration-300 ${panelOpen ? 'pr-[320px]' : ''}`}>
       {/* Banner: visita programada desde Agenda */}
       {visitClientIds && !visitBannerDismissed && (
         <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 text-sm text-indigo-700">

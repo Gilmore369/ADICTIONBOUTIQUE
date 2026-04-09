@@ -32,17 +32,37 @@ interface PastVisit {
 }
 
 export const VISIT_RESULTS = [
-  { value: 'Pagó',             emoji: '✅', color: 'text-green-700  bg-green-50  border-green-200',  requiresPayment: true,  requiresPromise: false },
-  { value: 'Abono parcial',    emoji: '🟡', color: 'text-yellow-700 bg-yellow-50 border-yellow-200', requiresPayment: true,  requiresPromise: false },
-  { value: 'Prometió pagar',   emoji: '🤝', color: 'text-blue-700   bg-blue-50   border-blue-200',   requiresPayment: false, requiresPromise: true  },
-  { value: 'No estaba',        emoji: '🚪', color: 'text-orange-700 bg-orange-50 border-orange-200', requiresPayment: false, requiresPromise: false },
-  { value: 'Rechazó',          emoji: '❌', color: 'text-red-700    bg-red-50    border-red-200',    requiresPayment: false, requiresPromise: false },
-  { value: 'Interesado',       emoji: '💜', color: 'text-purple-700 bg-purple-50 border-purple-200', requiresPayment: false, requiresPromise: false },
-  { value: 'Dejé recado',      emoji: '📝', color: 'text-slate-700  bg-slate-50  border-slate-200',  requiresPayment: false, requiresPromise: false },
-  { value: 'Sin respuesta',    emoji: '📵', color: 'text-gray-700   bg-gray-50   border-gray-200',   requiresPayment: false, requiresPromise: false },
+  { value: 'Pagó',                  emoji: '✅', color: 'text-green-700  bg-green-50  border-green-200',  requiresPayment: true,  requiresPromise: false },
+  { value: 'Abono parcial',         emoji: '🟡', color: 'text-yellow-700 bg-yellow-50 border-yellow-200', requiresPayment: true,  requiresPromise: false },
+  { value: 'Prometió pagar',        emoji: '🤝', color: 'text-blue-700   bg-blue-50   border-blue-200',   requiresPayment: false, requiresPromise: true  },
+  { value: 'No estaba',             emoji: '🚪', color: 'text-orange-700 bg-orange-50 border-orange-200', requiresPayment: false, requiresPromise: false },
+  { value: 'Rechazó',               emoji: '❌', color: 'text-red-700    bg-red-50    border-red-200',    requiresPayment: false, requiresPromise: false },
+  { value: 'Interesado',            emoji: '💜', color: 'text-purple-700 bg-purple-50 border-purple-200', requiresPayment: false, requiresPromise: false },
+  { value: 'Dejé recado',           emoji: '📝', color: 'text-slate-700  bg-slate-50  border-slate-200',  requiresPayment: false, requiresPromise: false },
+  { value: 'Sin respuesta',         emoji: '📵', color: 'text-gray-700   bg-gray-50   border-gray-200',   requiresPayment: false, requiresPromise: false },
+  { value: 'Entrega de productos',  emoji: '📦', color: 'text-teal-700   bg-teal-50   border-teal-200',   requiresPayment: false, requiresPromise: false },
+  { value: 'Otros',                 emoji: '📋', color: 'text-indigo-700 bg-indigo-50 border-indigo-200', requiresPayment: false, requiresPromise: false },
 ] as const
 
 export type VisitResult = typeof VISIT_RESULTS[number]['value']
+
+/**
+ * Returns the result options filtered by visit type:
+ * - 'Delivery'  → only 'Entrega de productos' and 'Otros'
+ * - 'Cobranza'  → all except 'Interesado'
+ * - other       → all results
+ */
+export function getResultsForType(visitType: string) {
+  if (visitType === 'Delivery') {
+    return VISIT_RESULTS.filter(r =>
+      r.value === 'Entrega de productos' || r.value === 'Otros'
+    )
+  }
+  if (visitType === 'Cobranza') {
+    return VISIT_RESULTS.filter(r => r.value !== 'Interesado')
+  }
+  return VISIT_RESULTS
+}
 
 interface Props {
   client: VisitClient
@@ -207,10 +227,10 @@ export function RegisterVisitDialog({ client, visitType, pastVisits, onClose, on
               Resultado de la visita <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {VISIT_RESULTS.map(opt => (
+              {getResultsForType(visitType).map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => { setResult(opt.value); setError('') }}
+                  onClick={() => { setResult(opt.value as VisitResult); setError('') }}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
                     result === opt.value
                       ? opt.color + ' ring-2 ring-offset-1 ring-current'
