@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { CashShiftManager } from '@/components/cash/cash-shift-manager'
@@ -33,10 +34,23 @@ async function CashData() {
   }
   const isAdmin = userRoles.includes('admin')
   const userStoreCodes: string[] = (profile as any)?.stores || []
-  // Admin sees all; others only their stores
-  const allowedStoreIds: string[] = isAdmin
-    ? ['Tienda Mujeres', 'Tienda Hombres']
-    : userStoreCodes.map((c: string) => STORE_MAP[c]).filter(Boolean)
+
+  // Read selected-store cookie
+  const cookieStore = await cookies()
+  const cookieSelected = cookieStore.get('selected-store')?.value  // 'ALL' | 'MUJERES' | 'HOMBRES'
+
+  // Admin: respect cookie selection; non-admin: only their assigned stores
+  let allowedStoreIds: string[]
+  if (isAdmin) {
+    if (cookieSelected && cookieSelected !== 'ALL') {
+      const storeText = STORE_MAP[cookieSelected.toUpperCase()]
+      allowedStoreIds = storeText ? [storeText] : ['Tienda Mujeres', 'Tienda Hombres']
+    } else {
+      allowedStoreIds = ['Tienda Mujeres', 'Tienda Hombres']
+    }
+  } else {
+    allowedStoreIds = userStoreCodes.map((c: string) => STORE_MAP[c]).filter(Boolean)
+  }
 
   // Get current open shifts — filtered by allowed stores
   const openShiftsQuery = supabase

@@ -5,6 +5,7 @@
  * Permite ver, filtrar y descargar tickets en PDF
  */
 
+import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { SalesHistoryView } from '@/components/sales/sales-history-view'
 import { redirect } from 'next/navigation'
@@ -43,10 +44,16 @@ export default async function SalesHistoryPage({
   const isAdmin = userRoles.includes('admin')
   const userStores: string[] = (profile as any)?.stores || []
 
-  // Resolve locked store for non-admin with a single store
+  // Read selected-store cookie
+  const cookieStore = await cookies()
+  const cookieSelected = cookieStore.get('selected-store')?.value
+
+  // Resolve store filter: locked for single-store users, cookie for multi-store admins
   let lockedStore: string | null = null
-  if (!isAdmin && userStores.length === 1) {
+  if (userStores.length === 1) {
     lockedStore = STORE_KEY_MAP[userStores[0]] ?? userStores[0]
+  } else if (isAdmin && cookieSelected && cookieSelected !== 'ALL') {
+    lockedStore = STORE_KEY_MAP[cookieSelected.toUpperCase()] ?? null
   }
 
   // Build query — filter by store if restricted

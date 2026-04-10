@@ -5,7 +5,9 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useStore, type StoreFilter } from '@/contexts/store-context'
 import {
   AreaChart, Area, LineChart, Line,
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -290,6 +292,14 @@ export default function DashboardClient({
   userStores,
 }: DashboardClientProps) {
   const [chartRange, setChartRange] = useState<'7D' | '30D'>('30D')
+  const { setSelectedStore } = useStore()
+  const router = useRouter()
+
+  const handleStoreSelect = (value: string) => {
+    setSelectedStore(value as StoreFilter)
+    const href = value === 'ALL' ? '/dashboard' : `/dashboard?store=${value}`
+    router.push(href)
+  }
 
   // ── Store options filtered by user's allowed stores ──────────────────────
   const ALL_STORE_OPTS = [
@@ -372,11 +382,10 @@ export default function DashboardClient({
             <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
               {storeOptions.map(opt => {
                 const isActive = (activeStoreParam ?? 'ALL') === opt.value
-                const href = opt.value === 'ALL' ? '/dashboard' : `/dashboard?store=${opt.value}`
                 return (
-                  <a
+                  <button
                     key={opt.value}
-                    href={href}
+                    onClick={() => handleStoreSelect(opt.value)}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                       isActive
                         ? 'bg-white text-emerald-700 shadow-sm'
@@ -384,7 +393,7 @@ export default function DashboardClient({
                     }`}
                   >
                     {opt.label}
-                  </a>
+                  </button>
                 )
               })}
             </div>

@@ -180,6 +180,7 @@ export async function fetchClientProfile(
       const daysOverdue = dueDate < today ? differenceInDays(today, dueDate) : 0
       const plan = planMap.get(inst.plan_id) || inst.credit_plans || {}
       const saleNumber = (plan as any).sales?.sale_number || ''
+      const saleStoreId = (plan as any).sales?.store_id || ''
 
       return {
         id: inst.id,
@@ -192,6 +193,7 @@ export async function fetchClientProfile(
         paidAt: inst.paid_at ? new Date(inst.paid_at) : null,
         saleNumber,
         daysOverdue,
+        saleStoreId,
       }
     })
     // Sort by due date ascending (earliest first)

@@ -5,6 +5,7 @@
  * Chart data uses 30-day window (vs 7 before) for richer visualizations.
  */
 
+import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import DashboardClient, { type DashboardMetrics } from '@/components/dashboard/DashboardClient'
@@ -64,15 +65,24 @@ export default async function DashboardPage({
   // Si tiene 1 sola tienda → siempre bloqueado a esa tienda (sin importar rol)
   // Si tiene 2+ tiendas Y es admin → puede filtrar via URL param
   const params = await (searchParams ?? Promise.resolve({}))
+  const cookieStore = await cookies()
+  const cookieSelected = cookieStore.get('selected-store')?.value  // 'ALL' | 'MUJERES' | 'HOMBRES'
+
   const canSwitchStore = isAdmin && userStores.length > 1
   let storeFilter: string | null = null   // used for sales.store_id filter ('Tienda Mujeres')
   let storeCode: string | null = null     // used for stores.code filter ('MUJERES')
   if (userStores.length === 1) {
     storeCode = (userStores[0] ?? '').toUpperCase()
     storeFilter = STORE_KEY_MAP[storeCode] ?? userStores[0]
-  } else if (canSwitchStore && params.store && params.store !== 'ALL') {
-    storeCode = (params.store ?? '').toUpperCase()
-    storeFilter = STORE_KEY_MAP[storeCode] ?? params.store
+  } else if (canSwitchStore) {
+    // URL param takes priority, then cookie fallback
+    const resolvedStore = (params.store && params.store !== 'ALL')
+      ? params.store
+      : (cookieSelected && cookieSelected !== 'ALL' ? cookieSelected : null)
+    if (resolvedStore) {
+      storeCode = resolvedStore.toUpperCase()
+      storeFilter = STORE_KEY_MAP[storeCode] ?? resolvedStore
+    }
   }
 
   // NOTE: stock.warehouse_id and movements.warehouse_id store display names

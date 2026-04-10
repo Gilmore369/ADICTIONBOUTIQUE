@@ -17,19 +17,25 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/currency'
 import { PERU_TZ } from '@/lib/utils/timezone'
+import { useStore } from '@/contexts/store-context'
 import {
   Search, Loader2, AlertTriangle, CheckCircle2, Clock,
   Upload, X, ChevronDown, DollarSign, CreditCard, Smartphone,
-  ArrowRight, Users, RefreshCw,
+  ArrowRight, Users, RefreshCw, Store,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 
+const STORE_TEXT: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface ClientOption { id: string; name: string; dni?: string; phone?: string; credit_used: number; credit_limit: number }
-interface Installment { id: string; installment_number: number; amount: number; due_date: string; paid_amount: number; status: string; days_overdue?: number; is_overdue?: boolean; amount_to_apply?: number }
+interface Installment { id: string; installment_number: number; amount: number; due_date: string; paid_amount: number; status: string; days_overdue?: number; is_overdue?: boolean; amount_to_apply?: number; store_id?: string }
 interface ClientDetail { id: string; name: string; dni: string; phone: string; rating: string; totalDebt: number; overdueDebt: number; pendingCount: number }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -72,6 +78,8 @@ const PAYMENT_METHODS = [
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export function SmartPaymentPanel() {
+  const { selectedStore } = useStore()
+
   // Client search
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ClientOption[]>([])
@@ -100,6 +108,17 @@ export function SmartPaymentPanel() {
 
   // Submit
   const [submitting, setSubmitting] = useState(false)
+
+  // ── Store filtering ──────────────────────────────────────────────────────
+  // Filter installments to only those matching the selected store
+  const activeStoreText = selectedStore !== 'ALL' ? STORE_TEXT[selectedStore] : null
+  const visibleInstallments = activeStoreText
+    ? installments.filter(i => !i.store_id || i.store_id === activeStoreText)
+    : installments
+  const hasOtherStoreInstallments = activeStoreText
+    ? installments.some(i => i.store_id && i.store_id !== activeStoreText)
+    : false
+  const canRegisterPayment = !activeStoreText || visibleInstallments.length > 0
 
   // ── Client search with debounce ──────────────────────────────────────────
   useEffect(() => {
@@ -188,6 +207,10 @@ export function SmartPaymentPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedClient) { toast.error('Selecciona un cliente'); return }
+    if (!canRegisterPayment) {
+      toast.error('No puedes registrar pagos de otra tienda desde la tienda seleccionada')
+      return
+    }
     const amt = parseFloat(amount)
     if (!amt || amt <= 0) { toast.error('Ingresa un monto válido'); return }
 
@@ -328,12 +351,26 @@ export function SmartPaymentPanel() {
             </div>
           )}
 
+          {/* Store mismatch warning */}
+          {hasOtherStoreInstallments && !canRegisterPayment && (
+            <div className="mb-4 flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <Store className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+              <span>Este cliente tiene deuda de <strong>{activeStoreText}</strong> pero sus cuotas corresponden a la otra tienda. No puedes registrar pagos desde la tienda seleccionada.</span>
+            </div>
+          )}
+          {hasOtherStoreInstallments && canRegisterPayment && (
+            <div className="mb-4 flex items-start gap-2 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+              <Store className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-600" />
+              <span>Solo se muestran cuotas de <strong>{activeStoreText}</strong>. Algunas cuotas de otra tienda están ocultas.</span>
+            </div>
+          )}
+
           {/* Pending installments mini list */}
-          {installments.length > 0 && (
+          {visibleInstallments.length > 0 && (
             <div className="mb-4">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Cuotas pendientes</div>
               <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                {installments.map(inst => {
+                {visibleInstallments.map(inst => {
                   const pending = Number(inst.amount) - Number(inst.paid_amount || 0)
                   return (
                     <div key={inst.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-white rounded-lg border border-gray-100 text-sm">
@@ -460,8 +497,9 @@ export function SmartPaymentPanel() {
 
           <Button
             type="submit"
-            disabled={submitting || !selectedClient || !amount}
+            disabled={submitting || !selectedClient || !amount || !canRegisterPayment}
             className="w-full h-10"
+            title={!canRegisterPayment ? 'No puedes registrar pagos de otra tienda' : undefined}
           >
             {submitting ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Procesando...</>

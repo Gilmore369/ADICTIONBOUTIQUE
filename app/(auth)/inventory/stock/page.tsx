@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { StockManager } from '@/components/inventory/stock-manager'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
@@ -27,10 +28,13 @@ async function StockData() {
   const userStores: string[] = (profile as any)?.stores || []
 
   // Determine if user is restricted to a specific store
-  // Users with exactly 1 store (or not both stores) are restricted
   const hasAllAccess = userStores.length >= 2 &&
     userStores.map(s => s.toUpperCase()).includes('MUJERES') &&
     userStores.map(s => s.toUpperCase()).includes('HOMBRES')
+
+  // Read selected-store cookie for multi-store admins
+  const cookieStore = await cookies()
+  const cookieSelected = cookieStore.get('selected-store')?.value  // 'ALL' | 'MUJERES' | 'HOMBRES'
 
   let stockQuery = supabase
     .from('stock')
@@ -38,10 +42,16 @@ async function StockData() {
     .order('warehouse_id')
 
   if (!hasAllAccess && userStores.length > 0) {
-    // Filter by the store name used in warehouse_id column
+    // Restricted user: always filter to their assigned store
     const storeCode = userStores[0].toUpperCase()
     const warehouseName = STORE_NAME_MAP[storeCode] ?? userStores[0]
     stockQuery = stockQuery.eq('warehouse_id', warehouseName) as typeof stockQuery
+  } else if (hasAllAccess && cookieSelected && cookieSelected !== 'ALL') {
+    // Multi-store user with specific store selected: filter by selected store
+    const warehouseName = STORE_NAME_MAP[cookieSelected.toUpperCase()]
+    if (warehouseName) {
+      stockQuery = stockQuery.eq('warehouse_id', warehouseName) as typeof stockQuery
+    }
   }
 
   const [stockRes, storesRes] = await Promise.all([

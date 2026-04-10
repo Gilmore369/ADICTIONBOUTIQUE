@@ -4,16 +4,35 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 
-export async function getReturnsAction() {
+const STORE_DISPLAY: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
+
+export async function getReturnsAction(userStores?: string[], selectedStore?: string) {
   const service = createServiceClient()
 
-  const { data, error } = await service
+  let query = service
     .from('returns')
     .select(`
       *,
       clients ( id, name, dni )
     `)
     .order('created_at', { ascending: false })
+
+  // Determine which store to filter by
+  const storeFilter = selectedStore && selectedStore !== 'ALL'
+    ? selectedStore.toUpperCase()
+    : (userStores && userStores.length === 1 ? userStores[0].toUpperCase() : null)
+
+  if (storeFilter) {
+    const storeText = STORE_DISPLAY[storeFilter]
+    if (storeText) {
+      query = query.eq('store_id', storeText) as typeof query
+    }
+  }
+
+  const { data, error } = await query
 
   if (error) {
     console.error('Error fetching returns:', error)

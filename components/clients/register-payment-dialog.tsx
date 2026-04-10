@@ -9,6 +9,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useStore } from '@/contexts/store-context'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -39,7 +40,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { DollarSign } from 'lucide-react'
+import { DollarSign, Store } from 'lucide-react'
+
+const STORE_TEXT: Record<string, string> = {
+  MUJERES: 'Tienda Mujeres',
+  HOMBRES: 'Tienda Hombres',
+}
 
 const paymentFormSchema = z.object({
   amount: z.string().min(1, 'El monto es requerido'),
@@ -59,6 +65,7 @@ interface RegisterPaymentDialogProps {
   installmentNumber: number
   saleNumber: string
   pendingAmount: number
+  saleStoreId?: string  // store this installment belongs to (e.g. 'Tienda Mujeres')
   onSuccess?: () => void
 }
 
@@ -69,9 +76,15 @@ export function RegisterPaymentDialog({
   installmentNumber,
   saleNumber,
   pendingAmount,
+  saleStoreId,
   onSuccess,
 }: RegisterPaymentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { selectedStore } = useStore()
+
+  // Store validation: block payment if current store doesn't match installment's store
+  const activeStoreText = selectedStore !== 'ALL' ? STORE_TEXT[selectedStore] : null
+  const isStoreMismatch = !!(activeStoreText && saleStoreId && saleStoreId !== activeStoreText)
 
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
@@ -84,6 +97,10 @@ export function RegisterPaymentDialog({
   })
 
   const onSubmit = async (data: PaymentFormValues) => {
+    if (isStoreMismatch) {
+      toast.error(`No puedes registrar pagos de ${saleStoreId} desde ${activeStoreText}`)
+      return
+    }
     setIsSubmitting(true)
     try {
       const response = await fetch('/api/payments/register', {
@@ -142,6 +159,14 @@ export function RegisterPaymentDialog({
             </span>
           </DialogDescription>
         </DialogHeader>
+
+        {/* Store mismatch warning */}
+        {isStoreMismatch && (
+          <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 -mt-2">
+            <Store className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+            <span>Esta cuota pertenece a <strong>{saleStoreId}</strong>. No puedes registrar pagos desde <strong>{activeStoreText}</strong>.</span>
+          </div>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -264,7 +289,8 @@ export function RegisterPaymentDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
+              <Button type="submit" disabled={isSubmitting || isStoreMismatch} className="flex-1"
+                title={isStoreMismatch ? `No puedes registrar pagos de otra tienda` : undefined}>
                 {isSubmitting ? 'Registrando...' : 'Registrar Pago'}
               </Button>
             </div>

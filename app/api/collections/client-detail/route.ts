@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('client_id')
   if (!clientId) return NextResponse.json({ error: 'client_id requerido' }, { status: 400 })
 
-  // Parallel: client info + installments + actions
-  const [clientRes, installmentsRes, actionsRes] = await Promise.all([
+  // Parallel: client info + plans (with sale store) + actions
+  const [clientRes, plansRes, actionsRes] = await Promise.all([
     supabase
       .from('clients')
       .select('id, name, dni, phone, address, credit_used, credit_limit, rating, blacklisted')
@@ -24,18 +24,10 @@ export async function GET(request: NextRequest) {
       .single(),
 
     supabase
-      .from('installments')
-      .select('id, installment_number, amount, due_date, paid_amount, status, plan_id')
-      .in('plan_id',
-        (await supabase
-          .from('credit_plans')
-          .select('id')
-          .eq('client_id', clientId)
-          .in('status', ['ACTIVE'])
-        ).data?.map((p: any) => p.id) || []
-      )
-      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-      .order('due_date', { ascending: true }),
+      .from('credit_plans')
+      .select('id, sales(store_id)')
+      .eq('client_id', clientId)
+      .in('status', ['ACTIVE']),
 
     supabase
       .from('collection_actions')
@@ -45,10 +37,27 @@ export async function GET(request: NextRequest) {
       .limit(10),
   ])
 
+  // Build plan_id → store_id map from plans+sales join
+  const planIds = (plansRes.data || []).map((p: any) => p.id)
+  const planStoreMap: Record<string, string> = {}
+  for (const plan of plansRes.data || []) {
+    planStoreMap[(plan as any).id] = (plan as any).sales?.store_id || ''
+  }
+
+  // Fetch installments for active plans
+  const installmentsRes = planIds.length > 0
+    ? await supabase
+        .from('installments')
+        .select('id, installment_number, amount, due_date, paid_amount, status, plan_id')
+        .in('plan_id', planIds)
+        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+        .order('due_date', { ascending: true })
+    : { data: [] }
+
   const today = new Date()
   today.setHours(0, 0, 0, 0) // comparar solo fecha, sin hora
 
-  const installments = (installmentsRes.data || []).map((inst: any) => {
+  const installments = ((installmentsRes as any).data || []).map((inst: any) => {
     const due = new Date(inst.due_date)
     due.setHours(0, 0, 0, 0)
     // Vencida si la fecha ya pasó, sin importar el status en BD
@@ -56,7 +65,8 @@ export async function GET(request: NextRequest) {
     const daysOverdue = isOverdue
       ? Math.floor((today.getTime() - due.getTime()) / 86400000)
       : 0
-    return { ...inst, days_overdue: daysOverdue, is_overdue: isOverdue }
+    // Attach store_id from plan's sale for client-side store validation
+    return { ...inst, days_overdue: daysOverdue, is_overdue: isOverdue, store_id: planStoreMap[inst.plan_id] || '' }
   })
 
   const totalDebt = installments.reduce((s: number, i: any) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0)

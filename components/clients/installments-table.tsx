@@ -37,6 +37,7 @@ export function InstallmentsTable({ installments }: InstallmentsTableProps) {
     installmentNumber: number
     saleNumber: string
     pendingAmount: number
+    saleStoreId?: string
   } | null>(null)
 
   const getStatusBadge = (status: string, daysOverdue: number) => {
@@ -146,6 +147,7 @@ export function InstallmentsTable({ installments }: InstallmentsTableProps) {
                                   installmentNumber: installment.installmentNumber,
                                   saleNumber: installment.saleNumber,
                                   pendingAmount: pending,
+                                  saleStoreId: (installment as any).saleStoreId,
                                 })
                               }
                               className="gap-1"
@@ -174,6 +176,7 @@ export function InstallmentsTable({ installments }: InstallmentsTableProps) {
           installmentNumber={paymentDialog.installmentNumber}
           saleNumber={paymentDialog.saleNumber}
           pendingAmount={paymentDialog.pendingAmount}
+          saleStoreId={paymentDialog.saleStoreId}
         />
       )}
     </>

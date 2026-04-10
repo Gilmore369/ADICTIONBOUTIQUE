@@ -42,16 +42,25 @@ export function StoreProvider({ children, userStores }: StoreProviderProps) {
   const [selectedStore, setSelectedStoreState] = useState<StoreFilter>(defaultStore)
   const [storeId, setStoreId] = useState<string | null>(null)
 
+  // Helper: persist selection to localStorage + cookie (cookie enables server-side reads)
+  const persistStore = (store: StoreFilter) => {
+    try { localStorage.setItem('selectedStore', store) } catch { /* ignore */ }
+    try {
+      document.cookie = `selected-store=${store}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+    } catch { /* ignore */ }
+  }
+
   // Restaurar preferencia del localStorage (solo si no está bloqueado)
   useEffect(() => {
     if (isStoreLocked) {
       setSelectedStoreState(defaultStore)
+      persistStore(defaultStore)
       return
     }
-    const saved = localStorage.getItem('selectedStore')
-    if (saved && allowedStores.includes(saved as StoreFilter)) {
-      setSelectedStoreState(saved as StoreFilter)
-    }
+    const saved = localStorage.getItem('selectedStore') as StoreFilter | null
+    const resolved: StoreFilter = (saved && allowedStores.includes(saved)) ? saved : defaultStore
+    setSelectedStoreState(resolved)
+    persistStore(resolved)
   }, [])
 
   // Guardar preferencia
@@ -59,7 +68,7 @@ export function StoreProvider({ children, userStores }: StoreProviderProps) {
     if (isStoreLocked) return  // no permitir cambio si está bloqueado
     if (!allowedStores.includes(store)) return
     setSelectedStoreState(store)
-    localStorage.setItem('selectedStore', store)
+    persistStore(store)
   }
 
   // Obtener el store_id UUID desde la API

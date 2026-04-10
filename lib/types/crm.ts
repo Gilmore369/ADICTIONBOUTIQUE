@@ -134,6 +134,7 @@ export interface InstallmentWithPlan {
   paidAt: Date | null
   saleNumber: string
   daysOverdue: number
+  saleStoreId?: string  // store_id from the associated sale (e.g. 'Tienda Mujeres')
 }
 
 /**

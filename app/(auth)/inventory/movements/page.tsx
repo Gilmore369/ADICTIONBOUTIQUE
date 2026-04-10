@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { MovementsTable } from '@/components/inventory/movements-table'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
@@ -30,6 +31,10 @@ async function MovementsData() {
     userStores.map(s => s.toUpperCase()).includes('MUJERES') &&
     userStores.map(s => s.toUpperCase()).includes('HOMBRES')
 
+  // Read selected-store cookie for multi-store admins
+  const cookieStore = await cookies()
+  const cookieSelected = cookieStore.get('selected-store')?.value
+
   let query = supabase
     .from('movements')
     .select('*, products(name, barcode)')
@@ -40,6 +45,11 @@ async function MovementsData() {
     const storeCode = userStores[0].toUpperCase()
     const warehouseName = STORE_NAME_MAP[storeCode] ?? userStores[0]
     query = query.eq('warehouse_id', warehouseName) as typeof query
+  } else if (hasAllAccess && cookieSelected && cookieSelected !== 'ALL') {
+    const warehouseName = STORE_NAME_MAP[cookieSelected.toUpperCase()]
+    if (warehouseName) {
+      query = query.eq('warehouse_id', warehouseName) as typeof query
+    }
   }
 
   const { data: movements, error } = await query
