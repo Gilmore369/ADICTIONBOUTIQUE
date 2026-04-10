@@ -125,6 +125,7 @@ function optimizeRoute(origin: { lat: number; lng: number }, clients: Client[], 
 }
 
 const MAX_ROUTE_STOPS = 9 // Google Maps URL limit (~10 stops including origin)
+const MAPS_LIBRARIES: ['places'] = ['places']
 
 const ROUTE_TYPES: RouteType[] = ['Cobranza', 'Delivery']
 const DAYS_FILTERS = [
@@ -180,9 +181,10 @@ export function DebtorsMap() {
   // Days overdue filter (only for 'overdue' filter)
   const [minDays, setMinDays] = useState(0)
 
-  // Load Google Maps API
+  // Load Google Maps API (libraries must be stable — defined outside component)
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries: MAPS_LIBRARIES,
     preventGoogleFontsLoading: true,
   })
 
