@@ -39,6 +39,8 @@ interface SaleReceiptProps {
   clientEmail?: string
   installments?: number
   installmentAmount?: number
+  cashReceived?: number
+  changeAmount?: number
   onClose: () => void
 }
 
@@ -63,6 +65,8 @@ export function SaleReceipt({
   clientEmail,
   installments,
   installmentAmount,
+  cashReceived,
+  changeAmount,
   onClose
 }: SaleReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null)
@@ -465,8 +469,8 @@ export function SaleReceipt({
             </p>
             {paymentType === 'CONTADO' && (
               <>
-                <p className="text-sm">RECIBIDO: {formatCurrency(total, false)}</p>
-                <p className="text-sm">VUELTO: 0.00</p>
+                <p className="text-sm">RECIBIDO: {formatCurrency(cashReceived ?? total, false)}</p>
+                <p className="text-sm">VUELTO: {formatCurrency(changeAmount ?? 0, false)}</p>
               </>
             )}
           </div>

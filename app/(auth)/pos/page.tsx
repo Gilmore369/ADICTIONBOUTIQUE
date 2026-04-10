@@ -27,7 +27,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ProductSearch } from '@/components/products/product-search'
 import { Cart } from '@/components/pos/cart'
 import { ProductScanner } from '@/components/pos/product-scanner'
@@ -42,6 +42,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { createSale } from '@/actions/sales'
 import { toast } from '@/lib/toast'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 type SaleType = 'CONTADO' | 'CREDITO'
 
@@ -75,6 +76,20 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
+
+  // Cash payment calculator
+  const [cashReceived, setCashReceived] = useState<string>('')
+  const cashReceivedNum = parseFloat(cashReceived) || 0
+  const changeAmount = useMemo(
+    () => Math.max(0, cashReceivedNum - cart.total),
+    [cashReceivedNum, cart.total]
+  )
+  const cashShortfall = cashReceivedNum > 0 && cashReceivedNum < cart.total
+    ? cart.total - cashReceivedNum : 0
+
+  // Cash shift validation
+  const [shiftOpen, setShiftOpen] = useState<boolean | null>(null) // null = loading
+  const supabaseBrowser = createBrowserClient()
 
   // ── Load persisted session state on mount ────────────────────────────────
   useEffect(() => {
@@ -110,6 +125,24 @@ export default function POSPage() {
     }
     // If 'ALL', keep current warehouse selection
   }, [selectedStore])
+
+  // ── Check if there is an open cash shift for the current warehouse ──────────
+  useEffect(() => {
+    let cancelled = false
+    const check = async () => {
+      setShiftOpen(null)
+      const { data } = await supabaseBrowser
+        .from('cash_shifts')
+        .select('id')
+        .eq('store_id', warehouse)
+        .eq('status', 'OPEN')
+        .limit(1)
+      if (!cancelled) setShiftOpen((data?.length ?? 0) > 0)
+    }
+    check()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouse])
 
   // ── Pre-load items from Visual Catalog cart (localStorage bridge) ──────────
   useEffect(() => {
@@ -186,15 +219,13 @@ export default function POSPage() {
   // Validate sale before processing
   const canCompleteSale = () => {
     if (cart.items.length === 0) return false
+    if (shiftOpen === false) return false   // no open cash shift
+    if (saleType === 'CONTADO' && cashReceived !== '' && cashReceivedNum < cart.total) return false
     if (saleType === 'CREDITO') {
       if (!selectedClient) return false
       if (installments < 1 || installments > 6) return false
-      // Bloquear crédito a clientes en lista negra
       if (selectedClient.blacklisted) return false
-      // Check credit limit
-      if (selectedClient.credit_used + cart.total > selectedClient.credit_limit) {
-        return false
-      }
+      if (selectedClient.credit_used + cart.total > selectedClient.credit_limit) return false
     }
     return true
   }
@@ -254,7 +285,9 @@ export default function POSPage() {
           paymentType: saleType,
           clientName: selectedClient?.name,
           installments: saleType === 'CREDITO' ? installments : undefined,
-          installmentAmount: installmentAmount
+          installmentAmount: installmentAmount,
+          cashReceived: saleType === 'CONTADO' && cashReceivedNum > 0 ? cashReceivedNum : undefined,
+          changeAmount: saleType === 'CONTADO' && cashReceivedNum > 0 ? changeAmount : undefined,
         })
         
         // Show receipt modal
@@ -271,6 +304,7 @@ export default function POSPage() {
         setSelectedClient(null)
         setInstallments(1)
         setSaleType('CONTADO')
+        setCashReceived('')
         try { localStorage.removeItem(POS_SESSION_KEY) } catch { /* ignore */ }
       } else {
         // Display error toast
@@ -350,6 +384,17 @@ export default function POSPage() {
           )}
         </Card>
       </div>
+
+      {/* Cash shift warning */}
+      {shiftOpen === false && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-sm text-red-700">
+          <span className="text-lg">🔴</span>
+          <div>
+            <span className="font-semibold">Caja cerrada — no se pueden procesar ventas.</span>
+            <span className="ml-2 text-red-500">Abre un turno en <a href="/cash" className="underline font-medium">Gestión de Caja</a> antes de vender.</span>
+          </div>
+        </div>
+      )}
 
       {/* Main Content - Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -457,6 +502,47 @@ export default function POSPage() {
             onRemoveItem={removeItem}
             onUpdateDiscount={updateDiscount}
           />
+
+          {/* Cash calculator — only for CONTADO with items */}
+          {saleType === 'CONTADO' && cart.total > 0 && (
+            <Card className="p-4 bg-emerald-50 border-emerald-200">
+              <h3 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-1.5">
+                💵 Efectivo
+              </h3>
+              <div className="space-y-2.5">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Total a cobrar:</span>
+                  <span className="font-bold text-gray-900 text-base">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(cart.total)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600 whitespace-nowrap w-24 shrink-0">Recibido:</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="0.00"
+                    value={cashReceived}
+                    onChange={e => setCashReceived(e.target.value)}
+                    className="h-9 text-right font-semibold text-base bg-white border-emerald-300 focus:border-emerald-500"
+                    autoFocus={false}
+                  />
+                </div>
+                {cashShortfall > 0 && (
+                  <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+                    ⚠️ Falta: {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(cashShortfall)}
+                  </p>
+                )}
+                {cashReceivedNum >= cart.total && cashReceived !== '' && (
+                  <div className="flex justify-between items-center pt-2 border-t border-emerald-200">
+                    <span className="text-sm font-semibold text-emerald-800">Vuelto:</span>
+                    <span className="text-lg font-bold text-emerald-700">
+                      {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(changeAmount)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Action Buttons */}
           <div className="space-y-2">
