@@ -17,7 +17,7 @@ async function CashData() {
   // Check authorization
   const { data: profile } = await supabase
     .from('users')
-    .select('roles')
+    .select('roles, stores')
     .eq('id', user.id)
     .single()
 
@@ -26,20 +26,36 @@ async function CashData() {
     redirect('/')
   }
 
-  // Get current open shifts (one per store)
-  const { data: openShifts } = await supabase
+  // Map store codes → display names used in cash_shifts.store_id
+  const STORE_MAP: Record<string, string> = {
+    MUJERES: 'Tienda Mujeres',
+    HOMBRES: 'Tienda Hombres',
+  }
+  const isAdmin = userRoles.includes('admin')
+  const userStoreCodes: string[] = (profile as any)?.stores || []
+  // Admin sees all; others only their stores
+  const allowedStoreIds: string[] = isAdmin
+    ? ['Tienda Mujeres', 'Tienda Hombres']
+    : userStoreCodes.map((c: string) => STORE_MAP[c]).filter(Boolean)
+
+  // Get current open shifts — filtered by allowed stores
+  const openShiftsQuery = supabase
     .from('cash_shifts')
     .select('*')
     .eq('status', 'OPEN')
     .order('opened_at', { ascending: false })
+  if (!isAdmin) openShiftsQuery.in('store_id', allowedStoreIds)
+  const { data: openShifts } = await openShiftsQuery
 
-  // Get recent closed shifts (with breakdown fields)
-  const { data: recentShifts } = await supabase
+  // Get recent closed shifts — filtered by allowed stores
+  const recentShiftsQuery = supabase
     .from('cash_shifts')
     .select('*')
     .eq('status', 'CLOSED')
     .order('closed_at', { ascending: false })
     .limit(10)
+  if (!isAdmin) recentShiftsQuery.in('store_id', allowedStoreIds)
+  const { data: recentShifts } = await recentShiftsQuery
 
   // Fetch live breakdown for each open shift in parallel
   const breakdowns: Record<string, any> = {}
@@ -60,6 +76,7 @@ async function CashData() {
       recentShifts={(recentShifts || []) as any}
       breakdowns={breakdowns}
       userId={user.id}
+      allowedStoreIds={allowedStoreIds}
     />
   )
 }

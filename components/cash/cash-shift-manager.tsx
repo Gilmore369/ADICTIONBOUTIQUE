@@ -72,6 +72,7 @@ interface CashShiftManagerProps {
   recentShifts: CashShift[]
   breakdowns: Record<string, ShiftBreakdown>
   userId: string
+  allowedStoreIds?: string[]
 }
 
 function fmt(n: number) {
@@ -208,12 +209,11 @@ function CuadreModal({ result, storeName, onClose }: {
   )
 }
 
-export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId }: CashShiftManagerProps) {
+export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId, allowedStoreIds }: CashShiftManagerProps) {
   const router = useRouter()
   const [isOpening, setIsOpening] = useState(false)
   const [isClosing, setIsClosing] = useState<string | null>(null)
   const [openingAmount, setOpeningAmount] = useState('')
-  const [storeId, setStoreId] = useState('Tienda Hombres')
   const [closingAmounts, setClosingAmounts] = useState<Record<string, string>>({})
   const [expenseAmounts, setExpenseAmounts] = useState<Record<string, string>>({})
   const [expenseCategories, setExpenseCategories] = useState<Record<string, string>>({})
@@ -222,11 +222,17 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId 
   const [cuadreResult, setCuadreResult] = useState<(CuadreResult & { storeName: string }) | null>(null)
   const [showExpenses, setShowExpenses] = useState<Record<string, boolean>>({})
 
-  const openStoreIds = openShifts.map(shift => shift.store_id)
-  const availableStores = [
+  const ALL_STORES = [
+    { id: 'Tienda Mujeres', name: 'Tienda Mujeres' },
     { id: 'Tienda Hombres', name: 'Tienda Hombres' },
-    { id: 'Tienda Mujeres', name: 'Tienda Mujeres' }
-  ].filter(store => !openStoreIds.includes(store.id))
+  ]
+  const openStoreIds = openShifts.map(shift => shift.store_id)
+  // Filter by user's allowed stores, then exclude already-open ones
+  const availableStores = ALL_STORES
+    .filter(s => !allowedStoreIds || allowedStoreIds.includes(s.id))
+    .filter(s => !openStoreIds.includes(s.id))
+
+  const [storeId, setStoreId] = useState(() => availableStores[0]?.id || 'Tienda Mujeres')
 
   const handleOpenShift = async () => {
     if (!openingAmount || parseFloat(openingAmount) < 0) {
