@@ -66,6 +66,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Upload, ImageIcon, X } from 'lucide-react'
+import { ColorPicker } from '@/components/ui/color-picker'
 
 // Type for form data based on productSchema
 type ProductFormData = z.infer<typeof productSchema>
@@ -442,10 +443,14 @@ export function ProductForm({
             control={form.control}
             name="color"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="md:col-span-3">
                 <FormLabel>Color</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ej: Rojo, Azul" {...field} value={field.value || ''} />
+                  <ColorPicker
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    placeholder="Ej: Azul Marino"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

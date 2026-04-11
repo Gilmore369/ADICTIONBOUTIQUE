@@ -30,7 +30,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { createBulkProducts } from '@/actions/products'
-import { ColorPicker } from '@/components/ui/color-picker'
+import { ColorPicker, CompactColorPicker } from '@/components/ui/color-picker'
 import { ImageUpload } from '@/components/ui/image-upload'
 
 interface Size {
@@ -486,21 +486,12 @@ export function ProductFormMultiSize({ onSuccess, onCancel }: ProductFormMultiSi
                           {variant.sizeName}
                         </span>
                       </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <ColorPicker
-                              value={variant.color || color || ''}
-                              onChange={value => updateVariantColor(variant.sizeId, value)}
-                              placeholder={color || 'Color'}
-                            />
-                          </div>
-                          {hasCustomColor && (
-                            <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                              Personalizado
-                            </Badge>
-                          )}
-                        </div>
+                      <td className="p-3 min-w-[140px]">
+                        <CompactColorPicker
+                          value={variant.color || color || ''}
+                          onChange={val => updateVariantColor(variant.sizeId, val)}
+                          placeholder={color || 'Color'}
+                        />
                       </td>
                       <td className="p-3">
                         <Input

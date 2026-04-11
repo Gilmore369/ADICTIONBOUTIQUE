@@ -32,7 +32,7 @@ import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2 } from 'luci
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { createBulkProducts } from '@/actions/products'
-import { ColorPicker } from '@/components/ui/color-picker'
+import { ColorPicker, CompactColorPicker } from '@/components/ui/color-picker'
 import { QuickCreateDialog, type QuickCreateType } from './quick-create-dialog'
 import { ImageUpload } from '@/components/ui/image-upload'
 import { useStore } from '@/contexts/store-context'
@@ -1026,27 +1026,14 @@ export function BulkProductEntryV2() {
                                     {variant.sizeName}
                                   </span>
                                 </td>
-                                <td className="p-3">
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex-1">
-                                      <ColorPicker
-                                        value={variant.color || model.color || ''}
-                                        onChange={value =>
-                                          updateVariantColor(
-                                            model.id,
-                                            variant.sizeId,
-                                            value
-                                          )
-                                        }
-                                        placeholder={model.color || 'Color'}
-                                      />
-                                    </div>
-                                    {hasCustomColor && (
-                                      <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                                        Personalizado
-                                      </Badge>
-                                    )}
-                                  </div>
+                                <td className="p-3 min-w-[150px]">
+                                  <CompactColorPicker
+                                    value={variant.color || model.color || ''}
+                                    onChange={value =>
+                                      updateVariantColor(model.id, variant.sizeId, value)
+                                    }
+                                    placeholder={model.color || 'Color'}
+                                  />
                                 </td>
                                 <td className="p-3">
                                   <Input
