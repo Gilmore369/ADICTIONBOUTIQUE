@@ -3,15 +3,13 @@
 /**
  * ProductCreateModal — Unified product creation dialog
  *
- * Handles "producto simple" and "múltiples variantes" in one component.
- * - Section 1: Base data — searchable selects (inline dropdown) + quick-create (+)
- *   for Proveedor, Marca and Categoría.
- * - Section 2: Variants table (barcode · talla · color · p.compra · p.venta · stock)
- * - Image upload with preview below data section.
- * - Calls createBulkProducts under the hood.
- *
- * Dependencies: only uses existing UI components (dialog, button, input, label)
- * plus CompactColorPicker. No cmdk / radix-popover required.
+ * Section 1: Base data (Name, Código base, Proveedor+, Marca+, Línea,
+ *             Categoría+, Almacén) with inline searchable selects and
+ *             quick-create (+) popovers.
+ * Section 2: Variants table (barcode · talla · color · p.compra · p.venta · stock)
+ *             with add/remove rows. Horizontally scrollable on small screens.
+ * Image upload with preview.
+ * Calls createBulkProducts under the hood.
  */
 
 import {
@@ -46,6 +44,7 @@ import {
   Upload,
   X,
   ImageIcon,
+  AlertCircle,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -73,28 +72,19 @@ export interface ProductCreateModalProps {
   onSuccess?: () => void
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const WAREHOUSES = [
   { id: 'Tienda Mujeres', label: 'Tienda Mujeres' },
   { id: 'Tienda Hombres', label: 'Tienda Hombres' },
 ]
 
-let _rowCounter = 0
+let _rc = 0
 function newRow(): VariantRow {
-  return {
-    _key: `row-${++_rowCounter}`,
-    barcode: '',
-    size: '',
-    color: '',
-    purchase_price: '',
-    sale_price: '',
-    quantity: '',
-  }
+  return { _key: `r${++_rc}`, barcode: '', size: '', color: '', purchase_price: '', sale_price: '', quantity: '' }
 }
 
-// ── Searchable Select ─────────────────────────────────────────────────────────
-// Custom inline dropdown — no external dependencies needed
+// ── Searchable Select (no external deps) ─────────────────────────────────────
 
 interface SearchableSelectProps {
   options: Option[]
@@ -107,13 +97,8 @@ interface SearchableSelectProps {
 }
 
 function SearchableSelect({
-  options,
-  value,
-  onChange,
-  placeholder = 'Seleccionar…',
-  disabled,
-  onQuickCreate,
-  quickCreateLabel = 'Crear nuevo',
+  options, value, onChange, placeholder = 'Seleccionar…', disabled,
+  onQuickCreate, quickCreateLabel = 'Crear nuevo',
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -125,17 +110,14 @@ function SearchableSelect({
   const newNameRef = useRef<HTMLInputElement>(null)
 
   const selected = options.find((o) => o.id === value)
-
   const filtered = query.trim()
     ? options.filter((o) => o.name.toLowerCase().includes(query.toLowerCase()))
     : options
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-        setQuery('')
+        setOpen(false); setQuery('')
       }
     }
     if (open) document.addEventListener('mousedown', handler)
@@ -144,157 +126,119 @@ function SearchableSelect({
 
   const handleOpen = () => {
     if (disabled) return
-    setOpen(true)
-    setQuery('')
+    setOpen(true); setQuery('')
     setTimeout(() => inputRef.current?.focus(), 30)
   }
 
   const handleSelect = (id: string) => {
-    onChange(id)
-    setOpen(false)
-    setQuery('')
+    onChange(id); setOpen(false); setQuery('')
   }
 
-  const handleQuickCreate = async () => {
+  const handleCreate = async () => {
     if (!newName.trim() || !onQuickCreate) return
     setSaving(true)
-    try {
-      await onQuickCreate(newName.trim())
-      setNewName('')
-      setCreating(false)
-    } finally {
-      setSaving(false)
-    }
+    try { await onQuickCreate(newName.trim()); setNewName(''); setCreating(false) }
+    finally { setSaving(false) }
   }
 
   return (
-    <div ref={containerRef} className="flex gap-1">
-      {/* Trigger */}
+    <div ref={containerRef} className="flex gap-1.5">
+      {/* Trigger + dropdown */}
       <div className="relative flex-1">
         <button
           type="button"
           onClick={handleOpen}
           disabled={disabled}
           className={cn(
-            'flex h-9 w-full items-center justify-between rounded-lg border border-input bg-background',
-            'px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            !selected && 'text-muted-foreground',
+            'flex h-9 w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 text-sm',
+            'transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400',
+            'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:opacity-60',
+            !selected && 'text-gray-400',
           )}
         >
-          <span className="flex-1 truncate text-left">
+          <span className="flex-1 truncate text-left font-medium">
             {selected ? selected.name : placeholder}
           </span>
-          <ChevronDown
-            className={cn(
-              'ml-1 h-3.5 w-3.5 shrink-0 opacity-50 transition-transform',
-              open && 'rotate-180',
-            )}
-          />
+          <ChevronDown className={cn('ml-1 h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform', open && 'rotate-180')} />
         </button>
 
-        {/* Dropdown */}
         {open && (
-          <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg">
-            {/* Search */}
-            <div className="border-b border-gray-100 px-2 py-1.5">
+          <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[200px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="border-b border-gray-100 px-3 py-2">
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === 'Escape') { setOpen(false); setQuery('') }
-                  if (e.key === 'Enter' && filtered.length === 1) {
-                    e.preventDefault()
-                    handleSelect(filtered[0].id)
-                  }
+                  if (e.key === 'Enter' && filtered.length === 1) { e.preventDefault(); handleSelect(filtered[0].id) }
                 }}
                 placeholder="Buscar…"
                 className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
               />
             </div>
-
-            {/* Options */}
-            <div className="max-h-48 overflow-y-auto py-1">
+            <div className="max-h-52 overflow-y-auto py-1">
               {filtered.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-gray-400">Sin resultados</p>
-              ) : (
-                filtered.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleSelect(opt.id)}
-                    className={cn(
-                      'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-50',
-                      value === opt.id && 'font-medium text-blue-600',
-                    )}
-                  >
-                    <Check
-                      className={cn(
-                        'h-3.5 w-3.5 shrink-0',
-                        value === opt.id ? 'opacity-100 text-blue-600' : 'opacity-0',
-                      )}
-                    />
-                    {opt.name}
-                  </button>
-                ))
-              )}
+                <p className="px-3 py-2.5 text-xs text-gray-400">Sin resultados</p>
+              ) : filtered.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => handleSelect(opt.id)}
+                  className={cn(
+                    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50',
+                    value === opt.id && 'bg-blue-50 font-semibold text-blue-700',
+                  )}
+                >
+                  <Check className={cn('h-3.5 w-3.5 shrink-0', value === opt.id ? 'opacity-100 text-blue-600' : 'opacity-0')} />
+                  {opt.name}
+                </button>
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Quick-create button */}
+      {/* Quick-create */}
       {onQuickCreate && (
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             type="button"
             title={quickCreateLabel}
-            onClick={() => {
-              setCreating(!creating)
-              setTimeout(() => newNameRef.current?.focus(), 30)
-            }}
+            onClick={() => { setCreating(!creating); setTimeout(() => newNameRef.current?.focus(), 30) }}
             className={cn(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
+              'flex h-9 w-9 items-center justify-center rounded-lg border transition-colors',
               creating
                 ? 'border-blue-400 bg-blue-50 text-blue-600'
-                : 'border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600',
+                : 'border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-600',
             )}
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
 
-          {/* Quick-create popover */}
           {creating && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
-              <p className="mb-2 text-xs font-semibold text-gray-700">
-                {quickCreateLabel}
-              </p>
+            <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+              <p className="mb-2 text-xs font-semibold text-gray-700">{quickCreateLabel}</p>
               <div className="flex gap-1.5">
                 <input
                   ref={newNameRef}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                    if (e.key === 'Enter') { e.preventDefault(); handleQuickCreate() }
+                    if (e.key === 'Enter') { e.preventDefault(); handleCreate() }
                     if (e.key === 'Escape') setCreating(false)
                   }}
                   placeholder="Nombre…"
-                  className="h-8 flex-1 rounded-md border border-gray-200 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                  className="h-8 flex-1 rounded-lg border border-gray-200 px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-400"
                 />
-                <Button
+                <button
                   type="button"
-                  size="sm"
                   disabled={!newName.trim() || saving}
-                  onClick={handleQuickCreate}
-                  className="h-8 px-2"
+                  onClick={handleCreate}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {saving ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5" />
-                  )}
-                </Button>
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                </button>
               </div>
             </div>
           )}
@@ -304,16 +248,27 @@ function SearchableSelect({
   )
 }
 
+// ── Field wrapper ─────────────────────────────────────────────────────────────
+
+function Field({ label, required, children, className }: {
+  label: string; required?: boolean; children: React.ReactNode; className?: string
+}) {
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      <Label className="text-sm font-medium text-gray-700">
+        {label}{required && <span className="ml-0.5 text-red-500">*</span>}
+      </Label>
+      {children}
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export function ProductCreateModal({
-  open,
-  onOpenChange,
-  onSuccess,
-}: ProductCreateModalProps) {
+export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCreateModalProps) {
   const router = useRouter()
 
-  // Catalog data
+  // Catalogs
   const [suppliers, setSuppliers] = useState<Option[]>([])
   const [brands, setBrands] = useState<Option[]>([])
   const [lines, setLines] = useState<Option[]>([])
@@ -338,35 +293,31 @@ export function ProductCreateModal({
   // Variants
   const [variants, setVariants] = useState<VariantRow[]>([newRow()])
 
-  // Saving
+  // Saving + error
   const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
 
-  // Derived
+  // Derived: categories filtered by line
   const categories = lineId
     ? allCategories.filter((c) => !c.line_id || c.line_id === lineId)
     : allCategories
 
-  useEffect(() => {
-    setCategoryId('')
-  }, [lineId])
+  useEffect(() => { setCategoryId('') }, [lineId])
 
-  // Load catalogs on open
+  // Load catalogs
   useEffect(() => {
     if (!open) return
     const load = async () => {
       setLoadingCatalogs(true)
       try {
-        const [lRes, cRes, bRes, sRes] = await Promise.all([
+        const [lR, cR, bR, sR] = await Promise.all([
           fetch('/api/catalogs/lines'),
           fetch('/api/catalogs/categories'),
           fetch('/api/catalogs/brands'),
           fetch('/api/catalogs/suppliers'),
         ])
-        const [lD, cD, bD, sD] = await Promise.all([
-          lRes.json(), cRes.json(), bRes.json(), sRes.json(),
-        ])
-        const arr = (d: unknown) =>
-          Array.isArray(d) ? d : (d as any)?.data || []
+        const [lD, cD, bD, sD] = await Promise.all([lR.json(), cR.json(), bR.json(), sR.json()])
+        const arr = (d: unknown) => (Array.isArray(d) ? d : (d as any)?.data || [])
         setLines(arr(lD))
         setAllCategories(arr(cD))
         setBrands(arr(bD))
@@ -383,16 +334,9 @@ export function ProductCreateModal({
   // Reset on close
   useEffect(() => {
     if (!open) {
-      setName('')
-      setBaseCode('')
-      setSupplierId('')
-      setBrandId('')
-      setLineId('')
-      setCategoryId('')
-      setWarehouseId('Tienda Mujeres')
-      setImageUrl('')
-      setImagePreview('')
-      setVariants([newRow()])
+      setName(''); setBaseCode(''); setSupplierId(''); setBrandId('')
+      setLineId(''); setCategoryId(''); setWarehouseId('Tienda Mujeres')
+      setImageUrl(''); setImagePreview(''); setVariants([newRow()]); setFormError('')
     }
   }, [open])
 
@@ -402,25 +346,18 @@ export function ProductCreateModal({
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('base_code', baseCode || `temp-${Date.now()}`)
+      fd.append('base_code', baseCode || `tmp-${Date.now()}`)
       fd.append('is_primary', 'true')
-      const res = await fetch('/api/upload/product-image', {
-        method: 'POST',
-        body: fd,
-      })
+      const res = await fetch('/api/upload/product-image', { method: 'POST', body: fd })
       const json = await res.json()
       if (json.success && json.data?.public_url) {
-        setImageUrl(json.data.public_url)
-        setImagePreview(json.data.public_url)
-        toast.success('Imagen subida', 'La imagen se subió correctamente')
+        setImageUrl(json.data.public_url); setImagePreview(json.data.public_url)
+        toast.success('Imagen subida', 'Se subió correctamente')
       } else {
         toast.error('Error', json.error || 'No se pudo subir la imagen')
       }
-    } catch {
-      toast.error('Error', 'Error al subir la imagen')
-    } finally {
-      setUploadingImage(false)
-    }
+    } catch { toast.error('Error', 'Error al subir la imagen') }
+    finally { setUploadingImage(false) }
   }
 
   // Quick-create helpers
@@ -430,73 +367,58 @@ export function ProductCreateModal({
     const res = await createSupplier(fd)
     if (res.success && res.data) {
       const sup = { id: res.data.id, name: res.data.name }
-      setSuppliers((prev) => [...prev, sup])
-      setSupplierId(sup.id)
+      setSuppliers((p) => [...p, sup]); setSupplierId(sup.id)
       toast.success('Proveedor creado', supplierName)
-    } else {
-      toast.error('Error', 'No se pudo crear el proveedor')
-    }
+    } else { toast.error('Error', 'No se pudo crear el proveedor') }
   }, [])
 
   const handleCreateBrand = useCallback(async (brandName: string) => {
-    const res = await createBrand({ name: brandName })
+    // createBrand requires at least one supplier_id
+    if (!supplierId) {
+      toast.error('Proveedor requerido', 'Selecciona un proveedor antes de crear una marca')
+      return
+    }
+    const res = await createBrand({ name: brandName, supplier_ids: [supplierId] })
     if (res.success && res.data) {
       const br = { id: res.data.id, name: res.data.name }
-      setBrands((prev) => [...prev, br])
-      setBrandId(br.id)
+      setBrands((p) => [...p, br]); setBrandId(br.id)
       toast.success('Marca creada', brandName)
     } else {
-      toast.error('Error', 'No se pudo crear la marca')
+      const errMsg = typeof res.error === 'string' ? res.error : 'No se pudo crear la marca'
+      toast.error('Error', errMsg)
     }
-  }, [])
+  }, [supplierId])
 
-  const handleCreateCategory = useCallback(
-    async (categoryName: string) => {
-      if (!lineId) {
-        toast.error('Línea requerida', 'Selecciona una línea primero')
-        return
-      }
-      const res = await createCategory({ name: categoryName, line_id: lineId })
-      if (res.success && res.data) {
-        const cat = { id: res.data.id, name: res.data.name, line_id: lineId }
-        setAllCategories((prev) => [...prev, cat])
-        setCategoryId(cat.id)
-        toast.success('Categoría creada', categoryName)
-      } else {
-        toast.error('Error', 'No se pudo crear la categoría')
-      }
-    },
-    [lineId],
-  )
+  const handleCreateCategory = useCallback(async (categoryName: string) => {
+    if (!lineId) { toast.error('Línea requerida', 'Selecciona una línea primero'); return }
+    const res = await createCategory({ name: categoryName, line_id: lineId })
+    if (res.success && res.data) {
+      const cat = { id: res.data.id, name: res.data.name, line_id: lineId }
+      setAllCategories((p) => [...p, cat]); setCategoryId(cat.id)
+      toast.success('Categoría creada', categoryName)
+    } else { toast.error('Error', 'No se pudo crear la categoría') }
+  }, [lineId])
 
   // Variant helpers
-  const updateVariant = (key: string, field: keyof VariantRow, value: string) => {
-    setVariants((prev) =>
-      prev.map((r) => (r._key === key ? { ...r, [field]: value } : r)),
-    )
-  }
+  const updateVariant = (key: string, field: keyof VariantRow, value: string) =>
+    setVariants((p) => p.map((r) => r._key === key ? { ...r, [field]: value } : r))
 
-  const removeVariant = (key: string) => {
-    setVariants((prev) => (prev.length === 1 ? prev : prev.filter((r) => r._key !== key)))
-  }
+  const removeVariant = (key: string) =>
+    setVariants((p) => p.length === 1 ? p : p.filter((r) => r._key !== key))
 
-  // Validation
+  // Validate
   const validate = () => {
-    if (!name.trim()) return 'El nombre es obligatorio'
+    if (!name.trim()) return 'El nombre del producto es obligatorio'
     if (!supplierId) return 'Selecciona un proveedor'
     if (!brandId) return 'Selecciona una marca'
     if (!lineId) return 'Selecciona una línea'
     if (!categoryId) return 'Selecciona una categoría'
     for (const v of variants) {
       if (!v.barcode.trim()) return 'Todos los códigos de barra son obligatorios'
-      if (!v.sale_price || isNaN(parseFloat(v.sale_price)) || parseFloat(v.sale_price) <= 0)
-        return 'El precio de venta debe ser mayor a 0'
-      if (
-        v.quantity === '' ||
-        isNaN(parseInt(v.quantity, 10)) ||
-        parseInt(v.quantity, 10) < 0
-      )
-        return 'La cantidad inicial no puede ser negativa'
+      const sp = parseFloat(v.sale_price)
+      if (!v.sale_price || isNaN(sp) || sp <= 0) return 'El precio de venta debe ser mayor a 0'
+      const qty = parseInt(v.quantity, 10)
+      if (v.quantity === '' || isNaN(qty) || qty < 0) return 'La cantidad inicial no puede ser negativa'
     }
     return null
   }
@@ -504,8 +426,8 @@ export function ProductCreateModal({
   // Submit
   const handleSubmit = async () => {
     const err = validate()
-    if (err) { toast.error('Datos incompletos', err); return }
-
+    if (err) { setFormError(err); return }
+    setFormError('')
     setSaving(true)
     try {
       const baseName = name.trim()
@@ -530,22 +452,15 @@ export function ProductCreateModal({
 
       const result = await createBulkProducts(products)
       if (!result.success) {
-        toast.error('Error al guardar', String(result.error))
-        return
+        toast.error('Error al guardar', String(result.error)); return
       }
-
       const { created = 0, updated = 0 } = (result.data as any) || {}
       toast.success(
         'Producto guardado',
-        created > 0 && updated > 0
-          ? `${created} creado(s), ${updated} actualizado(s)`
-          : created > 0
-            ? `${created} variante(s) creada(s)`
-            : `${updated} variante(s) actualizada(s)`,
+        created > 0 ? `${created} variante(s) creada(s)${updated > 0 ? `, ${updated} actualizada(s)` : ''}`
+          : `${updated} variante(s) actualizada(s)`,
       )
-      onOpenChange(false)
-      onSuccess?.()
-      router.refresh()
+      onOpenChange(false); onSuccess?.(); router.refresh()
     } finally {
       setSaving(false)
     }
@@ -556,352 +471,307 @@ export function ProductCreateModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[92vh] max-w-5xl flex-col overflow-hidden p-0"
+        className="flex max-h-[94vh] max-w-5xl flex-col overflow-hidden p-0"
         onInteractOutside={(e) => e.preventDefault()}
       >
-        {/* Header */}
-        <DialogHeader className="border-b border-gray-100 px-6 pb-4 pt-6">
-          <DialogTitle className="text-lg font-semibold">Nuevo Producto</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Completa los datos base y agrega las variantes que necesites.
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <DialogHeader className="shrink-0 border-b border-gray-100 px-6 pb-4 pt-5">
+          <DialogTitle className="text-lg font-semibold tracking-tight">
+            Nuevo Producto
+          </DialogTitle>
+          <p className="text-sm text-gray-500">
+            Completa los datos base y agrega las variantes (talla/color) que necesites.
           </p>
         </DialogHeader>
 
-        {/* Scrollable body */}
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+        {/* ── Body ───────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="space-y-0 divide-y divide-gray-100">
 
-          {/* ═══ SECCIÓN 1: Datos base ═══════════════════════════════ */}
-          <div className="space-y-4">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Datos base
-            </h3>
+            {/* ══ SECCIÓN 1: Datos base ══════════════════════════════ */}
+            <div className="px-6 py-5 space-y-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+                Datos base
+              </p>
 
-            {/* Nombre + Código base */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2 space-y-1.5">
-                <Label htmlFor="prod-name" className="text-sm font-medium">
-                  Nombre del producto <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="prod-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ej: Chaleco Army, Blusa Floral…"
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="prod-basecode" className="text-sm font-medium">
-                  Código base{' '}
-                  <span className="text-xs font-normal text-gray-400">(opcional)</span>
-                </Label>
-                <Input
-                  id="prod-basecode"
-                  value={baseCode}
-                  onChange={(e) => setBaseCode(e.target.value.toUpperCase())}
-                  placeholder="Ej: CHA-01"
-                  className="h-9 font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Catalog selects — 2 col grid */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">
-                  Proveedor <span className="text-red-500">*</span>
-                </Label>
-                <SearchableSelect
-                  options={suppliers}
-                  value={supplierId}
-                  onChange={setSupplierId}
-                  placeholder={loadingCatalogs ? 'Cargando…' : 'Seleccionar proveedor'}
-                  disabled={loadingCatalogs}
-                  onQuickCreate={handleCreateSupplier}
-                  quickCreateLabel="Nuevo proveedor"
-                />
+              {/* Row 1: Nombre + Código base */}
+              <div className="grid grid-cols-[1fr_200px] gap-4">
+                <Field label="Nombre del producto" required>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ej: Chaleco Army, Blusa Floral…"
+                    className="h-9"
+                  />
+                </Field>
+                <Field label="Código base" className="w-full">
+                  <Input
+                    value={baseCode}
+                    onChange={(e) => setBaseCode(e.target.value.toUpperCase())}
+                    placeholder="CHA-01"
+                    className="h-9 font-mono"
+                  />
+                </Field>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">
-                  Marca <span className="text-red-500">*</span>
-                </Label>
-                <SearchableSelect
-                  options={brands}
-                  value={brandId}
-                  onChange={setBrandId}
-                  placeholder={loadingCatalogs ? 'Cargando…' : 'Seleccionar marca'}
-                  disabled={loadingCatalogs}
-                  onQuickCreate={handleCreateBrand}
-                  quickCreateLabel="Nueva marca"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">
-                  Línea <span className="text-red-500">*</span>
-                </Label>
-                <SearchableSelect
-                  options={lines}
-                  value={lineId}
-                  onChange={setLineId}
-                  placeholder={loadingCatalogs ? 'Cargando…' : 'Seleccionar línea'}
-                  disabled={loadingCatalogs}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">
-                  Categoría <span className="text-red-500">*</span>
-                </Label>
-                <SearchableSelect
-                  options={categories}
-                  value={categoryId}
-                  onChange={setCategoryId}
-                  placeholder={
-                    !lineId
-                      ? 'Selecciona una línea primero'
-                      : loadingCatalogs
-                        ? 'Cargando…'
-                        : 'Seleccionar categoría'
-                  }
-                  disabled={!lineId || loadingCatalogs}
-                  onQuickCreate={lineId ? handleCreateCategory : undefined}
-                  quickCreateLabel="Nueva categoría"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Almacén</Label>
-                <select
-                  value={warehouseId}
-                  onChange={(e) => setWarehouseId(e.target.value)}
-                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {WAREHOUSES.map((w) => (
-                    <option key={w.id} value={w.id}>{w.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Image upload */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Imagen del producto</Label>
-              <div className="flex items-start gap-4">
-                {/* Preview box */}
-                <div
-                  className={cn(
-                    'flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border-2 border-dashed',
-                    imagePreview ? 'border-transparent' : 'border-gray-200 bg-gray-50',
+              {/* Row 2: Proveedor · Marca */}
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Proveedor" required>
+                  <SearchableSelect
+                    options={suppliers}
+                    value={supplierId}
+                    onChange={setSupplierId}
+                    placeholder={loadingCatalogs ? 'Cargando…' : 'Seleccionar proveedor'}
+                    disabled={loadingCatalogs}
+                    onQuickCreate={handleCreateSupplier}
+                    quickCreateLabel="Nuevo proveedor"
+                  />
+                </Field>
+                <Field label="Marca" required>
+                  <SearchableSelect
+                    options={brands}
+                    value={brandId}
+                    onChange={setBrandId}
+                    placeholder={loadingCatalogs ? 'Cargando…' : 'Seleccionar marca'}
+                    disabled={loadingCatalogs}
+                    onQuickCreate={handleCreateBrand}
+                    quickCreateLabel="Nueva marca"
+                  />
+                  {!supplierId && (
+                    <p className="text-[11px] text-amber-600 flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Selecciona proveedor antes de crear marca
+                    </p>
                   )}
+                </Field>
+              </div>
+
+              {/* Row 3: Línea · Categoría · Almacén */}
+              <div className="grid grid-cols-3 gap-4">
+                <Field label="Línea" required>
+                  <SearchableSelect
+                    options={lines}
+                    value={lineId}
+                    onChange={setLineId}
+                    placeholder={loadingCatalogs ? 'Cargando…' : 'Seleccionar línea'}
+                    disabled={loadingCatalogs}
+                  />
+                </Field>
+                <Field label="Categoría" required>
+                  <SearchableSelect
+                    options={categories}
+                    value={categoryId}
+                    onChange={setCategoryId}
+                    placeholder={!lineId ? 'Elige línea primero' : loadingCatalogs ? 'Cargando…' : 'Seleccionar categoría'}
+                    disabled={!lineId || loadingCatalogs}
+                    onQuickCreate={lineId ? handleCreateCategory : undefined}
+                    quickCreateLabel="Nueva categoría"
+                  />
+                </Field>
+                <Field label="Almacén">
+                  <select
+                    value={warehouseId}
+                    onChange={(e) => setWarehouseId(e.target.value)}
+                    className="flex h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    {WAREHOUSES.map((w) => (
+                      <option key={w.id} value={w.id}>{w.label}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              {/* Image upload */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">Imagen del producto</p>
+                <div className="flex items-start gap-4">
+                  <div
+                    className={cn(
+                      'flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-xl border-2 border-dashed',
+                      imagePreview ? 'border-transparent' : 'border-gray-200 bg-gray-50',
+                    )}
+                  >
+                    {imagePreview ? (
+                      <div className="relative h-full w-full">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={imagePreview} alt="preview" className="h-[84px] w-[84px] rounded-xl object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => { setImageUrl(''); setImagePreview('') }}
+                          className="absolute -right-2 -top-2 rounded-full bg-gray-900 p-0.5 text-white hover:bg-gray-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-gray-300" />
+                    )}
+                  </div>
+                  <div className="space-y-1.5 pt-1">
+                    <Button
+                      type="button" variant="outline" size="sm"
+                      disabled={uploadingImage}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="gap-2 h-9"
+                    >
+                      {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      {uploadingImage ? 'Subiendo…' : 'Subir imagen'}
+                    </Button>
+                    <p className="text-xs text-gray-400">JPG, PNG o WEBP · máx. 2 MB</p>
+                    <input
+                      ref={fileInputRef} type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ''
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ══ SECCIÓN 2: Variantes ═══════════════════════════════ */}
+            <div className="px-6 py-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+                    Variantes
+                  </p>
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
+                    {variants.length}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVariants((p) => [...p, newRow()])}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
                 >
-                  {imagePreview ? (
-                    <div className="relative h-full w-full">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={imagePreview}
-                        alt="preview"
-                        className="h-24 w-24 rounded-xl object-cover"
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar variante
+                </button>
+              </div>
+
+              {/* Table — scrollable horizontally on small screens */}
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
+                {/* Header */}
+                <div
+                  className="grid min-w-[700px] bg-gray-50/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500"
+                  style={{ gridTemplateColumns: '170px 80px 165px 110px 110px 90px 36px' }}
+                >
+                  <span>Código de barras</span>
+                  <span>Talla</span>
+                  <span>Color</span>
+                  <span>P. Compra</span>
+                  <span>P. Venta *</span>
+                  <span>Stock ini.</span>
+                  <span />
+                </div>
+
+                {/* Rows */}
+                <div className="min-w-[700px] divide-y divide-gray-50">
+                  {variants.map((row) => (
+                    <div
+                      key={row._key}
+                      className="grid items-center gap-2 px-3 py-2"
+                      style={{ gridTemplateColumns: '170px 80px 165px 110px 110px 90px 36px' }}
+                    >
+                      {/* Barcode */}
+                      <Input
+                        value={row.barcode}
+                        onChange={(e) => updateVariant(row._key, 'barcode', e.target.value)}
+                        placeholder="0000000000000"
+                        className="h-8 font-mono text-xs"
                       />
+                      {/* Talla */}
+                      <Input
+                        value={row.size}
+                        onChange={(e) => updateVariant(row._key, 'size', e.target.value)}
+                        placeholder="S / M / L"
+                        className="h-8 text-xs text-center"
+                      />
+                      {/* Color */}
+                      <CompactColorPicker
+                        value={row.color}
+                        onChange={(v) => updateVariant(row._key, 'color', v)}
+                        placeholder="Color"
+                      />
+                      {/* P. Compra */}
+                      <Input
+                        type="number" min="0" step="0.01"
+                        value={row.purchase_price}
+                        onChange={(e) => updateVariant(row._key, 'purchase_price', e.target.value)}
+                        placeholder="0.00"
+                        className="h-8 text-xs"
+                      />
+                      {/* P. Venta */}
+                      <Input
+                        type="number" min="0" step="0.01"
+                        value={row.sale_price}
+                        onChange={(e) => updateVariant(row._key, 'sale_price', e.target.value)}
+                        placeholder="0.00"
+                        className="h-8 text-xs"
+                      />
+                      {/* Stock */}
+                      <Input
+                        type="number" min="0" step="1"
+                        value={row.quantity}
+                        onChange={(e) => updateVariant(row._key, 'quantity', e.target.value)}
+                        placeholder="0"
+                        className="h-8 text-xs text-center"
+                      />
+                      {/* Remove */}
                       <button
                         type="button"
-                        onClick={() => { setImageUrl(''); setImagePreview('') }}
-                        className="absolute -right-2 -top-2 rounded-full bg-gray-900 p-0.5 text-white hover:bg-gray-700"
+                        onClick={() => removeVariant(row._key)}
+                        disabled={variants.length === 1}
+                        className={cn(
+                          'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                          variants.length === 1
+                            ? 'cursor-not-allowed text-gray-200'
+                            : 'text-gray-400 hover:bg-red-50 hover:text-red-500',
+                        )}
                       >
-                        <X className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                  ) : (
-                    <ImageIcon className="h-8 w-8 text-gray-300" />
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={uploadingImage}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                  >
-                    {uploadingImage ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="h-3.5 w-3.5" />
-                    )}
-                    {uploadingImage ? 'Subiendo…' : 'Subir imagen'}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    JPG, PNG o WEBP · máx. 2 MB
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleImageFile(file)
-                      e.target.value = ''
-                    }}
-                  />
+                  ))}
                 </div>
               </div>
+
+              <p className="text-xs text-gray-400">
+                Cada fila crea un SKU independiente. Deja Talla vacía si el producto no tiene variante de talla.
+              </p>
             </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-gray-100" />
-
-          {/* ═══ SECCIÓN 2: Variantes ════════════════════════════════ */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                Variantes
-                <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-normal text-gray-500">
-                  {variants.length} {variants.length === 1 ? 'fila' : 'filas'}
-                </span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setVariants((prev) => [...prev, newRow()])}
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar variante
-              </button>
-            </div>
-
-            {/* Variants table */}
-            <div className="overflow-hidden rounded-xl border border-gray-100">
-              {/* Column headers */}
-              <div
-                className="grid bg-gray-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400"
-                style={{ gridTemplateColumns: '1fr 90px 150px 110px 110px 90px 36px' }}
-              >
-                <span>Código de barras</span>
-                <span>Talla</span>
-                <span>Color</span>
-                <span>P. Compra</span>
-                <span>P. Venta *</span>
-                <span>Stock ini.</span>
-                <span />
-              </div>
-
-              {/* Rows */}
-              <div className="divide-y divide-gray-50">
-                {variants.map((row) => (
-                  <div
-                    key={row._key}
-                    className="grid items-center gap-1.5 px-3 py-2"
-                    style={{ gridTemplateColumns: '1fr 90px 150px 110px 110px 90px 36px' }}
-                  >
-                    <Input
-                      value={row.barcode}
-                      onChange={(e) => updateVariant(row._key, 'barcode', e.target.value)}
-                      placeholder="0000000000000"
-                      className="h-8 font-mono text-xs"
-                    />
-                    <Input
-                      value={row.size}
-                      onChange={(e) => updateVariant(row._key, 'size', e.target.value)}
-                      placeholder="S, M, L…"
-                      className="h-8 text-xs"
-                    />
-                    <CompactColorPicker
-                      value={row.color}
-                      onChange={(v) => updateVariant(row._key, 'color', v)}
-                      placeholder="Color"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={row.purchase_price}
-                      onChange={(e) =>
-                        updateVariant(row._key, 'purchase_price', e.target.value)
-                      }
-                      placeholder="0.00"
-                      className="h-8 text-xs"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={row.sale_price}
-                      onChange={(e) =>
-                        updateVariant(row._key, 'sale_price', e.target.value)
-                      }
-                      placeholder="0.00"
-                      className="h-8 text-xs"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={row.quantity}
-                      onChange={(e) =>
-                        updateVariant(row._key, 'quantity', e.target.value)
-                      }
-                      placeholder="0"
-                      className="h-8 text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeVariant(row._key)}
-                      disabled={variants.length === 1}
-                      className={cn(
-                        'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-                        variants.length === 1
-                          ? 'cursor-not-allowed text-gray-200'
-                          : 'text-gray-400 hover:bg-red-50 hover:text-red-500',
-                      )}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-400">
-              Cada fila crea un SKU independiente. Deja Talla vacía para un producto sin variante de talla.
-            </p>
           </div>
         </div>
 
-        {/* Footer */}
-        <DialogFooter className="border-t border-gray-100 px-6 py-4">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={saving}
-            className="min-w-[140px] gap-2"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Guardando…
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4" />
-                Guardar producto
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+        {/* ── Footer ─────────────────────────────────────────────── */}
+        <div className="shrink-0 border-t border-gray-100 px-6 py-4">
+          {formError && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {formError}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={saving}
+              className="min-w-[150px] gap-2"
+            >
+              {saving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Guardando…</>
+              ) : (
+                <><Check className="h-4 w-4" />Guardar producto</>
+              )}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
