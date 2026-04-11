@@ -47,6 +47,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useStore } from '@/contexts/store-context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,14 @@ const WAREHOUSES = [
   { id: 'Tienda Mujeres', label: 'Tienda Mujeres' },
   { id: 'Tienda Hombres', label: 'Tienda Hombres' },
 ]
+
+/** Infer warehouse from line name */
+function warehouseFromLineName(lineName: string): string | null {
+  const n = lineName.toLowerCase()
+  if (n.includes('hombre')) return 'Tienda Hombres'
+  if (n.includes('mujer') || n.includes('niño') || n.includes('nino')) return 'Tienda Mujeres'
+  return null // shared lines (Accesorios, Perfumes) → don't override
+}
 
 let _rc = 0
 function newRow(): VariantRow {
@@ -267,6 +276,11 @@ function Field({ label, required, children, className }: {
 
 export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCreateModalProps) {
   const router = useRouter()
+  const { storeId, selectedStore } = useStore()
+
+  // Derive default warehouse from store context
+  const defaultWarehouse =
+    selectedStore === 'HOMBRES' ? 'Tienda Hombres' : 'Tienda Mujeres'
 
   // Catalogs
   const [suppliers, setSuppliers] = useState<Option[]>([])
@@ -281,7 +295,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   const [brandId, setBrandId] = useState('')
   const [lineId, setLineId] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  const [warehouseId, setWarehouseId] = useState('Tienda Mujeres')
+  const [warehouseId, setWarehouseId] = useState(defaultWarehouse)
 
   // Image
   const [imageUrl, setImageUrl] = useState('')
@@ -301,23 +315,35 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
     ? allCategories.filter((c) => !c.line_id || c.line_id === lineId)
     : allCategories
 
-  useEffect(() => { setCategoryId('') }, [lineId])
+  // When line changes: reset category + auto-set warehouse from line name
+  useEffect(() => {
+    setCategoryId('')
+    if (lineId) {
+      const line = lines.find((l) => l.id === lineId)
+      if (line) {
+        const wh = warehouseFromLineName(line.name)
+        if (wh) setWarehouseId(wh)
+      }
+    }
+  }, [lineId, lines])
 
-  // Load catalogs
+  // Load catalogs — filter lines by user's store
   useEffect(() => {
     if (!open) return
     const load = async () => {
       setLoadingCatalogs(true)
       try {
+        const lineParams = storeId ? `?store_id=${storeId}` : ''
         const [lR, cR, bR, sR] = await Promise.all([
-          fetch('/api/catalogs/lines'),
+          fetch(`/api/catalogs/lines${lineParams}`),
           fetch('/api/catalogs/categories'),
           fetch('/api/catalogs/brands'),
           fetch('/api/catalogs/suppliers'),
         ])
         const [lD, cD, bD, sD] = await Promise.all([lR.json(), cR.json(), bR.json(), sR.json()])
         const arr = (d: unknown) => (Array.isArray(d) ? d : (d as any)?.data || [])
-        setLines(arr(lD))
+        const fetchedLines = arr(lD) as Option[]
+        setLines(fetchedLines)
         setAllCategories(arr(cD))
         setBrands(arr(bD))
         setSuppliers(arr(sD))
@@ -328,13 +354,13 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
       }
     }
     load()
-  }, [open])
+  }, [open, storeId])
 
   // Reset on close
   useEffect(() => {
     if (!open) {
       setName(''); setSupplierId(''); setBrandId('')
-      setLineId(''); setCategoryId(''); setWarehouseId('Tienda Mujeres')
+      setLineId(''); setCategoryId(''); setWarehouseId(defaultWarehouse)
       setImageUrl(''); setImagePreview(''); setVariants([newRow()]); setFormError('')
     }
   }, [open])

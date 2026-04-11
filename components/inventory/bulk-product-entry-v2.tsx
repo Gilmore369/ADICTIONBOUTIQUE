@@ -315,6 +315,16 @@ export function BulkProductEntryV2() {
   }
 
   const updateModel = async (id: string, field: keyof ProductModel, value: any) => {
+    // Auto-update global warehouse when line changes
+    if (field === 'lineId' && value) {
+      const line = lines.find((l: any) => l.id === value)
+      if (line) {
+        const n = (line.name as string).toLowerCase()
+        if (n.includes('hombre')) setWarehouse('Tienda Hombres')
+        else if (n.includes('mujer') || n.includes('niño') || n.includes('nino')) setWarehouse('Tienda Mujeres')
+      }
+    }
+
     // Si cambia la categoría, cargar tallas ANTES de actualizar el estado
     if (field === 'categoryId' && value) {
       console.log('[updateModel] Category changed to:', value)
