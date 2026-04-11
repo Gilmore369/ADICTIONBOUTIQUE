@@ -471,7 +471,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[94vh] max-w-5xl flex-col overflow-hidden p-0"
+        className="flex max-h-[94vh] w-[92vw] max-w-[1100px] flex-col overflow-hidden p-0"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* ── Header ─────────────────────────────────────────────── */}
@@ -656,8 +656,8 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
               <div className="overflow-x-auto rounded-xl border border-gray-100">
                 {/* Header */}
                 <div
-                  className="grid min-w-[700px] bg-gray-50/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500"
-                  style={{ gridTemplateColumns: '170px 80px 165px 110px 110px 90px 36px' }}
+                  className="grid bg-gray-50/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500"
+                  style={{ gridTemplateColumns: '2fr 90px 185px 120px 120px 110px 36px' }}
                 >
                   <span>Código de barras</span>
                   <span>Talla</span>
@@ -669,12 +669,12 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                 </div>
 
                 {/* Rows */}
-                <div className="min-w-[700px] divide-y divide-gray-50">
+                <div className="divide-y divide-gray-50">
                   {variants.map((row) => (
                     <div
                       key={row._key}
                       className="grid items-center gap-2 px-3 py-2"
-                      style={{ gridTemplateColumns: '170px 80px 165px 110px 110px 90px 36px' }}
+                      style={{ gridTemplateColumns: '2fr 90px 185px 120px 120px 110px 36px' }}
                     >
                       {/* Barcode */}
                       <Input
