@@ -277,7 +277,6 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
 
   // Base data
   const [name, setName] = useState('')
-  const [baseCode, setBaseCode] = useState('')
   const [supplierId, setSupplierId] = useState('')
   const [brandId, setBrandId] = useState('')
   const [lineId, setLineId] = useState('')
@@ -334,7 +333,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   // Reset on close
   useEffect(() => {
     if (!open) {
-      setName(''); setBaseCode(''); setSupplierId(''); setBrandId('')
+      setName(''); setSupplierId(''); setBrandId('')
       setLineId(''); setCategoryId(''); setWarehouseId('Tienda Mujeres')
       setImageUrl(''); setImagePreview(''); setVariants([newRow()]); setFormError('')
     }
@@ -346,7 +345,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('base_code', baseCode || `tmp-${Date.now()}`)
+      fd.append('base_code', name.trim().slice(0, 4).toUpperCase() || `tmp-${Date.now()}`)
       fd.append('is_primary', 'true')
       const res = await fetch('/api/upload/product-image', { method: 'POST', body: fd })
       const json = await res.json()
@@ -431,10 +430,17 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
     setSaving(true)
     try {
       const baseName = name.trim()
+      // Auto-generate base_code from name initials (e.g. "Chaleco Army" → "CA")
+      const autoBaseCode = baseName
+        .split(/\s+/)
+        .map((w) => w[0] ?? '')
+        .join('')
+        .toUpperCase()
+        .slice(0, 6) || 'PROD'
       const products = variants.map((v) => ({
         barcode: v.barcode.trim(),
         name: v.size ? `${baseName} - ${v.size}` : baseName,
-        base_code: baseCode.trim() || undefined,
+        base_code: autoBaseCode,
         base_name: baseName,
         line_id: lineId,
         category_id: categoryId,
@@ -471,7 +477,12 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[94vh] w-[92vw] max-w-[1100px] flex-col overflow-hidden p-0 sm:max-w-[1100px]"
+        className="flex flex-col overflow-hidden p-0"
+        style={{
+          width: 'min(1160px, 96vw)',
+          maxWidth: 'min(1160px, 96vw)',
+          maxHeight: '92vh',
+        }}
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* ── Header ─────────────────────────────────────────────── */}
@@ -494,25 +505,15 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                 Datos base
               </p>
 
-              {/* Row 1: Nombre + Código base */}
-              <div className="grid grid-cols-[1fr_200px] gap-4">
-                <Field label="Nombre del producto" required>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ej: Chaleco Army, Blusa Floral…"
-                    className="h-9"
-                  />
-                </Field>
-                <Field label="Código base" className="w-full">
-                  <Input
-                    value={baseCode}
-                    onChange={(e) => setBaseCode(e.target.value.toUpperCase())}
-                    placeholder="CHA-01"
-                    className="h-9 font-mono"
-                  />
-                </Field>
-              </div>
+              {/* Row 1: Nombre (full width) */}
+              <Field label="Nombre del producto" required>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Chaleco Army, Blusa Floral…"
+                  className="h-9"
+                />
+              </Field>
 
               {/* Row 2: Proveedor · Marca */}
               <div className="grid grid-cols-2 gap-4">
@@ -657,7 +658,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                 {/* Header */}
                 <div
                   className="grid bg-gray-50/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500"
-                  style={{ gridTemplateColumns: '2fr 90px 185px 120px 120px 110px 36px' }}
+                  style={{ gridTemplateColumns: '2fr 100px 200px 130px 130px 120px 36px' }}
                 >
                   <span>Código de barras</span>
                   <span>Talla</span>
@@ -674,7 +675,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                     <div
                       key={row._key}
                       className="grid items-center gap-2 px-3 py-2"
-                      style={{ gridTemplateColumns: '2fr 90px 185px 120px 120px 110px 36px' }}
+                      style={{ gridTemplateColumns: '2fr 100px 200px 130px 130px 120px 36px' }}
                     >
                       {/* Barcode */}
                       <Input
