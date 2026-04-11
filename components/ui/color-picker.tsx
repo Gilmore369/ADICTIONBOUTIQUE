@@ -563,6 +563,7 @@ export function ColorPicker({ value, onChange, placeholder, label, compact }: Co
 }
 
 // ── Compact ColorPicker (table cell) ──────────────────────────────────────────
+// Uses fixed positioning so the picker escapes any overflow/scroll container.
 
 export function CompactColorPicker({
   value,
@@ -570,54 +571,69 @@ export function CompactColorPicker({
   placeholder,
 }: Omit<ColorPickerProps, 'compact'>) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
 
-  const selectedHex =
-    hexForName(value) ?? (value.startsWith('#') ? value : null)
+  const selectedHex = hexForName(value) ?? (value.startsWith('#') ? value : null)
 
-  // Close when clicking outside
+  // Position the picker below the trigger using fixed coords
+  const handleOpen = () => {
+    if (open) { setOpen(false); return }
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (rect) {
+      // Try to open below; if not enough space, open above
+      const pickerH = 420
+      const spaceBelow = window.innerHeight - rect.bottom
+      const top = spaceBelow >= pickerH ? rect.bottom + 4 : rect.top - pickerH - 4
+      // Keep horizontally within viewport
+      const left = Math.min(rect.left, window.innerWidth - 250)
+      setPos({ top, left })
+    }
+    setOpen(true)
+  }
+
+  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        pickerRef.current?.contains(e.target as Node)
+      ) return
+      setOpen(false)
     }
     if (open) document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
   return (
-    <div ref={ref} className="relative">
+    <>
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={handleOpen}
         className={cn(
           'flex h-8 w-full items-center gap-1.5 rounded-lg border px-2 text-xs transition-colors',
           'border-gray-200 bg-white hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400',
         )}
       >
-        {/* Swatch */}
         <div
           className="h-4 w-4 shrink-0 rounded-md border border-gray-300"
-          style={{
-            backgroundColor: selectedHex ?? '#E5E7EB',
-          }}
+          style={{ backgroundColor: selectedHex ?? '#E5E7EB' }}
         />
         <span className="flex-1 truncate text-left text-gray-700">
           {value || <span className="text-gray-400">{placeholder ?? 'Color'}</span>}
         </span>
-        <ChevronDown
-          className={cn(
-            'h-3 w-3 shrink-0 text-gray-400 transition-transform',
-            open && 'rotate-180',
-          )}
-        />
+        <ChevronDown className={cn('h-3 w-3 shrink-0 text-gray-400 transition-transform', open && 'rotate-180')} />
       </button>
 
-      {/* Advanced picker overlay */}
-      {open && (
-        <div className="absolute left-0 top-full z-[60] mt-1">
+      {/* Picker — rendered at fixed position, outside any scroll container */}
+      {open && pos && (
+        <div
+          ref={pickerRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+        >
           <AdvancedColorPicker
             value={value}
             onChange={onChange}
@@ -625,6 +641,6 @@ export function CompactColorPicker({
           />
         </div>
       )}
-    </div>
+    </>
   )
 }

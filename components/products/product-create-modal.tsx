@@ -471,7 +471,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[94vh] w-[92vw] max-w-[1100px] flex-col overflow-hidden p-0"
+        className="flex max-h-[94vh] w-[92vw] max-w-[1100px] flex-col overflow-hidden p-0 sm:max-w-[1100px]"
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* ── Header ─────────────────────────────────────────────── */}
