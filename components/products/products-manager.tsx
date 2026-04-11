@@ -26,7 +26,7 @@ import { useState, useMemo } from 'react'
 import { useDebounce } from '@/hooks/use-debounce'
 import { ProductsTable } from './products-table'
 import { ProductForm } from './product-form'
-import { ProductFormMultiSize } from './product-form-multi-size'
+import { ProductCreateModal } from './product-create-modal'
 import { SearchFilter } from '@/components/catalogs/search-filter'
 import {
   Dialog,
@@ -35,7 +35,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Plus, Layers } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
 import { deleteProduct } from '@/actions/catalogs'
@@ -73,8 +73,8 @@ interface ProductsManagerProps {
 export function ProductsManager({ initialProducts, lines, categories }: ProductsManagerProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [useMultiSizeForm, setUseMultiSizeForm] = useState(false)
   const [filterLine, setFilterLine] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -83,24 +83,14 @@ export function ProductsManager({ initialProducts, lines, categories }: Products
   // Debounce search query (300ms)
   const debouncedSearch = useDebounce(searchQuery, 300)
 
-  // Handle create product (single size)
+  // Handle create product — opens new unified modal
   const handleCreate = () => {
-    setEditingProduct(null)
-    setUseMultiSizeForm(false)
-    setDialogOpen(true)
-  }
-
-  // Handle create product (multi size)
-  const handleCreateMultiSize = () => {
-    setEditingProduct(null)
-    setUseMultiSizeForm(true)
-    setDialogOpen(true)
+    setCreateModalOpen(true)
   }
 
   // Handle edit product
   const handleEdit = (product: Product) => {
     setEditingProduct(product)
-    setUseMultiSizeForm(false)
     setDialogOpen(true)
   }
 
@@ -130,21 +120,14 @@ export function ProductsManager({ initialProducts, lines, categories }: Products
     }
   }
 
-  // Handle form success (create or update)
+  // Handle form success (edit)
   const handleFormSuccess = (product?: Product) => {
     if (editingProduct && product) {
-      // Update existing product in local state
       setProducts(products.map((p) => (p.id === product.id ? product : p)))
       toast.success('Producto actualizado', `El producto "${product.name}" ha sido actualizado correctamente.`)
-    } else {
-      // For multi-size creation, just show success message
-      toast.success('Productos creados', 'Los productos han sido creados correctamente.')
     }
-
     setDialogOpen(false)
     setEditingProduct(null)
-
-    // Refresh the page data
     router.refresh()
   }
 
@@ -192,13 +175,9 @@ export function ProductsManager({ initialProducts, lines, categories }: Products
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleCreate} variant="outline" className="gap-2">
+          <Button onClick={handleCreate} className="gap-2">
             <Plus className="h-4 w-4" />
-            Producto Simple
-          </Button>
-          <Button onClick={handleCreateMultiSize} className="gap-2">
-            <Layers className="h-4 w-4" />
-            Múltiples Tallas
+            Nuevo Producto
           </Button>
         </div>
       </div>
@@ -253,33 +232,23 @@ export function ProductsManager({ initialProducts, lines, categories }: Products
         onDelete={handleDelete}
       />
 
-      {/* Create/Edit Dialog */}
+      {/* New unified create modal */}
+      <ProductCreateModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        onSuccess={() => router.refresh()}
+      />
+
+      {/* Edit Dialog (keeps existing ProductForm for editing) */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingProduct 
-                ? 'Editar Producto' 
-                : useMultiSizeForm 
-                  ? 'Crear Productos con Múltiples Tallas' 
-                  : 'Nuevo Producto'}
-            </DialogTitle>
+            <DialogTitle>Editar Producto</DialogTitle>
           </DialogHeader>
-          {editingProduct ? (
+          {editingProduct && (
             <ProductForm
               mode="edit"
               initialData={editingProduct}
-              onSuccess={handleFormSuccess}
-              onCancel={handleFormCancel}
-            />
-          ) : useMultiSizeForm ? (
-            <ProductFormMultiSize
-              onSuccess={handleFormSuccess}
-              onCancel={handleFormCancel}
-            />
-          ) : (
-            <ProductForm
-              mode="create"
               onSuccess={handleFormSuccess}
               onCancel={handleFormCancel}
             />
