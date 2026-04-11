@@ -577,17 +577,42 @@ export function CompactColorPicker({
 
   const selectedHex = hexForName(value) ?? (value.startsWith('#') ? value : null)
 
-  // Position the picker below the trigger using fixed coords
+  // Position the picker — always stays within viewport
   const handleOpen = () => {
     if (open) { setOpen(false); return }
     const rect = triggerRef.current?.getBoundingClientRect()
     if (rect) {
-      // Try to open below; if not enough space, open above
-      const pickerH = 420
+      const PICKER_W = 248
+      const PICKER_H = 420
+      const GAP = 6
+      const MARGIN = 8 // min distance from viewport edge
+
+      // ── Vertical ──────────────────────────────────────────────────
+      // Prefer opening ABOVE so it doesn't cover the row below
+      const spaceAbove = rect.top
       const spaceBelow = window.innerHeight - rect.bottom
-      const top = spaceBelow >= pickerH ? rect.bottom + 4 : rect.top - pickerH - 4
-      // Keep horizontally within viewport
-      const left = Math.min(rect.left, window.innerWidth - 250)
+      let top: number
+      if (spaceAbove >= PICKER_H + GAP) {
+        // Enough space above → open above
+        top = rect.top - PICKER_H - GAP
+      } else if (spaceBelow >= PICKER_H + GAP) {
+        // Enough space below → open below
+        top = rect.bottom + GAP
+      } else {
+        // Neither — pick whichever has more room, clamp to viewport
+        top = spaceAbove > spaceBelow
+          ? Math.max(MARGIN, rect.top - PICKER_H - GAP)
+          : Math.min(window.innerHeight - PICKER_H - MARGIN, rect.bottom + GAP)
+      }
+
+      // ── Horizontal ────────────────────────────────────────────────
+      // Align left edge with trigger; shift left if it would overflow right
+      let left = rect.left
+      if (left + PICKER_W > window.innerWidth - MARGIN) {
+        left = window.innerWidth - PICKER_W - MARGIN
+      }
+      left = Math.max(MARGIN, left)
+
       setPos({ top, left })
     }
     setOpen(true)
