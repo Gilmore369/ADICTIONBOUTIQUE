@@ -22,7 +22,7 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useDebounce } from '@/hooks/use-debounce'
 import { ProductsTable } from './products-table'
 import { ProductForm } from './product-form'
@@ -39,6 +39,7 @@ import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
 import { deleteProduct } from '@/actions/catalogs'
+import { useStore } from '@/contexts/store-context'
 
 interface Product {
   id: string
@@ -70,8 +71,11 @@ interface ProductsManagerProps {
   categories: { id: string; name: string; line_id: string }[]
 }
 
-export function ProductsManager({ initialProducts, lines, categories }: ProductsManagerProps) {
+export function ProductsManager({ initialProducts, lines: initialLines, categories: initialCategories }: ProductsManagerProps) {
+  const { selectedStore, storeId } = useStore()
   const [products, setProducts] = useState<Product[]>(initialProducts)
+  const [lines, setLines]         = useState(initialLines)
+  const [categories, setCategories] = useState(initialCategories)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -79,6 +83,29 @@ export function ProductsManager({ initialProducts, lines, categories }: Products
   const [filterCategory, setFilterCategory] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
+
+  // Re-load products/lines/categories when store filter changes
+  useEffect(() => {
+    const load = async () => {
+      const url = storeId
+        ? `/api/catalogs/products?store_id=${storeId}`
+        : '/api/catalogs/products'
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return
+        const json = await res.json()
+        setProducts(json.products || [])
+        setLines(json.lines || [])
+        setCategories(json.categories || [])
+        // Reset per-line/category filter when store changes
+        setFilterLine('')
+        setFilterCategory('')
+      } catch (e) {
+        console.error('Error loading products by store:', e)
+      }
+    }
+    load()
+  }, [selectedStore, storeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce search query (300ms)
   const debouncedSearch = useDebounce(searchQuery, 300)
