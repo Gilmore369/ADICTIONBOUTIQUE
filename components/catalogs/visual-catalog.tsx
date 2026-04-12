@@ -867,7 +867,7 @@ function ModelDetailModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
         className="max-h-[90vh] overflow-y-auto"
-        style={{ width: 'min(900px, 96vw)', maxWidth: 'min(900px, 96vw)' }}
+        style={{ width: 'min(760px, 96vw)', maxWidth: 'min(760px, 96vw)' }}
       >
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2 flex-wrap">
@@ -1021,28 +1021,17 @@ function ModelDetailModal({
 
             {/* Upload */}
             <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Subir nueva imagen</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px]">Color (opcional)</Label>
-                  <Input
-                    placeholder="Ej: Rojo"
-                    value={uploadColor}
-                    onChange={e => setUploadColor(e.target.value)}
-                    className="h-7 text-xs"
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Subir nueva imagen</p>
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={uploadAsPrimary}
+                    onChange={e => setUploadAsPrimary(e.target.checked)}
+                    className="h-3.5 w-3.5"
                   />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-1.5 cursor-pointer text-xs">
-                    <input
-                      type="checkbox"
-                      checked={uploadAsPrimary}
-                      onChange={e => setUploadAsPrimary(e.target.checked)}
-                      className="h-3.5 w-3.5"
-                    />
-                    Principal
-                  </label>
-                </div>
+                  Principal
+                </label>
               </div>
               <input
                 ref={fileInputRef}

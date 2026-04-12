@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       .from('sizes')
       .select('id, name, category_id')
       .eq('category_id', categoryId)
+      .eq('active', true)
       .order('name')
       .limit(50)
 
