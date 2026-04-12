@@ -1092,16 +1092,13 @@ function ModelDetailModal({
                   Agregar talla/variante
                 </button>
               </div>
-              <div className="rounded-lg border overflow-x-auto">
-                <table className="w-full min-w-[300px] text-xs">
+              <div className="rounded-lg border overflow-hidden">
+                <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-muted/50">
-                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Talla</th>
-                      {showMultiColor && (
-                        <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Color</th>
-                      )}
-                      <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground text-[10px] uppercase">Stock</th>
-                      <th className="px-2 py-1.5 text-center font-semibold text-muted-foreground text-[10px] uppercase">Estado</th>
+                      <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Variante</th>
+                      <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground text-[10px] uppercase w-14">Stock</th>
+                      <th className="px-2 py-1.5 text-center font-semibold text-muted-foreground text-[10px] uppercase w-20">Estado</th>
                       <th className="px-1 py-1.5 w-7"></th>
                     </tr>
                   </thead>
@@ -1109,20 +1106,21 @@ function ModelDetailModal({
                     {model.variants.length > 0 ? (
                       model.variants.map((v, i) => (
                         <tr key={v.product_id} className={i % 2 === 0 ? '' : 'bg-muted/20'}>
-                          <td className="px-2 py-1.5 font-mono font-semibold">{v.size || '—'}</td>
-                          {showMultiColor && (
-                            <td className="px-2 py-1.5">
-                              {v.color ? (
-                                <div className="flex items-center gap-1.5">
+                          <td className="px-3 py-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-semibold">{v.size || '—'}</span>
+                              {v.color && (
+                                <>
+                                  <span className="text-muted-foreground/40">·</span>
                                   <ColorDot color={v.color} size="sm" />
                                   <span className="text-[10px] text-muted-foreground">{v.color}</span>
-                                </div>
-                              ) : '—'}
-                            </td>
-                          )}
-                          <td className="px-2 py-1.5 text-right tabular-nums font-semibold">{v.stock}</td>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{v.stock}</td>
                           <td className="px-2 py-1.5 text-center">
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${
                               v.stock === 0 ? 'bg-rose-100 text-rose-700' :
                               v.stock < 5  ? 'bg-amber-100 text-amber-700' :
                               'bg-emerald-100 text-emerald-700'
@@ -1153,7 +1151,7 @@ function ModelDetailModal({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={showMultiColor ? 5 : 4} className="px-3 py-3 text-center text-muted-foreground text-xs">
+                        <td colSpan={4} className="px-3 py-3 text-center text-muted-foreground text-xs">
                           Sin variantes registradas
                         </td>
                       </tr>
@@ -1161,13 +1159,10 @@ function ModelDetailModal({
                   </tbody>
                   <tfoot>
                     <tr className="bg-muted/50 border-t-2 border-border">
-                      <td
-                        className="px-2 py-1.5 font-semibold text-[10px] uppercase text-muted-foreground"
-                        colSpan={showMultiColor ? 2 : 1}
-                      >
+                      <td className="px-3 py-1.5 font-semibold text-[10px] uppercase text-muted-foreground">
                         Total
                       </td>
-                      <td className="px-2 py-1.5 text-right font-bold tabular-nums">{model.total_stock}</td>
+                      <td className="px-3 py-1.5 text-right font-bold tabular-nums">{model.total_stock}</td>
                       <td colSpan={2} />
                     </tr>
                   </tfoot>
