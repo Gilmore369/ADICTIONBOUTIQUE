@@ -10,7 +10,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Eye, Package, ChevronDown, ChevronRight, Loader2, Hash, Tag, Check, Save } from 'lucide-react'
+import { Plus, Eye, Package, ChevronDown, ChevronRight, Loader2, Hash, Tag, Check, Save, ArrowDownCircle, ArrowUpCircle, RefreshCw } from 'lucide-react'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
@@ -67,6 +67,7 @@ interface ModelGroup {
   /** qty[color][size] */
   grid: Record<string, Record<string, number>>
   totalQty: number
+  movementType?: 'ENTRADA' | 'SALIDA' | 'AJUSTE'
 }
 
 interface DayGroup {
@@ -75,6 +76,25 @@ interface DayGroup {
   models: ModelGroup[]
   totalVariants: number
   totalQty: number
+  isMovement?: boolean           // true = from movements table (adjustment)
+  movementType?: 'ENTRADA' | 'SALIDA' | 'AJUSTE'
+}
+
+interface MovementEntry {
+  id: string
+  product_id: string
+  quantity: number
+  type: 'ENTRADA' | 'SALIDA' | 'AJUSTE'
+  reference: string | null
+  created_at: string
+  products: {
+    barcode: string
+    name: string
+    base_name: string | null
+    base_code: string | null
+    size: string | null
+    color: string | null
+  } | null
 }
 
 interface SuppliersManagerProps {
@@ -168,11 +188,98 @@ function buildDayGroups(data: ProductEntry[]): DayGroup[] {
     })
 }
 
+// ── Build movement day groups ─────────────────────────────────────────────────
+
+function buildMovementDayGroups(movements: MovementEntry[]): DayGroup[] {
+  if (!movements.length) return []
+
+  // Group by date (YYYY-MM-DD)
+  const dayMap: Record<string, MovementEntry[]> = {}
+  for (const m of movements) {
+    const date = m.created_at ? m.created_at.slice(0, 10) : 'sin-fecha'
+    if (!dayMap[date]) dayMap[date] = []
+    dayMap[date].push(m)
+  }
+
+  return Object.entries(dayMap)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, mvs]) => {
+      // Group by base_code within the day
+      const modelMap: Record<string, MovementEntry[]> = {}
+      for (const m of mvs) {
+        const key = m.products?.base_code || m.products?.base_name || m.products?.name || m.product_id
+        if (!modelMap[key]) modelMap[key] = []
+        modelMap[key].push(m)
+      }
+
+      const models: ModelGroup[] = Object.entries(modelMap).map(([key, entries]) => {
+        const sizes  = sortSizes([...new Set(entries.map(e => e.products?.size).filter(Boolean) as string[])])
+        const colors = [...new Set(entries.map(e => e.products?.color).filter(Boolean) as string[])]
+
+        // Build qty grid using movement.quantity (negative for SALIDA)
+        const grid: Record<string, Record<string, number>> = {}
+        for (const m of entries) {
+          const c = m.products?.color || '(sin color)'
+          const s = m.products?.size  || '(única)'
+          if (!grid[c]) grid[c] = {}
+          const sign = m.type === 'SALIDA' ? -1 : 1
+          grid[c][s] = (grid[c][s] || 0) + m.quantity * sign
+        }
+
+        const totalQty = entries.reduce((s, m) =>
+          s + (m.type === 'SALIDA' ? -m.quantity : m.quantity), 0)
+
+        // Dominant movement type for the group
+        const types = entries.map(e => e.type)
+        const dominantType = types.includes('ENTRADA') ? 'ENTRADA'
+          : types.includes('SALIDA') ? 'SALIDA' : 'AJUSTE'
+
+        return {
+          key,
+          displayName: entries[0].products?.base_name || entries[0].products?.name || key,
+          baseCode: entries[0].products?.base_code || null,
+          variants: [],
+          sizes: sizes.length ? sizes : ['(única)'],
+          colors: colors.length ? colors : ['(sin color)'],
+          grid,
+          totalQty,
+          movementType: dominantType as ModelGroup['movementType'],
+        }
+      })
+
+      const totalQty = models.reduce((s, m) => s + Math.abs(m.totalQty), 0)
+      // Dominant type for day
+      const allTypes = mvs.map(m => m.type)
+      const dayType = allTypes.includes('ENTRADA') ? 'ENTRADA'
+        : allTypes.includes('SALIDA') ? 'SALIDA' : 'AJUSTE'
+
+      return {
+        date,
+        label: date === 'sin-fecha'
+          ? 'Sin fecha'
+          : new Date(date + 'T12:00:00').toLocaleDateString('es-PE', {
+              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+            }),
+        models,
+        totalVariants: models.length,
+        totalQty,
+        isMovement: true,
+        movementType: dayType as DayGroup['movementType'],
+      }
+    })
+}
+
 // ── ModelCard ─────────────────────────────────────────────────────────────────
 
-function ModelCard({ model }: { model: ModelGroup }) {
+function ModelCard({ model, isMovement, movementType }: {
+  model: ModelGroup
+  isMovement?: boolean
+  movementType?: 'ENTRADA' | 'SALIDA' | 'AJUSTE'
+}) {
   const hasMultiColor = model.colors.length > 1 || (model.colors[0] && model.colors[0] !== '(sin color)')
   const hasMultiSize  = model.sizes.length > 1  || (model.sizes[0]  && model.sizes[0]  !== '(única)')
+  const isSalida = movementType === 'SALIDA'
+  const isEntrada = movementType === 'ENTRADA'
 
   return (
     <div className="py-3 px-4">
@@ -186,14 +293,27 @@ function ModelCard({ model }: { model: ModelGroup }) {
                 {model.baseCode}
               </span>
             )}
-            <span className="text-[11px] text-muted-foreground">
-              {model.variants.length} variante{model.variants.length !== 1 ? 's' : ''}
-            </span>
+            {!isMovement && (
+              <span className="text-[11px] text-muted-foreground">
+                {model.variants.length} variante{model.variants.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-sm font-bold text-teal-700">{model.totalQty} uds</p>
-          <p className="text-[10px] text-muted-foreground">en stock</p>
+          {isMovement ? (
+            <>
+              <p className={`text-sm font-bold ${isEntrada ? 'text-emerald-700' : isSalida ? 'text-rose-700' : 'text-amber-700'}`}>
+                {isEntrada ? '+' : isSalida ? '−' : '±'}{Math.abs(model.totalQty)} uds
+              </p>
+              <p className="text-[10px] text-muted-foreground">{isEntrada ? 'ingresadas' : isSalida ? 'retiradas' : 'ajustadas'}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-teal-700">{model.totalQty} uds</p>
+              <p className="text-[10px] text-muted-foreground">en stock</p>
+            </>
+          )}
         </div>
       </div>
 
@@ -297,28 +417,65 @@ function SupplierProductsModal({
   open: boolean
   onClose: () => void
 }) {
-  const [loading, setLoading]   = useState(false)
-  const [groups, setGroups]     = useState<DayGroup[]>([])
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [loaded, setLoaded]     = useState<string | null>(null)
+  const [loading, setLoading]         = useState(false)
+  const [groups, setGroups]           = useState<DayGroup[]>([])
+  const [movGroups, setMovGroups]     = useState<DayGroup[]>([])
+  const [expanded, setExpanded]       = useState<Set<string>>(new Set())
+  const [loaded, setLoaded]           = useState<string | null>(null)
 
   const loadProducts = async (id: string) => {
     setLoading(true)
     setGroups([])
+    setMovGroups([])
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
+
+    // 1. Products with current stock
+    const { data: productsData } = await supabase
       .from('products')
       .select('id, barcode, name, base_name, base_code, size, color, created_at, entry_date, stock(quantity)')
       .eq('supplier_id', id)
       .eq('active', true)
       .order('created_at', { ascending: false })
       .limit(2000)
-    setLoading(false)
-    if (error || !data) return
 
-    const built = buildDayGroups(data as ProductEntry[])
-    setGroups(built)
-    if (built.length > 0) setExpanded(new Set([built[0].date]))
+    // 2. Movements (ENTRADA/SALIDA/AJUSTE) for those products
+    const productIds = (productsData || []).map((p: any) => p.id)
+    let movData: MovementEntry[] = []
+    if (productIds.length > 0) {
+      // Build a created_at map to filter out initial creation movements
+      const createdAtMap = new Map<string, string>()
+      for (const p of (productsData || []) as any[]) {
+        createdAtMap.set(p.id, p.created_at)
+      }
+
+      const { data: rawMov } = await supabase
+        .from('movements')
+        .select('id, product_id, quantity, type, reference, created_at, products(barcode, name, base_name, base_code, size, color)')
+        .in('product_id', productIds)
+        .in('type', ['ENTRADA', 'SALIDA', 'AJUSTE'])
+        .order('created_at', { ascending: false })
+        .limit(1000)
+
+      // Filter out initial-creation movements (within 2 minutes of product creation)
+      movData = ((rawMov || []) as MovementEntry[]).filter(m => {
+        const pCreated = createdAtMap.get(m.product_id)
+        if (!pCreated) return true
+        const diffMs = new Date(m.created_at).getTime() - new Date(pCreated).getTime()
+        return diffMs > 120_000 // more than 2 min after product creation
+      })
+    }
+
+    setLoading(false)
+
+    const builtProducts = buildDayGroups((productsData || []) as ProductEntry[])
+    const builtMovements = buildMovementDayGroups(movData)
+
+    setGroups(builtProducts)
+    setMovGroups(builtMovements)
+
+    // Expand first movement group (most recent adjustment) or first product group
+    const firstKey = builtMovements[0]?.date || builtProducts[0]?.date
+    if (firstKey) setExpanded(new Set([firstKey]))
     setLoaded(id)
   }
 
@@ -337,6 +494,7 @@ function SupplierProductsModal({
   const totalVariants = groups.reduce((s, g) => s + g.totalVariants, 0)
   const totalQty      = groups.reduce((s, g) => s + g.totalQty, 0)
   const totalModels   = groups.reduce((s, g) => s + g.models.length, 0)
+  const totalAdjustments = movGroups.reduce((s, g) => s + g.totalQty, 0)
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) { onClose(); setLoaded(null) } }}>
@@ -360,7 +518,7 @@ function SupplierProductsModal({
         ) : (
           <div className="overflow-y-auto flex-1">
             {/* Summary strip */}
-            <div className="flex items-center gap-4 px-1 pb-3 pt-1 border-b mb-3">
+            <div className="flex items-center gap-4 px-1 pb-3 pt-1 border-b mb-3 flex-wrap">
               <div className="flex items-center gap-1.5 text-sm">
                 <Hash className="h-3.5 w-3.5 text-teal-500" />
                 <span className="font-semibold">{totalModels}</span>
@@ -374,20 +532,98 @@ function SupplierProductsModal({
               <div className="h-3 w-px bg-border" />
               <div className="text-sm">
                 <span className="font-semibold text-teal-700">{totalQty}</span>
-                <span className="text-muted-foreground"> unidades en stock</span>
+                <span className="text-muted-foreground"> uds en stock</span>
               </div>
-              <div className="h-3 w-px bg-border" />
-              <div className="text-sm text-muted-foreground">
-                {groups.length} fecha{groups.length !== 1 ? 's' : ''}
-              </div>
+              {movGroups.length > 0 && (
+                <>
+                  <div className="h-3 w-px bg-border" />
+                  <div className="flex items-center gap-1 text-sm">
+                    <RefreshCw className="h-3 w-3 text-violet-500" />
+                    <span className="font-semibold text-violet-700">{movGroups.length}</span>
+                    <span className="text-muted-foreground">ajuste{movGroups.length !== 1 ? 's' : ''}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="space-y-2 pb-2">
+              {/* ── Ajustes de stock (movements) ── */}
+              {movGroups.length > 0 && (
+                <>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-500 px-1 pt-1">
+                    Ajustes de stock
+                  </p>
+                  {movGroups.map(group => {
+                    const isOpen = expanded.has(`mov-${group.date}`)
+                    const isEntrada = group.movementType === 'ENTRADA'
+                    const isSalida  = group.movementType === 'SALIDA'
+                    return (
+                      <div key={`mov-${group.date}`} className={`border rounded-lg overflow-hidden ${
+                        isEntrada ? 'border-emerald-200' : isSalida ? 'border-rose-200' : 'border-amber-200'
+                      }`}>
+                        <button
+                          onClick={() => {
+                            const key = `mov-${group.date}`
+                            setExpanded(prev => {
+                              const next = new Set(prev)
+                              next.has(key) ? next.delete(key) : next.add(key)
+                              return next
+                            })
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
+                            isEntrada ? 'bg-gradient-to-r from-emerald-50 to-white hover:from-emerald-100'
+                            : isSalida ? 'bg-gradient-to-r from-rose-50 to-white hover:from-rose-100'
+                            : 'bg-gradient-to-r from-amber-50 to-white hover:from-amber-100'
+                          }`}
+                        >
+                          {isOpen
+                            ? <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            : <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                          }
+                          {isEntrada
+                            ? <ArrowDownCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                            : isSalida
+                              ? <ArrowUpCircle className="h-4 w-4 text-rose-500 flex-shrink-0" />
+                              : <RefreshCw className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                          }
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold capitalize text-gray-800">{group.label}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {group.models.length} modelo{group.models.length !== 1 ? 's' : ''} ·{' '}
+                              <span className={isEntrada ? 'text-emerald-600' : isSalida ? 'text-rose-600' : 'text-amber-600'}>
+                                {isEntrada ? '+' : isSalida ? '−' : '±'}{group.totalQty} uds
+                              </span>
+                            </p>
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                            isEntrada ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                            : isSalida ? 'text-rose-700 bg-rose-50 border-rose-200'
+                            : 'text-amber-700 bg-amber-50 border-amber-200'
+                          }`}>
+                            {isEntrada ? 'Entrada' : isSalida ? 'Salida' : 'Ajuste'}
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="divide-y">
+                            {group.models.map(model => (
+                              <ModelCard key={model.key} model={model} isMovement movementType={model.movementType} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-teal-500 px-1 pt-2">
+                    Stock por fecha de ingreso
+                  </p>
+                </>
+              )}
+
+              {/* ── Ingresos iniciales (products by entry_date) ── */}
               {groups.map(group => {
                 const isOpen = expanded.has(group.date)
                 return (
                   <div key={group.date} className="border rounded-lg overflow-hidden">
-                    {/* Day header */}
                     <button
                       onClick={() => toggleGroup(group.date)}
                       className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 transition-colors text-left"
@@ -412,8 +648,6 @@ function SupplierProductsModal({
                         </Badge>
                       </div>
                     </button>
-
-                    {/* Models */}
                     {isOpen && (
                       <div className="divide-y">
                         {group.models.map(model => (
