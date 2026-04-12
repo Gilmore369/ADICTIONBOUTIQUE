@@ -158,11 +158,15 @@ function ColorDot({
   onClick?: (e: React.MouseEvent) => void
 }) {
   const sz = size === 'lg' ? 'w-5 h-5' : size === 'md' ? 'w-4 h-4' : 'w-3 h-3'
-  const cls = colorCls(color)
+  // Detect hex color (#xxx or #xxxxxx) — use inline style to preserve the exact color
+  const isHex = /^#[0-9a-fA-F]{3,8}$/.test(color.trim())
+  const cls   = isHex ? '' : colorCls(color)
+  const bgStyle = isHex ? { backgroundColor: color.trim() } : undefined
   return (
     <span
       title={disabled ? `${color} (no disponible para la talla)` : color}
       onClick={disabled ? undefined : onClick}
+      style={bgStyle}
       className={[
         'inline-flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-150',
         sz, cls,

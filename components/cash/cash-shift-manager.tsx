@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useStore } from '@/contexts/store-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -211,7 +212,13 @@ function CuadreModal({ result, storeName, onClose }: {
 
 export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId, allowedStoreIds }: CashShiftManagerProps) {
   const router = useRouter()
+  const { selectedStore } = useStore()
   const [isOpening, setIsOpening] = useState(false)
+
+  // Re-fetch server data when store filter changes
+  useEffect(() => {
+    router.refresh()
+  }, [selectedStore]) // eslint-disable-line react-hooks/exhaustive-deps
   const [isClosing, setIsClosing] = useState<string | null>(null)
   const [openingAmount, setOpeningAmount] = useState('')
   const [closingAmounts, setClosingAmounts] = useState<Record<string, string>>({})

@@ -20,6 +20,9 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // ── Resolver filtro de tienda según perfil del usuario ──────────────────────
+  const { searchParams: sp } = new URL(req.url)
+  const reqStore = sp.get('store')  // 'MUJERES' | 'HOMBRES' | null (from StoreContext)
+
   const { data: profile } = await supabase
     .from('users')
     .select('roles, stores')
@@ -30,8 +33,13 @@ export async function GET(req: NextRequest) {
   const isAdmin = userRoles.includes('admin')
   const userStores: string[] = (profile as any)?.stores || []
   let storeFilter: string | null = null
+
   if (!isAdmin && userStores.length === 1) {
+    // Non-admin: always filter to their assigned store
     storeFilter = STORE_KEY_MAP[userStores[0]] ?? userStores[0]
+  } else if (reqStore && reqStore !== 'ALL') {
+    // Admin (or multi-store user) with a specific store selected
+    storeFilter = STORE_KEY_MAP[reqStore.toUpperCase()] ?? null
   }
 
   // Pre-fetch plan IDs for the store (used to filter installments)
@@ -44,10 +52,9 @@ export async function GET(req: NextRequest) {
     planIds = (plans || []).map((p: any) => p.id)
   }
 
-  const { searchParams } = new URL(req.url)
   const now = new Date()
-  const year  = parseInt(searchParams.get('year')  || String(now.getFullYear()))
-  const month = parseInt(searchParams.get('month') || String(now.getMonth() + 1))
+  const year  = parseInt(sp.get('year')  || String(now.getFullYear()))
+  const month = parseInt(sp.get('month') || String(now.getMonth() + 1))
 
   // ── Usar fecha de Perú (America/Lima, UTC-5) para evitar desfase de zona horaria
   const pad = (n: number) => String(n).padStart(2, '0')

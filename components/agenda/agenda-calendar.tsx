@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useStore } from '@/contexts/store-context'
 import {
   ChevronLeft, ChevronRight, Cake, AlertTriangle, DollarSign,
   Phone, MessageCircle, Loader2, CalendarDays, Users, Clock,
@@ -581,6 +582,7 @@ function EventPill({ event, onClick }: { event: AgendaEvent; onClick: () => void
 // ─── Main Component ─────────────────────────────────────────────────────────────
 export function AgendaCalendar() {
   const today = new Date()
+  const { selectedStore } = useStore()
   const [year, setYear]     = useState(today.getFullYear())
   const [month, setMonth]   = useState(today.getMonth() + 1)
   const [data, setData]     = useState<AgendaData | null>(null)
@@ -592,17 +594,18 @@ export function AgendaCalendar() {
   const [reminderDate, setReminderDate]     = useState<string | null>(null)
   const [visitDate, setVisitDate]           = useState<string | null>(null)
 
-  const fetchEvents = useCallback(async (y: number, m: number) => {
+  const fetchEvents = useCallback(async (y: number, m: number, store: string) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/agenda/events?year=${y}&month=${m}`, { cache: 'no-store' })
+      const storeParam = store && store !== 'ALL' ? `&store=${store}` : ''
+      const res = await fetch(`/api/agenda/events?year=${y}&month=${m}${storeParam}`, { cache: 'no-store' })
       if (!res.ok) throw new Error('Error')
       setData(await res.json())
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { fetchEvents(year, month) }, [year, month, fetchEvents])
+  useEffect(() => { fetchEvents(year, month, selectedStore) }, [year, month, selectedStore, fetchEvents])
 
   const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12) } else setMonth(m => m - 1) }
   const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1) } else setMonth(m => m + 1) }
@@ -630,7 +633,7 @@ export function AgendaCalendar() {
     }
   }
 
-  function handleRefresh() { fetchEvents(year, month) }
+  function handleRefresh() { fetchEvents(year, month, selectedStore) }
 
   return (
     <div className="space-y-4">

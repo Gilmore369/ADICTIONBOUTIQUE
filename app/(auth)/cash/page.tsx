@@ -52,24 +52,22 @@ async function CashData() {
     allowedStoreIds = userStoreCodes.map((c: string) => STORE_MAP[c]).filter(Boolean)
   }
 
-  // Get current open shifts — filtered by allowed stores
-  const openShiftsQuery = supabase
+  // Get current open shifts — filtered by allowed stores (always, including admin)
+  const { data: openShifts } = await supabase
     .from('cash_shifts')
     .select('*')
     .eq('status', 'OPEN')
+    .in('store_id', allowedStoreIds)
     .order('opened_at', { ascending: false })
-  if (!isAdmin) openShiftsQuery.in('store_id', allowedStoreIds)
-  const { data: openShifts } = await openShiftsQuery
 
-  // Get recent closed shifts — filtered by allowed stores
-  const recentShiftsQuery = supabase
+  // Get recent closed shifts — filtered by allowed stores (always, including admin)
+  const { data: recentShifts } = await supabase
     .from('cash_shifts')
     .select('*')
     .eq('status', 'CLOSED')
+    .in('store_id', allowedStoreIds)
     .order('closed_at', { ascending: false })
     .limit(10)
-  if (!isAdmin) recentShiftsQuery.in('store_id', allowedStoreIds)
-  const { data: recentShifts } = await recentShiftsQuery
 
   // Fetch live breakdown for each open shift in parallel
   const breakdowns: Record<string, any> = {}
