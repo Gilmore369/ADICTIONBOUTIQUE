@@ -76,6 +76,20 @@ export interface ProductCreateModalProps {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/**
+ * Generates a base_code from the product name using the first 3 chars of the
+ * first word + first 2 chars of each additional word, max 6 total.
+ * "Blusa Achorada" → "BLUAC"  |  "Blusa Africana" → "BLUAF"  |  "Camisa Formal" → "CAMFO"
+ */
+function computeBaseCode(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return ''
+  if (words.length === 1) return words[0].slice(0, 6).toUpperCase()
+  const first = words[0].slice(0, 3)
+  const rest  = words.slice(1).map(w => w.slice(0, 2)).join('')
+  return (first + rest).slice(0, 6).toUpperCase()
+}
+
 const WAREHOUSES = [
   { id: 'Tienda Mujeres', label: 'Tienda Mujeres' },
   { id: 'Tienda Hombres', label: 'Tienda Hombres' },
@@ -370,6 +384,9 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
 
   // Base data
   const [name, setName] = useState('')
+  const [baseCodeOverride, setBaseCodeOverride] = useState<string | null>(null) // null = auto
+  const computedBaseCode = computeBaseCode(name)
+  const effectiveBaseCode = baseCodeOverride !== null ? baseCodeOverride : computedBaseCode
   const [supplierId, setSupplierId] = useState('')
   const [brandId, setBrandId] = useState('')
   const [lineId, setLineId] = useState('')
@@ -456,6 +473,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
       setName(''); setSupplierId(''); setBrandId('')
       setLineId(''); setCategoryId(''); setWarehouseId(defaultWarehouse)
       setImageUrl(''); setImagePreview(''); setVariants([newRow()]); setFormError('')
+      setBaseCodeOverride(null)
     }
   }, [open])
 
@@ -550,6 +568,9 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
     if (!brandId) return 'Selecciona una marca'
     if (!lineId) return 'Selecciona una línea'
     if (!categoryId) return 'Selecciona una categoría'
+    const barcodes = variants.map(v => v.barcode.trim()).filter(Boolean)
+    const barcodeDupes = barcodes.filter((b, i) => barcodes.indexOf(b) !== i)
+    if (barcodeDupes.length > 0) return `Código de barras duplicado: "${barcodeDupes[0]}" — cada variante necesita un código único`
     for (const v of variants) {
       if (!v.barcode.trim()) return 'Todos los códigos de barra son obligatorios'
       const sp = parseFloat(v.sale_price)
@@ -568,17 +589,11 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
     setSaving(true)
     try {
       const baseName = name.trim()
-      // Auto-generate base_code from name initials (e.g. "Chaleco Army" → "CA")
-      const autoBaseCode = baseName
-        .split(/\s+/)
-        .map((w) => w[0] ?? '')
-        .join('')
-        .toUpperCase()
-        .slice(0, 6) || 'PROD'
+      const finalBaseCode = effectiveBaseCode || computeBaseCode(baseName) || 'PROD'
       const products = variants.map((v) => ({
         barcode: v.barcode.trim(),
         name: v.size ? `${baseName} - ${v.size}` : baseName,
-        base_code: autoBaseCode,
+        base_code: finalBaseCode,
         base_name: baseName,
         line_id: lineId,
         category_id: categoryId,
@@ -643,15 +658,33 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                 Datos base
               </p>
 
-              {/* Row 1: Nombre (full width) */}
-              <Field label="Nombre del producto" required>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ej: Chaleco Army, Blusa Floral…"
-                  className="h-9"
-                />
-              </Field>
+              {/* Row 1: Nombre + Código modelo */}
+              <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+                <Field label="Nombre del producto" required>
+                  <Input
+                    value={name}
+                    onChange={(e) => { setName(e.target.value); setBaseCodeOverride(null) }}
+                    placeholder="Ej: Chaleco Army, Blusa Floral…"
+                    className="h-9"
+                  />
+                </Field>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    Código modelo
+                    {baseCodeOverride === null && name.trim() && (
+                      <span className="text-[10px] text-emerald-600 font-normal">(auto)</span>
+                    )}
+                  </label>
+                  <input
+                    value={effectiveBaseCode}
+                    onChange={e => setBaseCodeOverride(e.target.value.toUpperCase().slice(0, 8))}
+                    placeholder="BLUAC"
+                    maxLength={8}
+                    className="h-9 w-28 rounded-lg border border-gray-300 bg-white px-3 text-sm font-mono font-semibold text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  <p className="text-[10px] text-gray-400">Agrupa variantes del mismo modelo</p>
+                </div>
+              </div>
 
               {/* Row 2: Proveedor · Marca */}
               <div className="grid grid-cols-2 gap-4">
