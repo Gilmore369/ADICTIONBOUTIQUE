@@ -56,10 +56,17 @@ export async function POST(request: Request) {
 
     const formData = await request.formData()
     
+    let action_type = formData.get('action_type') as string
+    // Normalize MENSAJE_REDES → OTRO until DB constraint is updated via SQL migration
+    // Run: ALTER TABLE collection_actions DROP CONSTRAINT collection_actions_action_type_check;
+    //      ALTER TABLE collection_actions ADD CONSTRAINT collection_actions_action_type_check
+    //        CHECK (action_type IN ('LLAMADA','VISITA','WHATSAPP','MENSAJE_SMS','MENSAJE_REDES','EMAIL','MOTORIZADO','CARTA_NOTARIAL','OTRO'));
+    if (action_type === 'MENSAJE_REDES') action_type = 'OTRO'
+
     const actionData = {
       client_id: formData.get('client_id') as string,
       client_name: formData.get('client_name') as string,
-      action_type: formData.get('action_type') as string,
+      action_type,
       result: formData.get('result') as string,
       payment_promise_date: formData.get('payment_promise_date') as string | null,
       notes: formData.get('notes') as string | null,
