@@ -85,7 +85,10 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({ data: Array.from(clientsMap.values()) })
+    // Exclude clients whose overdue_amount is 0 or negative (installments already fully paid but status not updated)
+    const result = Array.from(clientsMap.values()).filter(c => c.overdue_amount > 0.009)
+
+    return NextResponse.json({ data: result })
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
