@@ -23,6 +23,7 @@ export interface ReturnRecord {
   id: string
   return_number: string
   sale_number: string
+  sale_id?: string
   return_date: string
   created_at: string
   client_name: string
@@ -34,6 +35,7 @@ export interface ReturnRecord {
   notes?: string
   returned_items?: ReturnedItem[]
   clients: { id: string; name: string; dni: string | null } | null
+  sales?: { sale_type: string } | null
 }
 
 export interface ReturnedItem {
@@ -96,8 +98,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
     const completed  = returns.filter(r => r.status === 'COMPLETADA').length
     const totalAmount = returns.reduce((s, r) => s + Number(r.total_amount), 0)
     const reembolsos = returns.filter(r => r.return_type === 'REEMBOLSO').length
-    const cambios    = returns.filter(r => r.return_type === 'CAMBIO').length
-    return { pending, approved, completed, totalAmount, total: returns.length, reembolsos, cambios }
+    return { pending, approved, completed, totalAmount, total: returns.length, reembolsos }
   }, [returns])
 
   // ── Filters ──────────────────────────────────────────────────────────────────
@@ -121,12 +122,15 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
     const result = await approveReturnAction(ret.id)
     setApprovingId(null)
     if (result.success) {
-      toast.success(`Devolución ${ret.return_number} aprobada`)
+      toast.success(`Devolución ${ret.return_number} aprobada`, {
+        description: (result as any).saleType === 'CREDITO'
+          ? 'Plan de crédito cancelado y crédito del cliente restaurado.'
+          : 'Egreso registrado en caja.',
+      })
       setReturns(prev => prev.map(r => r.id === ret.id ? { ...r, status: 'APROBADA' } : r))
-      // If selected detail is open, update it too
       if (selected?.id === ret.id) setSelected(s => s ? { ...s, status: 'APROBADA' } : s)
     } else {
-      toast.error(result.error || 'Error al aprobar')
+      toast.error('No se pudo aprobar', { description: result.error })
     }
   }
 
@@ -154,7 +158,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
             Devoluciones
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Gestiona devoluciones y cambios de productos
+            Gestiona reembolsos de productos
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)} className="gap-2 bg-rose-600 hover:bg-rose-700">
@@ -215,7 +219,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
-            reembolsos · {metrics.cambios} cambios
+            reembolsos totales
           </p>
         </Card>
       </div>
@@ -245,15 +249,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
               <option value="RECHAZADA">Rechazada</option>
               <option value="COMPLETADA">Completada</option>
             </select>
-            <select
-              value={filterType}
-              onChange={e => setFilterType(e.target.value)}
-              className="h-8 px-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="ALL">Todos los tipos</option>
-              <option value="REEMBOLSO">Reembolso</option>
-              <option value="CAMBIO">Cambio</option>
-            </select>
+            {/* filterType removed — only REEMBOLSO exists */}
           </div>
           {(searchTerm || filterStatus !== 'ALL' || filterType !== 'ALL') && (
             <button

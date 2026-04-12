@@ -32,7 +32,7 @@ import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2 } from 'luci
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { createBulkProducts } from '@/actions/products'
-import { ColorPicker, CompactColorPicker } from '@/components/ui/color-picker'
+import { CompactColorPicker } from '@/components/ui/color-picker'
 import { QuickCreateDialog, type QuickCreateType } from './quick-create-dialog'
 import { ImageUpload } from '@/components/ui/image-upload'
 import { useStore } from '@/contexts/store-context'
@@ -882,17 +882,18 @@ export function BulkProductEntryV2() {
                     )}
                   </div>
 
-                  <div>
-                    <ColorPicker
-                      label="Color Base"
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">
+                      Color Base <span className="text-red-500">*</span>
+                    </Label>
+                    <CompactColorPicker
                       value={model.color}
                       onChange={value => updateModel(model.id, 'color', value)}
-                      placeholder="Selecciona o escribe un color"
-                      required
+                      placeholder="Color del modelo"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {model.baseCode 
-                        ? '⚠️ Ingresa el NUEVO color que quieres agregar a este modelo' 
+                    <p className="text-xs text-gray-500">
+                      {model.baseCode
+                        ? '⚠️ Ingresa el NUEVO color que quieres agregar a este modelo'
                         : 'Se aplica a todas las tallas. Puedes personalizar por talla más abajo.'}
                     </p>
                   </div>

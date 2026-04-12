@@ -32,12 +32,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CompactColorPicker } from '@/components/ui/color-picker'
 import { createBulkProducts } from '@/actions/products'
-import { createSupplier, createBrand, createCategory } from '@/actions/catalogs'
+import { createSupplier, createBrand, createCategory, createSize } from '@/actions/catalogs'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import {
   Check,
   ChevronDown,
+  Layers,
   Loader2,
   Plus,
   Trash2,
@@ -272,6 +273,84 @@ function Field({ label, required, children, className }: {
   )
 }
 
+// ── Size Cell ─────────────────────────────────────────────────────────────────
+
+function SizeCell({ value, onChange, availableSizes, loadingSizes, categoryId, onCreateSize }: {
+  value: string
+  onChange: (v: string) => void
+  availableSizes: { id: string; name: string }[]
+  loadingSizes: boolean
+  categoryId: string
+  onCreateSize: (name: string) => Promise<void>
+}) {
+  const [newSizeName, setNewSizeName] = useState('')
+  const [creatingSz, setCreatingSz] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+
+  if (!categoryId) {
+    return (
+      <Input value={value} onChange={e => onChange(e.target.value)}
+        placeholder="Talla" className="h-8 text-xs text-center" />
+    )
+  }
+
+  if (loadingSizes) {
+    return <div className="h-8 flex items-center px-2 text-xs text-gray-400">Cargando…</div>
+  }
+
+  const handleCreate = async () => {
+    if (!newSizeName.trim()) return
+    setCreatingSz(true)
+    try {
+      await onCreateSize(newSizeName.trim())
+      onChange(newSizeName.trim())
+      setNewSizeName(''); setShowAdd(false)
+    } finally { setCreatingSz(false) }
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="h-8 flex-1 rounded-lg border border-gray-200 bg-white px-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+      >
+        <option value="">— talla —</option>
+        {availableSizes.map(s => (
+          <option key={s.id} value={s.name}>{s.name}</option>
+        ))}
+      </select>
+      {/* Quick-add new size */}
+      {showAdd ? (
+        <div className="flex gap-0.5">
+          <input
+            autoFocus
+            value={newSizeName}
+            onChange={e => setNewSizeName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreate() } if (e.key === 'Escape') setShowAdd(false) }}
+            placeholder="ej: XXS"
+            className="h-8 w-14 rounded-md border border-blue-300 px-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+          />
+          <button type="button" onClick={handleCreate} disabled={creatingSz || !newSizeName.trim()}
+            className="flex h-8 w-6 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {creatingSz ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          </button>
+          <button type="button" onClick={() => setShowAdd(false)}
+            className="flex h-8 w-6 items-center justify-center rounded-md border border-gray-200 text-gray-400 hover:bg-gray-50">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setShowAdd(true)}
+          title="Crear nueva talla"
+          className="flex h-8 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-600">
+          <Plus className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCreateModalProps) {
@@ -303,6 +382,10 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Sizes
+  const [availableSizes, setAvailableSizes] = useState<{ id: string; name: string }[]>([])
+  const [loadingSizes, setLoadingSizes] = useState(false)
+
   // Variants
   const [variants, setVariants] = useState<VariantRow[]>([newRow()])
 
@@ -326,6 +409,17 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
       }
     }
   }, [lineId, lines])
+
+  // Load sizes when category changes
+  useEffect(() => {
+    if (!categoryId) { setAvailableSizes([]); return }
+    setLoadingSizes(true)
+    fetch(`/api/catalogs/sizes?category_id=${categoryId}`)
+      .then(r => r.json())
+      .then(data => setAvailableSizes(data?.data || []))
+      .catch(() => setAvailableSizes([]))
+      .finally(() => setLoadingSizes(false))
+  }, [categoryId])
 
   // Load catalogs — filter lines by user's store
   useEffect(() => {
@@ -423,6 +517,24 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
       toast.success('Categoría creada', categoryName)
     } else { toast.error('Error', 'No se pudo crear la categoría') }
   }, [lineId])
+
+  const handleCreateSize = useCallback(async (sizeName: string) => {
+    if (!categoryId) { toast.error('Categoría requerida', 'Selecciona una categoría primero'); return }
+    const res = await createSize({ name: sizeName, category_id: categoryId })
+    if (res.success && res.data) {
+      const newSize = { id: res.data.id, name: res.data.name }
+      setAvailableSizes(prev => [...prev, newSize].sort((a, b) => a.name.localeCompare(b.name)))
+      toast.success('Talla creada', sizeName)
+    } else { toast.error('Error', 'No se pudo crear la talla') }
+  }, [categoryId])
+
+  const handleAddAllSizes = () => {
+    if (availableSizes.length === 0) return
+    const existingSizes = new Set(variants.map(v => v.size).filter(Boolean))
+    const toAdd = availableSizes.filter(s => !existingSizes.has(s.name))
+    if (toAdd.length === 0) { toast.info('Ya están todas', 'Todas las tallas ya tienen fila'); return }
+    setVariants(prev => [...prev, ...toAdd.map(s => ({ ...newRow(), size: s.name }))])
+  }
 
   // Variant helpers
   const updateVariant = (key: string, field: keyof VariantRow, value: string) =>
@@ -669,22 +781,40 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                     {variants.length}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setVariants((p) => [...p, newRow()])}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar variante
-                </button>
+                <div className="flex items-center gap-2">
+                  {availableSizes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleAddAllSizes}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                      Todas las tallas ({availableSizes.length})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setVariants((p) => [...p, newRow()])}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar variante
+                  </button>
+                </div>
               </div>
+              {availableSizes.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  Tallas disponibles para <strong>{categories.find(c => c.id === categoryId)?.name}</strong>:{' '}
+                  {availableSizes.map(s => s.name).join(', ')}
+                </p>
+              )}
 
               {/* Table — scrollable horizontally on small screens */}
               <div className="overflow-x-auto rounded-xl border border-gray-100">
                 {/* Header */}
                 <div
                   className="grid bg-gray-50/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500"
-                  style={{ gridTemplateColumns: '2fr 100px 200px 130px 130px 120px 36px' }}
+                  style={{ gridTemplateColumns: '2fr 160px 200px 130px 130px 120px 36px' }}
                 >
                   <span>Código de barras</span>
                   <span>Talla</span>
@@ -701,7 +831,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                     <div
                       key={row._key}
                       className="grid items-center gap-2 px-3 py-2"
-                      style={{ gridTemplateColumns: '2fr 100px 200px 130px 130px 120px 36px' }}
+                      style={{ gridTemplateColumns: '2fr 160px 200px 130px 130px 120px 36px' }}
                     >
                       {/* Barcode */}
                       <Input
@@ -711,11 +841,13 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                         className="h-8 font-mono text-xs"
                       />
                       {/* Talla */}
-                      <Input
+                      <SizeCell
                         value={row.size}
-                        onChange={(e) => updateVariant(row._key, 'size', e.target.value)}
-                        placeholder="S / M / L"
-                        className="h-8 text-xs text-center"
+                        onChange={(v) => updateVariant(row._key, 'size', v)}
+                        availableSizes={availableSizes}
+                        loadingSizes={loadingSizes}
+                        categoryId={categoryId}
+                        onCreateSize={handleCreateSize}
                       />
                       {/* Color */}
                       <CompactColorPicker

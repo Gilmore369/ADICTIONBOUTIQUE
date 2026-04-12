@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   X, Search, Loader2, CheckCircle, Package,
-  ShoppingBag, Minus, Plus, AlertCircle,
+  ShoppingBag, Minus, Plus, AlertCircle, CreditCard, Banknote, Info,
 } from 'lucide-react'
 import { createReturnAction } from '@/actions/returns'
 import { formatCurrency } from '@/lib/utils/currency'
@@ -44,13 +44,14 @@ interface SaleLookup {
   client_name: string | null
   store_id: string
   total: number
+  sale_type: 'CONTADO' | 'CREDITO'
   sale_items: SaleItem[]
 }
 
 interface SelectedItem {
   saleItemId: string
   productId: string
-  returnQty: number   // how many to return (1..originalQty)
+  returnQty: number
   maxQty: number
   unitPrice: number
   productName: string
@@ -64,17 +65,13 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
   const [foundSale, setFoundSale] = useState<SaleLookup | null>(null)
   const [lookupError, setLookupError] = useState('')
 
-  // Form meta-fields
-  const [saleNumber,  setSaleNumber]  = useState('')
-  const [reasonType,  setReasonType]  = useState('DEFECTO_PRODUCTO')
-  const [reason,      setReason]      = useState('')
-  const [returnType,  setReturnType]  = useState<'REEMBOLSO' | 'CAMBIO'>('REEMBOLSO')
-  const [notes,       setNotes]       = useState('')
+  const [saleNumber, setSaleNumber] = useState('')
+  const [reasonType, setReasonType] = useState('DEFECTO_PRODUCTO')
+  const [reason, setReason]         = useState('')
+  const [notes, setNotes]           = useState('')
 
-  // Per-item selection: saleItemId → SelectedItem | null (null = not selected)
   const [selected, setSelected] = useState<Record<string, SelectedItem>>({})
-
-  const [manualAmount, setManualAmount] = useState('')
+  const [manualAmount, setManualAmount]       = useState('')
   const [useManualAmount, setUseManualAmount] = useState(false)
 
   // ── Look up sale ─────────────────────────────────────────────────────────────
@@ -100,7 +97,6 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
   }
 
   // ── Item selection helpers ────────────────────────────────────────────────────
-
   const toggleItem = (item: SaleItem) => {
     setSelected(prev => {
       if (prev[item.id]) {
@@ -111,11 +107,11 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
       return {
         ...prev,
         [item.id]: {
-          saleItemId: item.id,
-          productId:  item.product_id,
-          returnQty:  item.quantity,       // default: return all units of this item
-          maxQty:     item.quantity,
-          unitPrice:  Number(item.unit_price),
+          saleItemId:  item.id,
+          productId:   item.product_id,
+          returnQty:   item.quantity,
+          maxQty:      item.quantity,
+          unitPrice:   Number(item.unit_price),
           productName: item.products?.base_name || item.products?.name || 'Producto',
         },
       }
@@ -126,14 +122,10 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
     setSelected(prev => {
       if (!prev[saleItemId]) return prev
       const maxQty = prev[saleItemId].maxQty
-      return {
-        ...prev,
-        [saleItemId]: { ...prev[saleItemId], returnQty: Math.max(1, Math.min(qty, maxQty)) },
-      }
+      return { ...prev, [saleItemId]: { ...prev[saleItemId], returnQty: Math.max(1, Math.min(qty, maxQty)) } }
     })
   }
 
-  // Select / deselect all
   const toggleAll = () => {
     if (!foundSale) return
     const allSelected = foundSale.sale_items.every(i => !!selected[i.id])
@@ -143,11 +135,11 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
       const next: Record<string, SelectedItem> = {}
       foundSale.sale_items.forEach(item => {
         next[item.id] = {
-          saleItemId: item.id,
-          productId:  item.product_id,
-          returnQty:  item.quantity,
-          maxQty:     item.quantity,
-          unitPrice:  Number(item.unit_price),
+          saleItemId:  item.id,
+          productId:   item.product_id,
+          returnQty:   item.quantity,
+          maxQty:      item.quantity,
+          unitPrice:   Number(item.unit_price),
           productName: item.products?.base_name || item.products?.name || 'Producto',
         }
       })
@@ -161,25 +153,24 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
     const rawReturn = items.reduce((s, i) => s + i.unitPrice * i.returnQty, 0)
     const selectedCount = items.length
 
-    // Detect discount: compare sale total to sum of all item subtotals
     const saleItemsTotal = foundSale?.sale_items?.reduce((s, i) => s + Number(i.subtotal), 0) ?? 0
     const saleTotal = Number(foundSale?.total ?? 0)
     const discountRatio = saleItemsTotal > 0 && saleTotal < saleItemsTotal - 0.01
-      ? saleTotal / saleItemsTotal
-      : 1
+      ? saleTotal / saleItemsTotal : 1
     const hasDiscount = discountRatio < 0.999
-
-    // Effective return = proportional to actual paid
     const effectiveReturnAmount = rawReturn * discountRatio
-    const returnAmount = rawReturn
 
-    return { returnAmount, effectiveReturnAmount, discountRatio, hasDiscount, selectedCount }
+    return { returnAmount: rawReturn, effectiveReturnAmount, discountRatio, hasDiscount, selectedCount }
   }, [selected, foundSale])
+
+  const finalAmount = useManualAmount && manualAmount
+    ? Number(manualAmount)
+    : (hasDiscount ? effectiveReturnAmount : returnAmount)
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!foundSale) { toast.error('Primero busca y confirma el número de venta'); return }
+    if (!foundSale)     { toast.error('Primero busca y confirma el número de venta'); return }
     if (!reason.trim()) { toast.error('Ingresa la descripción del motivo'); return }
     if (selectedCount === 0) { toast.error('Selecciona al menos un producto a devolver'); return }
 
@@ -193,26 +184,22 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
         subtotal:     i.unitPrice * i.returnQty,
       }))
 
-      const finalAmount = useManualAmount && manualAmount
-        ? Number(manualAmount)
-        : (hasDiscount ? effectiveReturnAmount : returnAmount)
-
       const result = await createReturnAction({
-        saleId:        foundSale.id,
-        saleNumber:    foundSale.sale_number,
-        clientId:      foundSale.client_id,
-        clientName:    foundSale.client_name || 'Sin nombre',
-        storeId:       foundSale.store_id,
+        saleId:       foundSale.id,
+        saleNumber:   foundSale.sale_number,
+        clientId:     foundSale.client_id,
+        clientName:   foundSale.client_name || 'Sin nombre',
+        storeId:      foundSale.store_id,
+        saleType:     foundSale.sale_type,
         reason,
         reasonType,
-        returnType,
-        totalAmount:   finalAmount,
+        totalAmount:  finalAmount,
         returnedItems,
         notes: notes || undefined,
       })
 
       if (result.success) {
-        toast.success('Devolución creada exitosamente')
+        toast.success('Devolución registrada. Pendiente de aprobación.')
         onSuccess(result.data)
       } else {
         toast.error(result.error || 'Error al crear devolución')
@@ -254,49 +241,66 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
               <div className="flex gap-2 mt-1.5">
                 <Input
                   value={saleNumber}
-                  onChange={e => {
-                    setSaleNumber(e.target.value)
-                    setFoundSale(null)
-                    setLookupError('')
-                    setSelected({})
-                  }}
+                  onChange={e => { setSaleNumber(e.target.value); setFoundSale(null); setLookupError(''); setSelected({}) }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleLookupSale() } }}
                   placeholder="Ej: V-0083"
                   className="font-mono"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleLookupSale}
-                  disabled={lookingUp || !saleNumber.trim()}
-                  className="shrink-0 gap-1.5"
-                >
-                  {lookingUp
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <><Search className="h-4 w-4" /> Buscar</>
-                  }
+                <Button type="button" variant="outline" onClick={handleLookupSale}
+                  disabled={lookingUp || !saleNumber.trim()} className="shrink-0 gap-1.5">
+                  {lookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4" /> Buscar</>}
                 </Button>
               </div>
 
               {lookupError && (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  {lookupError}
+                  <AlertCircle className="h-3.5 w-3.5" /> {lookupError}
                 </div>
               )}
 
+              {/* Sale found summary */}
               {foundSale && (
-                <div className="mt-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm">
+                <div className="mt-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm space-y-2">
                   <div className="flex items-center gap-1.5 font-medium text-emerald-800">
                     <CheckCircle className="h-4 w-4" />
                     Venta encontrada: {foundSale.sale_number}
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-emerald-700 text-xs">
-                    {foundSale.client_name && <span>👤 {foundSale.client_name}</span>}
-                    <span>💰 {formatCurrency(Number(foundSale.total))}</span>
-                    <span>🏪 {foundSale.store_id}</span>
-                    <span>{foundSale.sale_items?.length ?? 0} producto(s)</span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {foundSale.client_name && (
+                      <span className="text-emerald-700">👤 {foundSale.client_name}</span>
+                    )}
+                    <span className="text-emerald-700">💰 {formatCurrency(Number(foundSale.total))}</span>
+                    <span className="text-emerald-700">🏪 {foundSale.store_id}</span>
+                    {/* Sale type badge */}
+                    {foundSale.sale_type === 'CREDITO' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-semibold border border-violet-200">
+                        <CreditCard className="h-3 w-3" /> Crédito
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800 font-semibold border border-emerald-300">
+                        <Banknote className="h-3 w-3" /> Contado
+                      </span>
+                    )}
                   </div>
+
+                  {/* Contextual info banner per sale type */}
+                  {foundSale.sale_type === 'CREDITO' ? (
+                    <div className="flex items-start gap-2 p-2 rounded-md bg-violet-50 border border-violet-200 text-xs text-violet-800">
+                      <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        <strong>Venta a crédito:</strong> Al aprobar la devolución se cancelará el plan de cuotas
+                        y se restaurará el límite de crédito del cliente.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                      <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        <strong>Venta al contado:</strong> Al aprobar la devolución se registrará un egreso en caja.
+                        La caja debe estar abierta en <strong>{foundSale.store_id}</strong>.
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -314,38 +318,28 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                       </Badge>
                     )}
                   </Label>
-                  <button
-                    type="button"
-                    onClick={toggleAll}
-                    className="text-xs text-primary hover:underline font-medium"
-                  >
+                  <button type="button" onClick={toggleAll}
+                    className="text-xs text-primary hover:underline font-medium">
                     {allSelected ? 'Quitar todos' : 'Seleccionar todos'}
                   </button>
                 </div>
 
                 <div className="border rounded-lg divide-y overflow-hidden">
                   {foundSale.sale_items.map(item => {
-                    const sel    = selected[item.id]
+                    const sel     = selected[item.id]
                     const isChecked = !!sel
                     const product   = item.products
-                    const name = product?.base_name || product?.name || 'Producto'
-                    const details = [product?.base_code, product?.size, product?.color]
-                      .filter(Boolean).join(' · ')
+                    const name    = product?.base_name || product?.name || 'Producto'
+                    const details = [product?.base_code, product?.size, product?.color].filter(Boolean).join(' · ')
 
                     return (
-                      <div
-                        key={item.id}
-                        className={[
-                          'flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors',
-                          isChecked ? 'bg-blue-50' : 'hover:bg-gray-50',
-                        ].join(' ')}
+                      <div key={item.id}
+                        className={['flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors',
+                          isChecked ? 'bg-blue-50' : 'hover:bg-gray-50'].join(' ')}
                         onClick={() => toggleItem(item)}
                       >
-                        {/* Checkbox */}
-                        <div className={[
-                          'w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors',
-                          isChecked ? 'bg-primary border-primary' : 'border-gray-300',
-                        ].join(' ')}>
+                        <div className={['w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors',
+                          isChecked ? 'bg-primary border-primary' : 'border-gray-300'].join(' ')}>
                           {isChecked && (
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -353,7 +347,6 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                           )}
                         </div>
 
-                        {/* Product info */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
                           <p className="text-xs text-gray-500 truncate">
@@ -362,44 +355,29 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                           </p>
                         </div>
 
-                        {/* Qty original */}
                         <div className="text-xs text-gray-500 flex-shrink-0 text-right">
                           <div>{formatCurrency(Number(item.unit_price))} c/u</div>
                           <div>Stock: ×{item.quantity}</div>
                         </div>
 
-                        {/* Qty to return (only when selected) */}
                         {isChecked && (
-                          <div
-                            className="flex items-center gap-1 flex-shrink-0"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setQty(item.id, sel.returnQty - 1)}
+                          <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                            <button type="button" onClick={() => setQty(item.id, sel.returnQty - 1)}
                               disabled={sel.returnQty <= 1}
-                              className="w-6 h-6 rounded border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30"
-                            >
+                              className="w-6 h-6 rounded border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30">
                               <Minus className="h-3 w-3" />
                             </button>
                             <span className="w-6 text-center text-sm font-medium">{sel.returnQty}</span>
-                            <button
-                              type="button"
-                              onClick={() => setQty(item.id, sel.returnQty + 1)}
+                            <button type="button" onClick={() => setQty(item.id, sel.returnQty + 1)}
                               disabled={sel.returnQty >= sel.maxQty}
-                              className="w-6 h-6 rounded border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30"
-                            >
+                              className="w-6 h-6 rounded border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30">
                               <Plus className="h-3 w-3" />
                             </button>
                           </div>
                         )}
 
-                        {/* Line subtotal */}
                         <div className="text-sm font-semibold text-gray-900 flex-shrink-0 w-20 text-right">
-                          {isChecked
-                            ? formatCurrency(sel.unitPrice * sel.returnQty)
-                            : formatCurrency(Number(item.subtotal))
-                          }
+                          {isChecked ? formatCurrency(sel.unitPrice * sel.returnQty) : formatCurrency(Number(item.subtotal))}
                         </div>
                       </div>
                     )
@@ -418,35 +396,19 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                       </div>
                     )}
                     <div className="flex items-center justify-between px-3 py-2.5 bg-rose-50 border border-rose-200 rounded-lg">
-                      <span className="text-sm font-medium text-rose-700">
-                        Monto a devolver ({selectedCount} prod.)
-                      </span>
-                      <span className="text-base font-bold text-rose-700">
-                        {useManualAmount && manualAmount
-                          ? formatCurrency(Number(manualAmount))
-                          : formatCurrency(hasDiscount ? effectiveReturnAmount : returnAmount)}
-                      </span>
+                      <span className="text-sm font-medium text-rose-700">Monto a reembolsar ({selectedCount} prod.)</span>
+                      <span className="text-base font-bold text-rose-700">{formatCurrency(finalAmount)}</span>
                     </div>
                     <div className="flex items-center gap-2 px-1">
                       <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={useManualAmount}
-                          onChange={e => setUseManualAmount(e.target.checked)}
-                          className="h-3.5 w-3.5"
-                        />
+                        <input type="checkbox" checked={useManualAmount}
+                          onChange={e => setUseManualAmount(e.target.checked)} className="h-3.5 w-3.5" />
                         Monto personalizado
                       </label>
                       {useManualAmount && (
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          value={manualAmount}
-                          onChange={e => setManualAmount(e.target.value)}
-                          className="ml-2 w-28 px-2 py-1 border rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        />
+                        <input type="number" step="0.01" min="0" placeholder="0.00"
+                          value={manualAmount} onChange={e => setManualAmount(e.target.value)}
+                          className="ml-2 w-28 px-2 py-1 border rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/40" />
                       )}
                     </div>
                   </div>
@@ -464,15 +426,10 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
             {/* ── Paso 3: Datos de la devolución ─────────────────────── */}
             {foundSale && (
               <>
-                {/* Reason type */}
                 <div>
                   <Label className="text-sm font-medium">Motivo *</Label>
-                  <select
-                    value={reasonType}
-                    onChange={e => setReasonType(e.target.value)}
-                    className="w-full mt-1.5 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    required
-                  >
+                  <select value={reasonType} onChange={e => setReasonType(e.target.value)}
+                    className="w-full mt-1.5 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" required>
                     <option value="DEFECTO_PRODUCTO">Producto defectuoso</option>
                     <option value="TALLA_INCORRECTA">Talla incorrecta</option>
                     <option value="COLOR_DIFERENTE">Color diferente</option>
@@ -482,57 +439,27 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                   </select>
                 </div>
 
-                {/* Reason description */}
                 <div>
                   <Label className="text-sm font-medium">Descripción del motivo *</Label>
-                  <textarea
-                    value={reason}
-                    onChange={e => setReason(e.target.value)}
+                  <textarea value={reason} onChange={e => setReason(e.target.value)}
                     className="w-full mt-1.5 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                    rows={2}
-                    placeholder="Describe el motivo de la devolución..."
-                    required
-                  />
+                    rows={2} placeholder="Describe el motivo de la devolución..." required />
                 </div>
 
-                {/* Return type */}
-                <div>
-                  <Label className="text-sm font-medium">Tipo de devolución *</Label>
-                  <div className="flex gap-3 mt-1.5">
-                    {(['REEMBOLSO', 'CAMBIO'] as const).map(t => (
-                      <label
-                        key={t}
-                        className={[
-                          'flex-1 flex items-center gap-2 px-3 py-2.5 border rounded-lg cursor-pointer text-sm transition-colors',
-                          returnType === t
-                            ? 'border-primary bg-primary/5 text-primary font-medium'
-                            : 'border-gray-200 text-gray-600 hover:bg-gray-50',
-                        ].join(' ')}
-                      >
-                        <input
-                          type="radio"
-                          name="returnType"
-                          value={t}
-                          checked={returnType === t}
-                          onChange={() => setReturnType(t)}
-                          className="accent-primary"
-                        />
-                        {t === 'REEMBOLSO' ? '💵 Reembolso de dinero' : '🔄 Cambio por otro producto'}
-                      </label>
-                    ))}
-                  </div>
+                {/* Tipo siempre REEMBOLSO — informativo */}
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800 font-medium">
+                  <Banknote className="h-4 w-4 shrink-0" />
+                  Tipo: Reembolso de dinero
+                  <span className="text-xs font-normal text-emerald-600 ml-1">
+                    — Si el cliente desea otra prenda puede realizar una nueva compra.
+                  </span>
                 </div>
 
-                {/* Notes */}
                 <div>
                   <Label className="text-sm font-medium text-gray-600">Notas adicionales (opcional)</Label>
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
+                  <textarea value={notes} onChange={e => setNotes(e.target.value)}
                     className="w-full mt-1.5 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                    rows={2}
-                    placeholder="Información adicional..."
-                  />
+                    rows={2} placeholder="Información adicional..." />
                 </div>
               </>
             )}
@@ -542,13 +469,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
           <div className="flex items-center justify-between gap-3 px-5 py-4 border-t bg-gray-50/50 flex-shrink-0">
             <div className="text-sm text-gray-500">
               {selectedCount > 0
-                ? <span className="font-medium text-gray-700">
-                    Total: {formatCurrency(
-                      useManualAmount && manualAmount
-                        ? Number(manualAmount)
-                        : (hasDiscount ? effectiveReturnAmount : returnAmount)
-                    )}
-                  </span>
+                ? <span className="font-medium text-gray-700">Reembolso: {formatCurrency(finalAmount)}</span>
                 : foundSale ? 'Selecciona los productos a devolver' : ''
               }
             </div>
@@ -556,18 +477,11 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                disabled={loading || !foundSale || selectedCount === 0}
-                className="min-w-[140px]"
-              >
+              <Button type="submit" disabled={loading || !foundSale || selectedCount === 0}
+                className="min-w-[140px] bg-rose-600 hover:bg-rose-700">
                 {loading
                   ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creando...</>
-                  : `Crear Devolución${selectedCount > 0 ? ` (${formatCurrency(
-                      useManualAmount && manualAmount
-                        ? Number(manualAmount)
-                        : (hasDiscount ? effectiveReturnAmount : returnAmount)
-                    )})` : ''}`
+                  : `Registrar Devolución${selectedCount > 0 ? ` (${formatCurrency(finalAmount)})` : ''}`
                 }
               </Button>
             </div>

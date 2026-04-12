@@ -34,8 +34,8 @@ interface BulkProductInput {
   description?: string
   line_id: string
   category_id: string
-  brand_id: string
-  supplier_id: string
+  brand_id?: string
+  supplier_id?: string
   size?: string
   color?: string
   presentation?: string
@@ -88,8 +88,8 @@ export async function createBulkProducts(
 
   // Validate each product
   for (const product of products) {
-    if (!product.barcode || !product.name || !product.line_id || 
-        !product.category_id || !product.brand_id || !product.supplier_id ||
+    if (!product.barcode || !product.name || !product.line_id ||
+        !product.category_id ||
         !product.warehouse_id || product.quantity < 0) {
       return { 
         success: false, 
@@ -243,8 +243,8 @@ export async function createBulkProducts(
             description: product.description || null,
             line_id: product.line_id,
             category_id: product.category_id,
-            brand_id: product.brand_id,
-            supplier_id: product.supplier_id,
+            brand_id: product.brand_id || null,
+            supplier_id: product.supplier_id || null,
             size: product.size || null,
             color: product.color || null,
             presentation: product.presentation || 'Unidad',

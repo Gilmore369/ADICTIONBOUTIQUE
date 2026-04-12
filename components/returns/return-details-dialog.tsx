@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import {
   X, Package, CheckCircle, XCircle, Clock,
   ThumbsUp, ThumbsDown, RotateCcw,
-  Banknote, CreditCard, Receipt,
+  Banknote, Receipt,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate } from '@/lib/utils/date'
@@ -108,6 +108,7 @@ export function ReturnDetailsDialog({
     ? returnData.returned_items
     : []
   const isPending = returnData.status === 'PENDIENTE'
+  const saleType = returnData.sales?.sale_type as 'CONTADO' | 'CREDITO' | undefined
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -157,22 +158,19 @@ export function ReturnDetailsDialog({
 
             {/* Right: type + amount */}
             <div className="space-y-3">
-              <div className={`p-3 rounded-lg border ${
-                returnData.return_type === 'REEMBOLSO'
-                  ? 'bg-purple-50 border-purple-200'
-                  : 'bg-sky-50 border-sky-200'
-              }`}>
+              <div className="p-3 rounded-lg border bg-purple-50 border-purple-200">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Tipo de devolución</p>
-                <p className={`text-sm font-semibold flex items-center gap-1.5 ${
-                  returnData.return_type === 'REEMBOLSO' ? 'text-purple-700' : 'text-sky-700'
-                }`}>
-                  {returnData.return_type === 'REEMBOLSO'
-                    ? <><Banknote className="h-4 w-4" /> Reembolso de dinero</>
-                    : <><CreditCard className="h-4 w-4" /> Cambio por producto</>
-                  }
+                <p className="text-sm font-semibold flex items-center gap-1.5 text-purple-700">
+                  <Banknote className="h-4 w-4" /> Reembolso de dinero
                 </p>
-                {returnData.return_type === 'REEMBOLSO' && returnData.status === 'APROBADA' && (
-                  <p className="text-[10px] text-purple-500 mt-0.5">✓ Egreso registrado en caja</p>
+                {saleType && (
+                  <span className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[10px] font-semibold ${
+                    saleType === 'CREDITO'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-green-100 text-green-700'
+                  }`}>
+                    Venta {saleType}
+                  </span>
                 )}
               </div>
 
@@ -273,9 +271,24 @@ export function ReturnDetailsDialog({
                 <CheckCircle className="h-3.5 w-3.5" />
                 Efectos registrados al aprobar
               </p>
-              {returnData.return_type === 'REEMBOLSO' && (
+              {saleType === 'CONTADO' && (
                 <p className="text-xs text-emerald-600">
                   💵 Egreso de {formatCurrency(Number(returnData.total_amount))} registrado en caja
+                </p>
+              )}
+              {saleType === 'CREDITO' && (
+                <>
+                  <p className="text-xs text-emerald-600">
+                    🏦 Plan de crédito cancelado y cuotas pendientes eliminadas
+                  </p>
+                  <p className="text-xs text-emerald-600">
+                    ✅ Crédito del cliente restaurado por {formatCurrency(Number(returnData.total_amount))}
+                  </p>
+                </>
+              )}
+              {!saleType && (
+                <p className="text-xs text-emerald-600">
+                  💵 Efectos financieros registrados según tipo de venta
                 </p>
               )}
               <p className="text-xs text-emerald-600">
@@ -291,9 +304,9 @@ export function ReturnDetailsDialog({
               <div>
                 <p className="text-xs font-semibold text-amber-700">Pendiente de revisión</p>
                 <p className="text-xs text-amber-600 mt-0.5">
-                  Al aprobar:
-                  {returnData.return_type === 'REEMBOLSO' ? ' se registrará un egreso en caja.' : ' se habilitará el cambio.'}
-                  {' '}Si la venta fue a crédito, se liberará el crédito del cliente.
+                  {saleType === 'CONTADO' && 'Al aprobar se registrará un egreso en caja. La caja debe estar abierta en la tienda.'}
+                  {saleType === 'CREDITO' && 'Al aprobar se cancelará el plan de crédito, se eliminarán las cuotas pendientes y se restaurará el límite de crédito del cliente.'}
+                  {!saleType && 'Al aprobar se procesará el reembolso según el tipo de venta original.'}
                 </p>
               </div>
             </div>

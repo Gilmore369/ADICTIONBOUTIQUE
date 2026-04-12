@@ -36,9 +36,11 @@ import {
   Package, Star, Upload, Trash2, Filter, Camera,
   ShoppingCart, Plus, Minus, ArrowRight, Check,
   Grid3x3, List, Store, TrendingUp, AlertCircle, Sparkles,
-  Bookmark, BookmarkCheck,
+  Bookmark, BookmarkCheck, Loader2, PlusCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { createBulkProducts } from '@/actions/products'
+import { createSize } from '@/actions/catalogs'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -558,6 +560,25 @@ function ModelDetailModal({
   const [catalogVisible, setCatalogVisible] = useState(false)
   const [togglingCatalog, setTogglingCatalog] = useState(false)
 
+  // Add-variant form
+  const [showAddVariant, setShowAddVariant] = useState(false)
+  const [addSize, setAddSize] = useState('')
+  const [addColor, setAddColor] = useState('')
+  const [addBarcode, setAddBarcode] = useState('')
+  const [addPurchasePrice, setAddPurchasePrice] = useState('')
+  const [addSalePrice, setAddSalePrice] = useState('')
+  const [addQty, setAddQty] = useState('0')
+  const [addingVariant, setAddingVariant] = useState(false)
+  const [catalogSizes, setCatalogSizes] = useState<{ id: string; name: string }[]>([])
+  const [loadingSizes, setLoadingSizes] = useState(false)
+  // custom size quick-create
+  const [newSizeName, setNewSizeName] = useState('')
+  const [creatingSize, setCreatingSize] = useState(false)
+  const [showNewSizeInput, setShowNewSizeInput] = useState(false)
+  // custom color for add-variant form
+  const [colorMode, setColorMode] = useState<'select' | 'custom'>('select')
+  const [customColor, setCustomColor] = useState('')
+
   const loadImages = useCallback(async (m: ModelCard) => {
     const supabase = createBrowserClient()
     try {
@@ -602,6 +623,18 @@ function ModelDetailModal({
       setGalleryIdx(0)
       setColorFilter(null)
       setCatalogVisible(model.catalog_visible)
+      setShowAddVariant(false)
+      // Load sizes for this category
+      if (model.category_id) {
+        setLoadingSizes(true)
+        fetch(`/api/catalogs/sizes?category_id=${model.category_id}`)
+          .then(r => r.json())
+          .then(d => setCatalogSizes(d?.data || []))
+          .catch(() => setCatalogSizes([]))
+          .finally(() => setLoadingSizes(false))
+      } else {
+        setCatalogSizes([])
+      }
     }
   }, [model?.base_code, open, loadImages])
 
@@ -711,6 +744,92 @@ function ModelDetailModal({
     }
   }, [editColorValue, onRefresh])
 
+  const handleCreateSize = useCallback(async () => {
+    if (!newSizeName.trim() || !model?.category_id) return
+    setCreatingSize(true)
+    try {
+      const res = await createSize({ name: newSizeName.trim(), category_id: model.category_id })
+      if (res.success && res.data) {
+        const ns = { id: res.data.id, name: res.data.name }
+        setCatalogSizes(prev => [...prev, ns].sort((a, b) => a.name.localeCompare(b.name)))
+        setAddSize(ns.name)
+        setNewSizeName('')
+        setShowNewSizeInput(false)
+        toast.success(`Talla "${ns.name}" creada`)
+      } else {
+        toast.error('Error al crear la talla')
+      }
+    } finally {
+      setCreatingSize(false)
+    }
+  }, [newSizeName, model?.category_id])
+
+  const handleAddVariant = useCallback(async () => {
+    if (!model) return
+    if (!addBarcode.trim()) { toast.error('El código de barras es obligatorio'); return }
+    const sp = parseFloat(addSalePrice)
+    if (!addSalePrice || isNaN(sp) || sp <= 0) { toast.error('El precio de venta debe ser mayor a 0'); return }
+    if (!model.line_id || !model.category_id) { toast.error('El modelo no tiene línea/categoría asignada'); return }
+    const qty = parseInt(addQty, 10)
+
+    setAddingVariant(true)
+    try {
+      // Look up supplier_id for this brand (required by createBulkProducts)
+      let supplierId = ''
+      if (model.brand_id) {
+        const supabase = createBrowserClient()
+        const { data: sb } = await supabase
+          .from('supplier_brands')
+          .select('supplier_id')
+          .eq('brand_id', model.brand_id)
+          .limit(1)
+          .maybeSingle()
+        supplierId = (sb as any)?.supplier_id ?? ''
+      }
+
+      // Infer warehouse from line name
+      let warehouse = 'Tienda Mujeres'
+      if (model.line_name) {
+        const ln = model.line_name.toLowerCase()
+        if (ln.includes('hombre')) warehouse = 'Tienda Hombres'
+      }
+
+      const result = await createBulkProducts([{
+        barcode: addBarcode.trim(),
+        name: addSize ? `${model.base_name} - ${addSize}` : model.base_name,
+        base_code: model.base_code,
+        base_name: model.base_name,
+        line_id: model.line_id,
+        category_id: model.category_id,
+        brand_id: model.brand_id ?? '',
+        supplier_id: supplierId,
+        size: addSize || undefined,
+        color: addColor || undefined,
+        purchase_price: parseFloat(addPurchasePrice) || 0,
+        price: sp,
+        quantity: isNaN(qty) ? 0 : qty,
+        warehouse_id: warehouse,
+        image_url: model.primary_image_url ?? null,
+        min_stock: 1,
+      }])
+
+      if (!result.success) {
+        toast.error('Error al guardar', { description: String(result.error) })
+        return
+      }
+
+      toast.success('Variante agregada correctamente')
+      // Reset form
+      setAddBarcode(''); setAddSize(''); setAddColor('')
+      setAddPurchasePrice(''); setAddSalePrice(''); setAddQty('0')
+      setColorMode('select'); setCustomColor('')
+      setShowAddVariant(false)
+      onRefresh()
+    } finally {
+      setAddingVariant(false)
+    }
+  }, [model, addBarcode, addSize, addColor, addPurchasePrice, addSalePrice, addQty, onRefresh, setColorMode, setCustomColor])
+
   const handleToggleCatalog = useCallback(async () => {
     if (!model) return
     // Check limit before enabling (catalogCount = number of distinct models in catalog)
@@ -746,33 +865,18 @@ function ModelDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto"
+        style={{ width: 'min(900px, 96vw)', maxWidth: 'min(900px, 96vw)' }}
+      >
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2 flex-wrap">
             <span className="font-mono text-muted-foreground text-xs bg-muted px-1.5 py-0.5 rounded">{model.base_code}</span>
             <span>{model.base_name}</span>
-            <button
-              onClick={handleToggleCatalog}
-              disabled={togglingCatalog}
-              title={catalogVisible ? 'Quitar del catálogo' : 'Agregar al catálogo visual'}
-              className={[
-                'ml-auto inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-medium transition-colors flex-shrink-0',
-                catalogVisible
-                  ? 'bg-violet-100 text-violet-700 border border-violet-300 hover:bg-violet-200'
-                  : 'bg-muted text-muted-foreground border border-border hover:bg-muted/80',
-                togglingCatalog ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-              ].join(' ')}
-            >
-              {catalogVisible
-                ? <BookmarkCheck className="h-3.5 w-3.5" />
-                : <Bookmark className="h-3.5 w-3.5" />
-              }
-              {catalogVisible ? 'En catálogo' : 'Agregar a catálogo'}
-            </button>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
           {/* ── Gallery ── */}
           <div className="space-y-3">
             {/* Color filter indicator */}
@@ -972,27 +1076,42 @@ function ModelDetailModal({
 
             {/* Variants table with real stock */}
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Tallas y stock</p>
-              <div className="rounded-lg border overflow-hidden">
-                <table className="w-full text-xs">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Tallas y stock</p>
+                <button
+                  type="button"
+                  onClick={() => setShowAddVariant(v => !v)}
+                  className={[
+                    'flex items-center gap-1 text-[10px] font-semibold rounded-md px-2 py-0.5 transition-colors',
+                    showAddVariant
+                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      : 'text-blue-600 hover:bg-blue-50',
+                  ].join(' ')}
+                >
+                  <PlusCircle className="h-3 w-3" />
+                  Agregar talla/variante
+                </button>
+              </div>
+              <div className="rounded-lg border overflow-x-auto">
+                <table className="w-full min-w-[300px] text-xs">
                   <thead>
                     <tr className="bg-muted/50">
-                      <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Talla</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Talla</th>
                       {showMultiColor && (
-                        <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Color</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground text-[10px] uppercase">Color</th>
                       )}
-                      <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground text-[10px] uppercase">Stock</th>
-                      <th className="px-3 py-1.5 text-center font-semibold text-muted-foreground text-[10px] uppercase">Estado</th>
-                      <th className="px-2 py-1.5 w-8"></th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground text-[10px] uppercase">Stock</th>
+                      <th className="px-2 py-1.5 text-center font-semibold text-muted-foreground text-[10px] uppercase">Estado</th>
+                      <th className="px-1 py-1.5 w-7"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {model.variants.length > 0 ? (
                       model.variants.map((v, i) => (
                         <tr key={v.product_id} className={i % 2 === 0 ? '' : 'bg-muted/20'}>
-                          <td className="px-3 py-1.5 font-mono font-semibold">{v.size || '—'}</td>
+                          <td className="px-2 py-1.5 font-mono font-semibold">{v.size || '—'}</td>
                           {showMultiColor && (
-                            <td className="px-3 py-1.5">
+                            <td className="px-2 py-1.5">
                               {v.color ? (
                                 <div className="flex items-center gap-1.5">
                                   <ColorDot color={v.color} size="sm" />
@@ -1001,8 +1120,8 @@ function ModelDetailModal({
                               ) : '—'}
                             </td>
                           )}
-                          <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{v.stock}</td>
-                          <td className="px-3 py-1.5 text-center">
+                          <td className="px-2 py-1.5 text-right tabular-nums font-semibold">{v.stock}</td>
+                          <td className="px-2 py-1.5 text-center">
                             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
                               v.stock === 0 ? 'bg-rose-100 text-rose-700' :
                               v.stock < 5  ? 'bg-amber-100 text-amber-700' :
@@ -1011,7 +1130,7 @@ function ModelDetailModal({
                               {v.stock === 0 ? 'Agotado' : v.stock < 5 ? 'Poco' : 'Ok'}
                             </span>
                           </td>
-                          <td className="px-2 py-1.5 text-center">
+                          <td className="px-1 py-1.5 text-center">
                             <button
                               onClick={() => {
                                 if (v.stock > 0) {
@@ -1043,17 +1162,179 @@ function ModelDetailModal({
                   <tfoot>
                     <tr className="bg-muted/50 border-t-2 border-border">
                       <td
-                        className="px-3 py-1.5 font-semibold text-[10px] uppercase text-muted-foreground"
+                        className="px-2 py-1.5 font-semibold text-[10px] uppercase text-muted-foreground"
                         colSpan={showMultiColor ? 2 : 1}
                       >
                         Total
                       </td>
-                      <td className="px-3 py-1.5 text-right font-bold tabular-nums">{model.total_stock}</td>
+                      <td className="px-2 py-1.5 text-right font-bold tabular-nums">{model.total_stock}</td>
                       <td colSpan={2} />
                     </tr>
                   </tfoot>
                 </table>
               </div>
+
+              {/* ── Add Variant Form ── */}
+              {showAddVariant && (
+                <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-600">
+                    Nueva variante para <strong>{model.base_name}</strong>
+                  </p>
+
+                  {/* Row 1: Talla + Color */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Talla</label>
+                      {loadingSizes ? (
+                        <div className="h-8 flex items-center text-xs text-gray-400 gap-1.5">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Cargando…
+                        </div>
+                      ) : catalogSizes.length > 0 ? (
+                        <div className="flex gap-1">
+                          <select
+                            value={addSize}
+                            onChange={e => setAddSize(e.target.value)}
+                            className="h-8 flex-1 rounded-lg border border-gray-200 bg-white px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          >
+                            <option value="">— elegir —</option>
+                            {catalogSizes.map(s => (
+                              <option key={s.id} value={s.name}>{s.name}</option>
+                            ))}
+                          </select>
+                          {showNewSizeInput ? (
+                            <div className="flex gap-0.5">
+                              <input
+                                autoFocus
+                                value={newSizeName}
+                                onChange={e => setNewSizeName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateSize() } if (e.key === 'Escape') setShowNewSizeInput(false) }}
+                                placeholder="ej: XXS"
+                                className="h-8 w-14 rounded-md border border-blue-300 px-1.5 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+                              />
+                              <button type="button" onClick={handleCreateSize} disabled={creatingSize || !newSizeName.trim()}
+                                className="flex h-8 w-6 items-center justify-center rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                                {creatingSize ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                              </button>
+                              <button type="button" onClick={() => setShowNewSizeInput(false)}
+                                className="flex h-8 w-6 items-center justify-center rounded-md border border-gray-200 text-gray-400 hover:bg-gray-50">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => setShowNewSizeInput(true)}
+                              title="Nueva talla"
+                              className="flex h-8 w-7 items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-600">
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <input
+                          value={addSize}
+                          onChange={e => setAddSize(e.target.value)}
+                          placeholder="ej: M, 28, 100ml"
+                          className="h-8 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Color</label>
+                      {colorMode === 'custom' ? (
+                        <div className="flex gap-1">
+                          <input
+                            autoFocus
+                            value={customColor}
+                            onChange={e => { setCustomColor(e.target.value); setAddColor(e.target.value) }}
+                            placeholder="Escribe el color"
+                            className="h-8 flex-1 rounded-lg border border-blue-300 bg-white px-2 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                          <button type="button" onClick={() => { setColorMode('select'); setCustomColor(''); setAddColor('') }}
+                            className="flex h-8 w-6 items-center justify-center rounded-md border border-gray-200 text-gray-400 hover:bg-gray-50">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          value={addColor}
+                          onChange={e => {
+                            if (e.target.value === '__custom__') { setColorMode('custom'); setAddColor('') }
+                            else setAddColor(e.target.value)
+                          }}
+                          className="h-8 w-full rounded-lg border border-gray-200 bg-white px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        >
+                          <option value="">— sin color —</option>
+                          {model.colors.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                          <option value="__custom__">+ Otro color…</option>
+                        </select>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Barcode */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Código de barras <span className="text-red-500">*</span></label>
+                    <input
+                      value={addBarcode}
+                      onChange={e => setAddBarcode(e.target.value)}
+                      placeholder="0000000000000"
+                      className="h-8 w-full rounded-lg border border-gray-200 bg-white px-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Row 3: Precios + Stock */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">P. Compra</label>
+                      <input type="number" min="0" step="0.01"
+                        value={addPurchasePrice}
+                        onChange={e => setAddPurchasePrice(e.target.value)}
+                        placeholder="0.00"
+                        className="h-8 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">P. Venta <span className="text-red-500">*</span></label>
+                      <input type="number" min="0" step="0.01"
+                        value={addSalePrice}
+                        onChange={e => setAddSalePrice(e.target.value)}
+                        placeholder="0.00"
+                        className="h-8 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Stock ini.</label>
+                      <input type="number" min="0" step="1"
+                        value={addQty}
+                        onChange={e => setAddQty(e.target.value)}
+                        placeholder="0"
+                        className="h-8 w-full rounded-lg border border-gray-200 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleAddVariant}
+                      disabled={addingVariant || !addBarcode.trim() || !addSalePrice}
+                      className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold transition-colors hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {addingVariant ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      {addingVariant ? 'Guardando…' : 'Guardar variante'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVariant(false)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Colors summary — clickable to filter gallery images */}
