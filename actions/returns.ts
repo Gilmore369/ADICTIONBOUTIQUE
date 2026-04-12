@@ -169,47 +169,110 @@ export async function approveReturnAction(returnId: string) {
     }
   }
 
-  // ── 5b. CREDITO → Cancelar plan, cuotas pendientes y restaurar crédito ────
+  // ── 5b. CREDITO → Ajustar plan, cuotas y restaurar crédito ──────────────
   if (saleType === 'CREDITO' && ret.client_id && ret.sale_id) {
     try {
       const { data: creditPlan } = await service
         .from('credit_plans')
-        .select('id, total_amount')
+        .select('id, total_amount, status')
         .eq('sale_id', ret.sale_id)
         .maybeSingle()
 
       if (creditPlan) {
-        // Cancelar el plan de crédito
-        await service
-          .from('credit_plans')
-          .update({ status: 'CANCELLED' })
-          .eq('id', creditPlan.id)
-
-        // Eliminar cuotas pendientes / vencidas (las pagadas quedan como registro)
-        await service
+        // Obtener cuotas PENDIENTES / VENCIDAS
+        const { data: pendingInstallments } = await service
           .from('installments')
-          .delete()
+          .select('id, amount, installment_number, due_date')
           .eq('plan_id', creditPlan.id)
           .in('status', ['PENDING', 'OVERDUE'])
+          .order('installment_number', { ascending: true })
 
-        // Restaurar credit_used del cliente por el monto del plan completo
-        const { data: client } = await service
-          .from('clients')
-          .select('credit_used')
-          .eq('id', ret.client_id)
-          .single()
+        const pendingList  = pendingInstallments ?? []
+        const totalPending = pendingList.reduce((s, i) => s + Number(i.amount), 0)
 
-        if (client) {
-          const planAmount    = Number(creditPlan.total_amount)
-          const newCreditUsed = Math.max(0, Number(client.credit_used) - planAmount)
+        // ¿Devolución cubre todo lo pendiente? → cancelar plan
+        const isFullReturn = returnAmount >= totalPending - 0.01
+
+        if (isFullReturn || totalPending === 0) {
+          // Cancelar plan completo
           await service
-            .from('clients')
-            .update({ credit_used: newCreditUsed })
-            .eq('id', ret.client_id)
+            .from('credit_plans')
+            .update({ status: 'CANCELLED' })
+            .eq('id', creditPlan.id)
+
+          if (pendingList.length > 0) {
+            await service
+              .from('installments')
+              .delete()
+              .eq('plan_id', creditPlan.id)
+              .in('status', ['PENDING', 'OVERDUE'])
+          }
+
+          // Restaurar el monto total pendiente (no planAmount completo)
+          const { data: client } = await service
+            .from('clients').select('credit_used').eq('id', ret.client_id).single()
+
+          if (client) {
+            const toRestore    = isFullReturn ? totalPending : returnAmount
+            const newCreditUsed = Math.max(0, Number(client.credit_used) - toRestore)
+            await service
+              .from('clients')
+              .update({ credit_used: newCreditUsed })
+              .eq('id', ret.client_id)
+          }
+        } else {
+          // ── Devolución parcial ─────────────────────────────────────────────
+          // 1. Reducir cuotas desde la última hacia atrás
+          let toReturn = returnAmount
+          const toDelete: string[] = []
+          let toUpdateId: string | null = null
+          let toUpdateAmount = 0
+
+          for (let i = pendingList.length - 1; i >= 0 && toReturn > 0.005; i--) {
+            const inst     = pendingList[i]
+            const instAmt  = Number(inst.amount)
+            if (toReturn >= instAmt - 0.005) {
+              toDelete.push(inst.id)
+              toReturn -= instAmt
+            } else {
+              toUpdateId     = inst.id
+              toUpdateAmount = Math.round((instAmt - toReturn) * 100) / 100
+              toReturn = 0
+            }
+          }
+
+          if (toDelete.length > 0) {
+            await service.from('installments').delete().in('id', toDelete)
+          }
+          if (toUpdateId) {
+            await service
+              .from('installments')
+              .update({ amount: toUpdateAmount })
+              .eq('id', toUpdateId)
+          }
+
+          // 2. Actualizar total del plan
+          const newPlanTotal = Math.round(Math.max(0, Number(creditPlan.total_amount) - returnAmount) * 100) / 100
+          await service
+            .from('credit_plans')
+            .update({ status: 'ACTIVE', total_amount: newPlanTotal })
+            .eq('id', creditPlan.id)
+
+          // 3. Restaurar credit_used solo por el monto devuelto
+          const { data: client } = await service
+            .from('clients').select('credit_used').eq('id', ret.client_id).single()
+
+          if (client) {
+            const newCreditUsed = Math.max(0, Number(client.credit_used) - returnAmount)
+            await service
+              .from('clients')
+              .update({ credit_used: newCreditUsed })
+              .eq('id', ret.client_id)
+          }
         }
       }
     } catch (creditErr) {
-      console.error('[approveReturn] Credit plan cancellation failed:', creditErr)
+      console.error('[approveReturn] Credit plan update failed:', creditErr)
     }
   }
 
