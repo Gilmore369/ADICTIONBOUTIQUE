@@ -98,12 +98,12 @@ export async function createBulkProducts(
     }
   }
 
-  // 3. Auto-link supplier-brand relationships if missing
-  // Instead of failing, we create the link automatically so the workflow isn't blocked
+  // 3. Validate supplier-brand relationships (no auto-create - require explicit setup)
   const uniqueBrandSupplierPairs = new Set(
     products.map(p => `${p.brand_id}:${p.supplier_id}`)
   )
 
+  const missingRelationships: string[] = []
   for (const pair of uniqueBrandSupplierPairs) {
     const [brandId, supplierId] = pair.split(':')
     if (!brandId || !supplierId) continue
@@ -116,9 +116,48 @@ export async function createBulkProducts(
       .maybeSingle()
 
     if (!relationship) {
-      // Auto-create the supplier-brand link so the workflow isn't blocked
-      await supabase.from('supplier_brands').insert({ supplier_id: supplierId, brand_id: brandId })
+      missingRelationships.push(pair)
     }
+  }
+
+  if (missingRelationships.length > 0) {
+    // Get names for clearer error message
+    const [firstBrand, firstSupplier] = missingRelationships[0].split(':')
+    const { data: brand } = await supabase.from('brands').select('name').eq('id', firstBrand).maybeSingle()
+    const { data: supplier } = await supabase.from('suppliers').select('name').eq('id', firstSupplier).maybeSingle()
+    return {
+      success: false,
+      error: `La marca "${brand?.name || firstBrand}" no está asociada al proveedor "${supplier?.name || firstSupplier}". Asocia la marca al proveedor en Catálogos > Proveedores antes de continuar.`
+    }
+  }
+
+  // 3.1 Pre-check: detectar duplicados INTRA-lote (mismo barcode en el lote)
+  const seenBarcodes = new Map<string, number>()
+  for (let i = 0; i < products.length; i++) {
+    const bc = products[i].barcode
+    if (seenBarcodes.has(bc)) {
+      return {
+        success: false,
+        error: `El código "${bc}" está repetido en este lote (filas ${seenBarcodes.get(bc)! + 1} y ${i + 1}). Cada código debe ser único.`
+      }
+    }
+    seenBarcodes.set(bc, i)
+  }
+
+  // 3.2 Pre-check: detectar duplicados intra-lote por (base_code + size + color)
+  // Dos modelos con mismo base_code+size+color son la misma variante con códigos distintos = bug
+  const seenVariants = new Map<string, number>()
+  for (let i = 0; i < products.length; i++) {
+    const p = products[i]
+    if (!p.base_code) continue
+    const variantKey = `${p.base_code}|${p.size || ''}|${p.color || ''}`
+    if (seenVariants.has(variantKey)) {
+      return {
+        success: false,
+        error: `Variante duplicada en el lote: modelo "${p.base_code}", talla "${p.size || 'sin talla'}", color "${p.color || 'sin color'}" aparece en filas ${seenVariants.get(variantKey)! + 1} y ${i + 1}.`
+      }
+    }
+    seenVariants.set(variantKey, i)
   }
 
   try {
@@ -139,33 +178,23 @@ export async function createBulkProducts(
       
       let existingProduct = barcodeResults && barcodeResults.length > 0 ? barcodeResults[0] : null
 
-      // If not found by barcode, search by name + size + color + supplier
-      // This handles cases where the same product has multiple different codes
-      if (!existingProduct) {
-        console.log('[createBulkProducts] Barcode not found, searching by name+size+color:', {
-          name: product.name,
-          size: product.size,
-          color: product.color,
-          supplier_id: product.supplier_id
-        })
-        
-        const baseNameMatch = product.name.match(/^([^-]+)/)
-        const baseName = baseNameMatch ? baseNameMatch[1].trim() : product.name
-        
-        const { data: nameResults, error: nameError } = await supabase
+      // Si no se encontró por barcode, buscar por (base_code + supplier + size + color) EXACTO
+      // NO usar ILIKE en name — eso matchea productos similares y actualiza el incorrecto.
+      // La identidad de una variante es: (base_code, supplier_id, size, color) exactos.
+      if (!existingProduct && product.base_code && product.supplier_id) {
+        const { data: variantResults, error: variantError } = await supabase
           .from('products')
           .select('id')
+          .eq('base_code', product.base_code)
           .eq('supplier_id', product.supplier_id)
-          .ilike('name', `%${baseName}%`)
           .eq('size', product.size || null)
           .eq('color', product.color || null)
           .limit(1)
-        
-        if (nameResults && nameResults.length > 0) {
-          console.log('[createBulkProducts] Found by name+size+color:', nameResults[0].id)
-          existingProduct = nameResults[0]
-        } else if (nameError) {
-          console.error('[createBulkProducts] Error searching by name+size+color:', nameError)
+
+        if (variantResults && variantResults.length > 0) {
+          existingProduct = variantResults[0]
+        } else if (variantError) {
+          console.error('[createBulkProducts] Error en búsqueda por variante exacta:', variantError)
         }
       }
 
@@ -311,19 +340,19 @@ export async function createBulkProducts(
       }
     }
 
-    // Insert all movements at once
+    // Insertar movimientos — OBLIGATORIO para auditoría de stock.
+    // Si esto falla, la operación se considera fallida (el stock cambió sin trazabilidad).
     if (movementsToInsert.length > 0) {
-      console.log('[createBulkProducts] Inserting movements:', movementsToInsert.length)
-      
       const { error: movementsError } = await supabase
         .from('movements')
         .insert(movementsToInsert)
 
       if (movementsError) {
         console.error('[createBulkProducts] Movements insert error:', movementsError)
-        // Don't rollback, movements are optional
-      } else {
-        console.log('[createBulkProducts] Movements created successfully')
+        return {
+          success: false,
+          error: `Stock guardado pero falló el registro de movimientos de auditoría: ${movementsError.message}. Contacta al administrador para reconciliar.`
+        }
       }
     }
 

@@ -68,41 +68,23 @@ export async function GET(request: NextRequest) {
       prefix = category.name.substring(0, 3).toUpperCase()
     }
 
-    // 3. Find last code with this prefix in this category
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('barcode')
-      .eq('category_id', categoryId)
-      .like('barcode', `${prefix}-%`)
-      .order('barcode', { ascending: false })
-      .limit(1)
+    // 3. Generar el siguiente código de forma ATÓMICA usando función SQL.
+    // Esto evita race conditions cuando dos usuarios crean productos simultáneos.
+    const { data: nextCode, error: rpcError } = await supabase.rpc(
+      'generate_next_product_code',
+      { p_category_id: categoryId, p_prefix: prefix }
+    )
 
-    if (productsError) {
+    if (rpcError || !nextCode) {
       return NextResponse.json(
-        { error: productsError.message },
+        { error: rpcError?.message || 'No se pudo generar el código' },
         { status: 500 }
       )
     }
 
-    // 4. Calculate next number
-    let nextNumber = 1
-
-    if (products && products.length > 0) {
-      const lastCode = products[0].barcode
-      // Extract number from format PREFIX-NUMBER-SIZE
-      // Example: BLS-001-M -> extract 001
-      const parts = lastCode.split('-')
-      if (parts.length >= 2) {
-        const numberPart = parts[1]
-        const currentNumber = parseInt(numberPart, 10)
-        if (!isNaN(currentNumber)) {
-          nextNumber = currentNumber + 1
-        }
-      }
-    }
-
-    // 5. Format next code with leading zeros (3 digits)
-    const nextCode = `${prefix}-${String(nextNumber).padStart(3, '0')}`
+    // Extraer número del código generado para mantener compatibilidad con frontend
+    const numberMatch = String(nextCode).match(/-(\d+)$/)
+    const nextNumber = numberMatch ? parseInt(numberMatch[1], 10) : 1
 
     return NextResponse.json({
       data: {
