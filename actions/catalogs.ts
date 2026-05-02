@@ -1203,12 +1203,13 @@ async function restoreEntity(
   return { success: true }
 }
 
-export const restoreProduct  = (id: string) => restoreEntity('products',   id, 'product',          ['/catalogs/products', '/api/products/search'])
-export const restoreSize     = (id: string) => restoreEntity('sizes',      id, 'catalog_size',     ['/catalogs/sizes'])
-export const restoreLine     = (id: string) => restoreEntity('lines',      id, 'catalog_line',     ['/catalogs/lines'])
-export const restoreCategory = (id: string) => restoreEntity('categories', id, 'catalog_category', ['/catalogs/categories'])
-export const restoreBrand    = (id: string) => restoreEntity('brands',     id, 'catalog_brand',    ['/catalogs/brands'])
-export const restoreSupplier = (id: string) => restoreEntity('suppliers',  id, 'catalog_supplier', ['/catalogs/suppliers'])
+// Server actions deben ser funciones async declaradas (no arrow consts).
+export async function restoreProduct(id: string)  { return restoreEntity('products',   id, 'product',          ['/catalogs/products', '/api/products/search']) }
+export async function restoreSize(id: string)     { return restoreEntity('sizes',      id, 'catalog_size',     ['/catalogs/sizes']) }
+export async function restoreLine(id: string)     { return restoreEntity('lines',      id, 'catalog_line',     ['/catalogs/lines']) }
+export async function restoreCategory(id: string) { return restoreEntity('categories', id, 'catalog_category', ['/catalogs/categories']) }
+export async function restoreBrand(id: string)    { return restoreEntity('brands',     id, 'catalog_brand',    ['/catalogs/brands']) }
+export async function restoreSupplier(id: string) { return restoreEntity('suppliers',  id, 'catalog_supplier', ['/catalogs/suppliers']) }
 
 // ============================================================================
 // CLIENT ACTIONS
