@@ -731,23 +731,51 @@ export async function deleteSize(id: string): Promise<ActionResponse> {
 
   const supabase = await createServerClient()
 
-  // products.size es TEXT (no FK), así que necesitamos el nombre de la talla
+  // products.size es TEXT (no FK). Necesitamos nombre Y category_id para
+  // que la validación esté SCOPED a la categoría correcta.
+  // Ej: la talla "S" de Billeteras es independiente de la talla "S" de Casacas
+  // (son rows distintos en sizes, con distinto category_id, pero ambas se
+  // guardan como string 'S' en products.size). Si no filtramos por categoría,
+  // bloqueamos la eliminación de tallas no usadas en su categoría real.
   const { data: sizeData, error: sizeError } = await supabase
     .from('sizes')
-    .select('name')
+    .select('name, category_id, categories(name)')
     .eq('id', id)
     .single()
 
   if (sizeError) return { success: false, error: sizeError.message }
 
-  // Conteo exacto (no muestra) de productos que usan esta talla
-  const dep = await countActiveDependents(supabase, 'products', sizeData.name, id, true)
-  if (dep.error) return { success: false, error: dep.error }
-  if (dep.total > 0) {
-    return { success: false, error: buildDependencyError(dep.total, dep.sample, 'producto(s)', 'esta talla') }
+  // Conteo exacto de productos en LA MISMA CATEGORÍA que usan esta talla
+  const { count, error: countError } = await supabase
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('active', true)
+    .eq('size', sizeData.name)
+    .eq('category_id', sizeData.category_id)
+
+  if (countError) return { success: false, error: countError.message }
+
+  if (count && count > 0) {
+    // Obtener muestra de nombres para mostrar al usuario
+    const { data: sample } = await supabase
+      .from('products')
+      .select('name')
+      .eq('active', true)
+      .eq('size', sizeData.name)
+      .eq('category_id', sizeData.category_id)
+      .limit(5)
+
+    const categoryName = (sizeData as any).categories?.name || 'esta categoría'
+    const sampleNames = (sample || []).map((p: any) => p.name)
+    const moreCount = count - sampleNames.length
+    const moreText = moreCount > 0 ? ` y ${moreCount} más` : ''
+    return {
+      success: false,
+      error: `No se puede eliminar. Hay ${count} producto(s) de "${categoryName}" usando la talla "${sizeData.name}": ${sampleNames.join(', ')}${moreText}.`
+    }
   }
 
-  // Soft delete con verificación de filas afectadas (RLS no debe bloquear silenciosamente)
+  // Soft delete con verificación de filas afectadas
   const { data: updated, error } = await supabase
     .from('sizes')
     .update({ active: false })
