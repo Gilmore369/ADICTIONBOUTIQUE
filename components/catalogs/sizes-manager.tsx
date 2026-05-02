@@ -9,12 +9,15 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
+import { ActiveInactiveToggle, InactiveBanner } from './active-inactive-toggle'
 import { SizeForm } from './size-form'
-import { createSize, updateSize, deleteSize } from '@/actions/catalogs'
+import { createSize, updateSize, deleteSize, restoreSize } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 import { useStore } from '@/contexts/store-context'
 
@@ -56,6 +59,7 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
   // Filters
   const [lineFilter, setLineFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
   // Filter by store when store changes
   useEffect(() => {
@@ -96,7 +100,14 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
   // Filter sizes - INDEPENDIENTES
   const filteredSizes = useMemo(() => {
     let result = sizes
-    
+
+    // Por defecto SOLO activas. Si showInactive, solo INACTIVAS (para restaurarlas)
+    if (showInactive) {
+      result = result.filter(s => s.active === false)
+    } else {
+      result = result.filter(s => s.active !== false)
+    }
+
     // Filtrar por línea (si está seleccionada)
     if (lineFilter) {
       const lineCategoryIds = categories
@@ -104,14 +115,17 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
         .map(c => c.id)
       result = result.filter(s => lineCategoryIds.includes(s.category_id))
     }
-    
+
     // Filtrar por categoría (si está seleccionada) - INDEPENDIENTE
     if (categoryFilter) {
       result = result.filter(s => s.category_id === categoryFilter)
     }
-    
+
     return result
-  }, [sizes, categoryFilter, lineFilter, categories])
+  }, [sizes, categoryFilter, lineFilter, categories, showInactive])
+
+  // Conteo de inactivas para mostrar badge en el toggle
+  const inactiveCount = useMemo(() => sizes.filter(s => s.active === false).length, [sizes])
 
   const columns: CatalogTableColumn<Size>[] = [
     { key: 'name', label: 'Nombre' },
@@ -123,7 +137,9 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
     {
       key: 'active',
       label: 'Estado',
-      render: (size) => size.active ? 'Activo' : 'Inactivo'
+      render: (size) => size.active
+        ? <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">Activo</Badge>
+        : <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">Inactivo</Badge>
     },
     {
       key: 'created_at',
@@ -160,13 +176,34 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
     return await deleteSize(selectedSize.id)
   }
 
+  const handleRestore = async (size: Size) => {
+    const res = await restoreSize(size.id)
+    if (res.success) {
+      // Actualizar estado local
+      setSizes(prev => prev.map(s => s.id === size.id ? { ...s, active: true } : s))
+      toast.success(`Talla "${size.name}" restaurada`)
+    } else {
+      toast.error(typeof res.error === 'string' ? res.error : 'Error al restaurar la talla')
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Talla
-        </Button>
+      <div className="flex justify-between items-center">
+        <ActiveInactiveToggle
+          showInactive={showInactive}
+          onChange={setShowInactive}
+          inactiveCount={inactiveCount}
+          activeLabel="Activas"
+          inactiveLabel="Inactivas"
+        />
+
+        {!showInactive && (
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Talla
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -204,11 +241,14 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
         </div>
       </div>
 
+      {showInactive && <InactiveBanner entityName="tallas" />}
+
       <CatalogTable
         data={filteredSizes}
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRestore={handleRestore}
       />
 
       <CatalogFormDialog

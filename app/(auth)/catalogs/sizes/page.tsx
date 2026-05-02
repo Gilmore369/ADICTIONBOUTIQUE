@@ -11,8 +11,10 @@ export const metadata = {
 async function SizesData() {
   const supabase = await createServerClient()
   
+  // Cargamos TODAS las tallas (activas e inactivas) y dejamos que el manager
+  // filtre con un toggle. Esto permite "Ver inactivas" y restaurar.
   const [sizesResult, categoriesResult, linesResult] = await Promise.all([
-    supabase.from('sizes').select('*, categories(name, line_id)').eq('active', true).order('name'),
+    supabase.from('sizes').select('*, categories(name, line_id)').order('name'),
     supabase.from('categories').select('id, name, line_id').eq('active', true).order('name'),
     supabase.from('lines').select('id, name').eq('active', true).order('name')
   ])

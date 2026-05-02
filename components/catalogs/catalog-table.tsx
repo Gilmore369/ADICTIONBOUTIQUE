@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, RotateCcw } from 'lucide-react'
 
 export interface CatalogTableColumn<T> {
   key: keyof T | string
@@ -33,6 +33,8 @@ interface CatalogTableProps<T> {
   columns: CatalogTableColumn<T>[]
   onEdit?: (item: T) => void
   onDelete?: (item: T) => void
+  /** Si se pasa, muestra botón "Restaurar" cuando item.active === false */
+  onRestore?: (item: T) => void
   idKey?: keyof T
 }
 
@@ -41,8 +43,10 @@ export function CatalogTable<T extends Record<string, any>>({
   columns,
   onEdit,
   onDelete,
+  onRestore,
   idKey = 'id' as keyof T
 }: CatalogTableProps<T>) {
+  const hasActions = !!(onEdit || onDelete || onRestore)
   return (
     <div className="rounded-lg border">
       <Table>
@@ -51,7 +55,7 @@ export function CatalogTable<T extends Record<string, any>>({
             {columns.map((column) => (
               <TableHead key={String(column.key)}>{column.label}</TableHead>
             ))}
-            {(onEdit || onDelete) && (
+            {hasActions && (
               <TableHead className="text-right">Acciones</TableHead>
             )}
           </TableRow>
@@ -60,15 +64,17 @@ export function CatalogTable<T extends Record<string, any>>({
           {data.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={columns.length + (onEdit || onDelete ? 1 : 0)}
+                colSpan={columns.length + (hasActions ? 1 : 0)}
                 className="text-center text-muted-foreground h-24"
               >
                 No hay datos disponibles
               </TableCell>
             </TableRow>
           ) : (
-            data.map((item) => (
-              <TableRow key={String(item[idKey])}>
+            data.map((item) => {
+              const isInactive = item.active === false
+              return (
+              <TableRow key={String(item[idKey])} className={isInactive ? 'opacity-60' : ''}>
                 {columns.map((column) => (
                   <TableCell key={String(column.key)}>
                     {column.render
@@ -76,10 +82,24 @@ export function CatalogTable<T extends Record<string, any>>({
                       : String(item[column.key] ?? '-')}
                   </TableCell>
                 ))}
-                {(onEdit || onDelete) && (
+                {hasActions && (
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {onEdit && (
+                      {/* Si está inactivo, mostramos solo Restaurar */}
+                      {isInactive && onRestore && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onRestore(item)}
+                          className="h-8 px-2 text-green-700 hover:text-green-800 hover:bg-green-50"
+                          title="Restaurar"
+                        >
+                          <RotateCcw className="h-4 w-4 mr-1" />
+                          Restaurar
+                        </Button>
+                      )}
+                      {/* Si está activo, mostramos editar/eliminar */}
+                      {!isInactive && onEdit && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -90,7 +110,7 @@ export function CatalogTable<T extends Record<string, any>>({
                           <span className="sr-only">Editar</span>
                         </Button>
                       )}
-                      {onDelete && (
+                      {!isInactive && onDelete && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -105,7 +125,8 @@ export function CatalogTable<T extends Record<string, any>>({
                   </TableCell>
                 )}
               </TableRow>
-            ))
+              )
+            })
           )}
         </TableBody>
       </Table>

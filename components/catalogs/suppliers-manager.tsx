@@ -14,9 +14,10 @@ import { Plus, Eye, Package, ChevronDown, ChevronRight, Loader2, Hash, Tag, Chec
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
+import { ActiveInactiveToggle, InactiveBanner } from './active-inactive-toggle'
 import { SupplierForm } from './supplier-form'
 import { SearchFilter } from './search-filter'
-import { createSupplier, updateSupplier, deleteSupplier, updateSupplierBrands } from '@/actions/catalogs'
+import { createSupplier, updateSupplier, deleteSupplier, restoreSupplier, updateSupplierBrands } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 import { createBrowserClient } from '@/lib/supabase/client'
 import {
@@ -824,6 +825,7 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
   // Product history modal
   const [productsOpen, setProductsOpen]             = useState(false)
@@ -838,6 +840,13 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
     { key: 'contact_name', label: 'Contacto' },
     { key: 'phone', label: 'Teléfono' },
     { key: 'email', label: 'Email' },
+    {
+      key: 'active',
+      label: 'Estado',
+      render: (supplier) => supplier.active
+        ? <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">Activo</Badge>
+        : <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">Inactivo</Badge>
+    },
     {
       key: 'created_at',
       label: 'Fecha de creación',
@@ -909,26 +918,50 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
     return await deleteSupplier(selectedSupplier.id)
   }
 
-  // Filter suppliers by search query
-  const filteredSuppliers = useMemo(() => {
-    if (!searchQuery.trim()) return suppliers
+  const handleRestore = async (supplier: Supplier) => {
+    const res = await restoreSupplier(supplier.id)
+    if (res.success) {
+      setSuppliers(prev => prev.map(s => s.id === supplier.id ? { ...s, active: true } : s))
+      toast.success(`Proveedor "${supplier.name}" restaurado`)
+    } else {
+      toast.error(typeof res.error === 'string' ? res.error : 'Error al restaurar el proveedor')
+    }
+  }
 
-    const query = searchQuery.toLowerCase()
-    return suppliers.filter(supplier =>
-      supplier.name.toLowerCase().includes(query) ||
-      supplier.contact_name?.toLowerCase().includes(query) ||
-      supplier.email?.toLowerCase().includes(query) ||
-      supplier.phone?.toLowerCase().includes(query)
-    )
-  }, [suppliers, searchQuery])
+  // Filter suppliers by search query + active state
+  const filteredSuppliers = useMemo(() => {
+    let result = suppliers
+    result = result.filter(s => showInactive ? s.active === false : s.active !== false)
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(supplier =>
+        supplier.name.toLowerCase().includes(query) ||
+        supplier.contact_name?.toLowerCase().includes(query) ||
+        supplier.email?.toLowerCase().includes(query) ||
+        supplier.phone?.toLowerCase().includes(query)
+      )
+    }
+    return result
+  }, [suppliers, searchQuery, showInactive])
+
+  const inactiveCount = useMemo(() => suppliers.filter(s => s.active === false).length, [suppliers])
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Proveedor
-        </Button>
+      <div className="flex justify-between items-center">
+        <ActiveInactiveToggle
+          showInactive={showInactive}
+          onChange={setShowInactive}
+          inactiveCount={inactiveCount}
+        />
+
+        {!showInactive && (
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Proveedor
+          </Button>
+        )}
       </div>
 
       <SearchFilter
@@ -937,11 +970,14 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
         placeholder="Buscar por nombre, contacto, email o teléfono..."
       />
 
+      {showInactive && <InactiveBanner entityName="proveedores" />}
+
       <CatalogTable
         data={filteredSuppliers}
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRestore={handleRestore}
       />
 
       <CatalogFormDialog

@@ -11,6 +11,7 @@ export const metadata = {
 async function BrandsData() {
   const supabase = await createServerClient()
   
+  // Cargamos TODAS las marcas (activas e inactivas) — el manager filtra con toggle
   const [brandsResult, suppliersResult] = await Promise.all([
     supabase
       .from('brands')
@@ -18,7 +19,6 @@ async function BrandsData() {
         *,
         supplier_brands(supplier_id, suppliers(id, name))
       `)
-      .eq('active', true)
       .order('name'),
     supabase
       .from('suppliers')

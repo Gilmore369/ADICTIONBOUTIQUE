@@ -43,6 +43,72 @@ import {
 } from '@/lib/validations/catalogs'
 
 /**
+ * Cuenta cuántos registros activos de `table` tienen `column = id` y devuelve
+ * el TOTAL real más una muestra de hasta 5 nombres.
+ *
+ * Antes hacía solo `.limit(5)` y reportaba `length` como total — eso engañaba
+ * al usuario diciendo "5 producto(s)" cuando podía haber 100.
+ *
+ * @param table   Nombre de la tabla a chequear (ej: 'products')
+ * @param column  Columna FK a buscar (ej: 'category_id')
+ * @param id      Valor del FK
+ * @param sizeMatch  Si true, en lugar de comparar `column = id`, busca el campo
+ *                   `size` por nombre (caso especial de tallas que son TEXT).
+ *                   En ese caso `column` debe ser el name de la talla.
+ */
+async function countActiveDependents(
+  supabase: any,
+  table: string,
+  column: string,
+  id: string,
+  sizeMatch = false
+): Promise<{ total: number; sample: string[]; error?: string }> {
+  // 1. Obtener count exacto
+  const countQuery = supabase
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq('active', true)
+
+  if (sizeMatch) countQuery.eq('size', column)
+  else countQuery.eq(column, id)
+
+  const { count, error: countError } = await countQuery
+  if (countError) return { total: 0, sample: [], error: countError.message }
+
+  if (!count || count === 0) return { total: 0, sample: [] }
+
+  // 2. Obtener muestra de nombres (5)
+  const sampleQuery = supabase
+    .from(table)
+    .select('name')
+    .eq('active', true)
+    .limit(5)
+
+  if (sizeMatch) sampleQuery.eq('size', column)
+  else sampleQuery.eq(column, id)
+
+  const { data: sample, error: sampleError } = await sampleQuery
+  if (sampleError) return { total: count, sample: [], error: sampleError.message }
+
+  return { total: count, sample: (sample || []).map((r: any) => r.name) }
+}
+
+/**
+ * Construye un mensaje de error claro para "no se puede eliminar X porque hay Y dependientes"
+ */
+function buildDependencyError(
+  total: number,
+  sample: string[],
+  what: string,           // ej: 'producto(s)'
+  using: string,          // ej: 'esta talla'
+): string {
+  const sampleStr = sample.join(', ')
+  const moreCount = total - sample.length
+  const moreText = moreCount > 0 ? ` y ${moreCount} más` : ''
+  return `No se puede eliminar. Hay ${total} ${what} usando ${using}: ${sampleStr}${moreText}.`
+}
+
+/**
  * Standard response type for server actions
  */
 type ActionResponse<T = any> = {
@@ -154,7 +220,6 @@ export async function updateLine(id: string, formData: FormData): Promise<Action
  * @returns ActionResponse with success status or error
  */
 export async function deleteLine(id: string): Promise<ActionResponse> {
-  // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
@@ -162,59 +227,32 @@ export async function deleteLine(id: string): Promise<ActionResponse> {
 
   const supabase = await createServerClient()
 
-  // Check if there are products using this line
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, name')
-    .eq('line_id', id)
-    .eq('active', true)
-    .limit(5)
-
-  if (productsError) {
-    return { success: false, error: productsError.message }
+  // Conteo exacto de productos que usan esta línea
+  const depProducts = await countActiveDependents(supabase, 'products', 'line_id', id)
+  if (depProducts.error) return { success: false, error: depProducts.error }
+  if (depProducts.total > 0) {
+    return { success: false, error: buildDependencyError(depProducts.total, depProducts.sample, 'producto(s)', 'esta línea') }
   }
 
-  if (products && products.length > 0) {
-    const productNames = products.map(p => p.name).join(', ')
-    const moreText = products.length === 5 ? ' y más...' : ''
-    return { 
-      success: false, 
-      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta línea: ${productNames}${moreText}` 
-    }
+  // Conteo exacto de categorías que usan esta línea
+  const depCats = await countActiveDependents(supabase, 'categories', 'line_id', id)
+  if (depCats.error) return { success: false, error: depCats.error }
+  if (depCats.total > 0) {
+    return { success: false, error: buildDependencyError(depCats.total, depCats.sample, 'categoría(s)', 'esta línea') }
   }
 
-  // Check if there are categories using this line
-  const { data: categories, error: categoriesError } = await supabase
-    .from('categories')
-    .select('id, name')
-    .eq('line_id', id)
-    .eq('active', true)
-    .limit(5)
-
-  if (categoriesError) {
-    return { success: false, error: categoriesError.message }
-  }
-
-  if (categories && categories.length > 0) {
-    const categoryNames = categories.map(c => c.name).join(', ')
-    const moreText = categories.length === 5 ? ' y más...' : ''
-    return { 
-      success: false, 
-      error: `No se puede eliminar. Hay ${categories.length} categoría(s) usando esta línea: ${categoryNames}${moreText}` 
-    }
-  }
-
-  // Soft delete by setting active = false
-  const { error } = await supabase
+  // Soft delete con verificación de filas afectadas
+  const { data: updated, error } = await supabase
     .from('lines')
     .update({ active: false })
     .eq('id', id)
+    .select('id')
 
-  if (error) {
-    return { success: false, error: error.message }
+  if (error) return { success: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return { success: false, error: 'No se pudo eliminar la línea. Verifica permisos o que la línea aún exista.' }
   }
 
-  // Revalidate cache
   revalidatePath('/catalogs/lines')
 
   const uid = await getCurrentUserId()
@@ -328,89 +366,39 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
  * @returns ActionResponse with success status or error
  */
 export async function deleteCategory(id: string): Promise<ActionResponse> {
-  console.log('[deleteCategory] Starting deletion for category ID:', id)
-  
-  // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
-    console.log('[deleteCategory] Permission denied')
     return { success: false, error: 'Forbidden: Insufficient permissions' }
   }
-  console.log('[deleteCategory] Permission granted')
 
   const supabase = await createServerClient()
 
-  // Check if there are products using this category
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, name')
-    .eq('category_id', id)
-    .eq('active', true)
-    .limit(5)
-
-  if (productsError) {
-    console.log('[deleteCategory] Error checking products:', productsError)
-    return { success: false, error: productsError.message }
+  // Conteo exacto de productos que usan esta categoría
+  const depProducts = await countActiveDependents(supabase, 'products', 'category_id', id)
+  if (depProducts.error) return { success: false, error: depProducts.error }
+  if (depProducts.total > 0) {
+    return { success: false, error: buildDependencyError(depProducts.total, depProducts.sample, 'producto(s)', 'esta categoría') }
   }
 
-  console.log('[deleteCategory] Products using category:', products?.length || 0)
-
-  if (products && products.length > 0) {
-    const productNames = products.map(p => p.name).join(', ')
-    const moreText = products.length === 5 ? ' y más...' : ''
-    return { 
-      success: false, 
-      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta categoría: ${productNames}${moreText}` 
-    }
+  // Conteo exacto de tallas que usan esta categoría
+  const depSizes = await countActiveDependents(supabase, 'sizes', 'category_id', id)
+  if (depSizes.error) return { success: false, error: depSizes.error }
+  if (depSizes.total > 0) {
+    return { success: false, error: buildDependencyError(depSizes.total, depSizes.sample, 'talla(s)', 'esta categoría') }
   }
 
-  // Check if there are sizes using this category
-  const { data: sizes, error: sizesError } = await supabase
-    .from('sizes')
-    .select('id, name')
-    .eq('category_id', id)
-    .eq('active', true)
-    .limit(5)
-
-  if (sizesError) {
-    console.log('[deleteCategory] Error checking sizes:', sizesError)
-    return { success: false, error: sizesError.message }
-  }
-
-  console.log('[deleteCategory] Sizes using category:', sizes?.length || 0)
-
-  if (sizes && sizes.length > 0) {
-    const sizeNames = sizes.map(s => s.name).join(', ')
-    const moreText = sizes.length === 5 ? ' y más...' : ''
-    return { 
-      success: false, 
-      error: `No se puede eliminar. Hay ${sizes.length} talla(s) usando esta categoría: ${sizeNames}${moreText}` 
-    }
-  }
-
-  // Soft delete by setting active = false
-  console.log('[deleteCategory] Attempting to update category to active=false')
-  const { data: updateData, error } = await supabase
+  // Soft delete con verificación de filas afectadas
+  const { data: updated, error } = await supabase
     .from('categories')
     .update({ active: false })
     .eq('id', id)
-    .select()
+    .select('id')
 
-  console.log('[deleteCategory] Update result:', { data: updateData, error })
-
-  if (error) {
-    console.log('[deleteCategory] Update failed:', error)
-    return { success: false, error: error.message }
+  if (error) return { success: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return { success: false, error: 'No se pudo eliminar la categoría. Verifica permisos o que la categoría aún exista.' }
   }
 
-  if (!updateData || updateData.length === 0) {
-    console.log('[deleteCategory] WARNING: Update returned no rows - RLS might be blocking')
-    return { success: false, error: 'No se pudo actualizar la categoría. Verifica los permisos.' }
-  }
-
-  console.log('[deleteCategory] Successfully updated category:', updateData)
-
-  // Revalidate cache
   revalidatePath('/catalogs/categories')
 
   const uid = await getCurrentUserId()
@@ -583,7 +571,6 @@ export async function updateBrand(id: string, formData: FormData): Promise<Actio
  * @returns ActionResponse with success status or error
  */
 export async function deleteBrand(id: string): Promise<ActionResponse> {
-  // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
@@ -591,38 +578,25 @@ export async function deleteBrand(id: string): Promise<ActionResponse> {
 
   const supabase = await createServerClient()
 
-  // Check if there are products using this brand
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, name')
-    .eq('brand_id', id)
-    .eq('active', true)
-    .limit(5)
-
-  if (productsError) {
-    return { success: false, error: productsError.message }
+  // Conteo exacto de productos que usan esta marca
+  const depProducts = await countActiveDependents(supabase, 'products', 'brand_id', id)
+  if (depProducts.error) return { success: false, error: depProducts.error }
+  if (depProducts.total > 0) {
+    return { success: false, error: buildDependencyError(depProducts.total, depProducts.sample, 'producto(s)', 'esta marca') }
   }
 
-  if (products && products.length > 0) {
-    const productNames = products.map(p => p.name).join(', ')
-    const moreText = products.length === 5 ? ' y más...' : ''
-    return { 
-      success: false, 
-      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta marca: ${productNames}${moreText}` 
-    }
-  }
-
-  // Soft delete by setting active = false
-  const { error } = await supabase
+  // Soft delete con verificación de filas afectadas
+  const { data: updated, error } = await supabase
     .from('brands')
     .update({ active: false })
     .eq('id', id)
+    .select('id')
 
-  if (error) {
-    return { success: false, error: error.message }
+  if (error) return { success: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return { success: false, error: 'No se pudo eliminar la marca. Verifica permisos o que la marca aún exista.' }
   }
 
-  // Revalidate cache
   revalidatePath('/catalogs/brands')
 
   const uid = await getCurrentUserId()
@@ -750,7 +724,6 @@ export async function updateSize(id: string, formData: FormData): Promise<Action
  * @returns ActionResponse with success status or error
  */
 export async function deleteSize(id: string): Promise<ActionResponse> {
-  // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
@@ -758,49 +731,34 @@ export async function deleteSize(id: string): Promise<ActionResponse> {
 
   const supabase = await createServerClient()
 
-  // Check if there are products using this size (stored as text in products.size)
-  // Note: Since size is stored as TEXT in products table, we need to get the size name first
+  // products.size es TEXT (no FK), así que necesitamos el nombre de la talla
   const { data: sizeData, error: sizeError } = await supabase
     .from('sizes')
     .select('name')
     .eq('id', id)
     .single()
 
-  if (sizeError) {
-    return { success: false, error: sizeError.message }
+  if (sizeError) return { success: false, error: sizeError.message }
+
+  // Conteo exacto (no muestra) de productos que usan esta talla
+  const dep = await countActiveDependents(supabase, 'products', sizeData.name, id, true)
+  if (dep.error) return { success: false, error: dep.error }
+  if (dep.total > 0) {
+    return { success: false, error: buildDependencyError(dep.total, dep.sample, 'producto(s)', 'esta talla') }
   }
 
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, name')
-    .eq('size', sizeData.name)
-    .eq('active', true)
-    .limit(5)
-
-  if (productsError) {
-    return { success: false, error: productsError.message }
-  }
-
-  if (products && products.length > 0) {
-    const productNames = products.map(p => p.name).join(', ')
-    const moreText = products.length === 5 ? ' y más...' : ''
-    return { 
-      success: false, 
-      error: `No se puede eliminar. Hay ${products.length} producto(s) usando esta talla: ${productNames}${moreText}` 
-    }
-  }
-
-  // Soft delete by setting active = false
-  const { error } = await supabase
+  // Soft delete con verificación de filas afectadas (RLS no debe bloquear silenciosamente)
+  const { data: updated, error } = await supabase
     .from('sizes')
     .update({ active: false })
     .eq('id', id)
+    .select('id')
 
-  if (error) {
-    return { success: false, error: error.message }
+  if (error) return { success: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return { success: false, error: 'No se pudo eliminar la talla. Verifica permisos o que la talla aún exista.' }
   }
 
-  // Revalidate cache
   revalidatePath('/catalogs/sizes')
 
   const uid = await getCurrentUserId()
@@ -917,7 +875,6 @@ export async function updateSupplier(id: string, formData: FormData): Promise<Ac
  * @returns ActionResponse with success status or error
  */
 export async function deleteSupplier(id: string): Promise<ActionResponse> {
-  // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
@@ -925,38 +882,25 @@ export async function deleteSupplier(id: string): Promise<ActionResponse> {
 
   const supabase = await createServerClient()
 
-  // Check if there are products using this supplier
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, name')
-    .eq('supplier_id', id)
-    .eq('active', true)
-    .limit(5)
-
-  if (productsError) {
-    return { success: false, error: productsError.message }
+  // Conteo exacto de productos que usan este proveedor
+  const depProducts = await countActiveDependents(supabase, 'products', 'supplier_id', id)
+  if (depProducts.error) return { success: false, error: depProducts.error }
+  if (depProducts.total > 0) {
+    return { success: false, error: buildDependencyError(depProducts.total, depProducts.sample, 'producto(s)', 'este proveedor') }
   }
 
-  if (products && products.length > 0) {
-    const productNames = products.map(p => p.name).join(', ')
-    const moreText = products.length === 5 ? ' y más...' : ''
-    return { 
-      success: false, 
-      error: `No se puede eliminar. Hay ${products.length} producto(s) usando este proveedor: ${productNames}${moreText}` 
-    }
-  }
-
-  // Soft delete by setting active = false
-  const { error } = await supabase
+  // Soft delete con verificación de filas afectadas
+  const { data: updated, error } = await supabase
     .from('suppliers')
     .update({ active: false })
     .eq('id', id)
+    .select('id')
 
-  if (error) {
-    return { success: false, error: error.message }
+  if (error) return { success: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return { success: false, error: 'No se pudo eliminar el proveedor. Verifica permisos o que el proveedor aún exista.' }
   }
 
-  // Revalidate cache
   revalidatePath('/catalogs/suppliers')
 
   const uid = await getCurrentUserId()
@@ -1185,24 +1129,27 @@ export async function updateProduct(id: string, formData: FormData): Promise<Act
  * @returns ActionResponse with success status or error
  */
 export async function deleteProduct(id: string): Promise<ActionResponse> {
-  // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
     return { success: false, error: 'Forbidden: Insufficient permissions' }
   }
 
-  // Soft delete by setting active = false
+  // Soft delete con verificación de filas afectadas para detectar bloqueo silencioso de RLS
   const supabase = await createServerClient()
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('products')
     .update({ active: false })
     .eq('id', id)
+    .select('id')
 
-  if (error) {
-    return { success: false, error: error.message }
+  if (error) return { success: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return {
+      success: false,
+      error: 'No se pudo eliminar el producto. Verifica permisos o que el producto aún exista.'
+    }
   }
 
-  // Revalidate cache
   revalidatePath('/catalogs/products')
   revalidatePath('/api/products/search', 'page')
 
@@ -1217,6 +1164,51 @@ export async function deleteProduct(id: string): Promise<ActionResponse> {
 
   return { success: true }
 }
+
+// ============================================================================
+// RESTORE ACTIONS — Reactivar items soft-deleted
+// ============================================================================
+
+/**
+ * Helper genérico para reactivar un registro soft-deleted
+ */
+async function restoreEntity(
+  table: string,
+  id: string,
+  entityType: string,
+  revalidatePaths: string[]
+): Promise<ActionResponse> {
+  const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
+  if (!hasPermission) {
+    return { success: false, error: 'Forbidden: Insufficient permissions' }
+  }
+
+  const supabase = await createServerClient()
+  const { data: updated, error } = await supabase
+    .from(table)
+    .update({ active: true })
+    .eq('id', id)
+    .select('id')
+
+  if (error) return { success: false, error: error.message }
+  if (!updated || updated.length === 0) {
+    return { success: false, error: `No se pudo restaurar. Verifica permisos o que el registro aún exista.` }
+  }
+
+  for (const path of revalidatePaths) revalidatePath(path)
+
+  const uid = await getCurrentUserId()
+  await logAudit({ userId: uid, action: 'RESTORE', entityType, entityId: id, detail: `${entityType} reactivado` })
+
+  return { success: true }
+}
+
+export const restoreProduct  = (id: string) => restoreEntity('products',   id, 'product',          ['/catalogs/products', '/api/products/search'])
+export const restoreSize     = (id: string) => restoreEntity('sizes',      id, 'catalog_size',     ['/catalogs/sizes'])
+export const restoreLine     = (id: string) => restoreEntity('lines',      id, 'catalog_line',     ['/catalogs/lines'])
+export const restoreCategory = (id: string) => restoreEntity('categories', id, 'catalog_category', ['/catalogs/categories'])
+export const restoreBrand    = (id: string) => restoreEntity('brands',     id, 'catalog_brand',    ['/catalogs/brands'])
+export const restoreSupplier = (id: string) => restoreEntity('suppliers',  id, 'catalog_supplier', ['/catalogs/suppliers'])
 
 // ============================================================================
 // CLIENT ACTIONS

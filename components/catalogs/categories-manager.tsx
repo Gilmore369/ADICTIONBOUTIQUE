@@ -9,12 +9,15 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
+import { ActiveInactiveToggle, InactiveBanner } from './active-inactive-toggle'
 import { CategoryForm } from './category-form'
-import { createCategory, updateCategory, deleteCategory } from '@/actions/catalogs'
+import { createCategory, updateCategory, deleteCategory, restoreCategory } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 import { useStore } from '@/contexts/store-context'
 
@@ -46,6 +49,7 @@ export function CategoriesManager({ initialCategories, lines: initialLines }: Ca
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [lineFilter, setLineFilter] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
   // Filter lines and categories by store when store changes
   useEffect(() => {
@@ -75,11 +79,17 @@ export function CategoriesManager({ initialCategories, lines: initialLines }: Ca
     filterByStore()
   }, [storeId, selectedStore, initialLines, initialCategories])
 
-  // Filter categories by line
+  // Filter categories by line + active state
   const filteredCategories = useMemo(() => {
-    if (!lineFilter) return categories
-    return categories.filter(cat => cat.line_id === lineFilter)
-  }, [categories, lineFilter])
+    let result = categories
+    result = result.filter(c => showInactive ? c.active === false : c.active !== false)
+    if (lineFilter) {
+      result = result.filter(cat => cat.line_id === lineFilter)
+    }
+    return result
+  }, [categories, lineFilter, showInactive])
+
+  const inactiveCount = useMemo(() => categories.filter(c => c.active === false).length, [categories])
 
   const columns: CatalogTableColumn<Category>[] = [
     { key: 'name', label: 'Nombre' },
@@ -89,6 +99,13 @@ export function CategoriesManager({ initialCategories, lines: initialLines }: Ca
       render: (category) => category.lines?.name || '-'
     },
     { key: 'description', label: 'Descripción' },
+    {
+      key: 'active',
+      label: 'Estado',
+      render: (category) => category.active
+        ? <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">Activa</Badge>
+        : <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">Inactiva</Badge>
+    },
     {
       key: 'created_at',
       label: 'Fecha de creación',
@@ -128,13 +145,33 @@ export function CategoriesManager({ initialCategories, lines: initialLines }: Ca
     return result
   }
 
+  const handleRestore = async (category: Category) => {
+    const res = await restoreCategory(category.id)
+    if (res.success) {
+      setCategories(prev => prev.map(c => c.id === category.id ? { ...c, active: true } : c))
+      toast.success(`Categoría "${category.name}" restaurada`)
+    } else {
+      toast.error(typeof res.error === 'string' ? res.error : 'Error al restaurar la categoría')
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Categoría
-        </Button>
+      <div className="flex justify-between items-center">
+        <ActiveInactiveToggle
+          showInactive={showInactive}
+          onChange={setShowInactive}
+          inactiveCount={inactiveCount}
+          activeLabel="Activas"
+          inactiveLabel="Inactivas"
+        />
+
+        {!showInactive && (
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Categoría
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -156,11 +193,14 @@ export function CategoriesManager({ initialCategories, lines: initialLines }: Ca
         </div>
       </div>
 
+      {showInactive && <InactiveBanner entityName="categorías" />}
+
       <CatalogTable
         data={filteredCategories}
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRestore={handleRestore}
       />
 
       <CatalogFormDialog

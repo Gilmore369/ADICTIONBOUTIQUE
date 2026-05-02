@@ -8,13 +8,16 @@
 
 import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
+import { ActiveInactiveToggle, InactiveBanner } from './active-inactive-toggle'
 import { SearchFilter } from './search-filter'
 import { BrandForm } from './brand-form'
-import { createBrand, updateBrand, deleteBrand } from '@/actions/catalogs'
+import { createBrand, updateBrand, deleteBrand, restoreBrand } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 
 interface Brand {
@@ -46,12 +49,13 @@ export function BrandsManager({ initialBrands, suppliers }: BrandsManagerProps) 
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [supplierFilter, setSupplierFilter] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
-  // Filter brands by search query and supplier
+  // Filter brands by search query, supplier, and active state
   const filteredBrands = useMemo(() => {
     let result = brands
-    
-    // Filter by search query
+    result = result.filter(b => showInactive ? b.active === false : b.active !== false)
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       result = result.filter(brand =>
@@ -59,16 +63,17 @@ export function BrandsManager({ initialBrands, suppliers }: BrandsManagerProps) 
         brand.description?.toLowerCase().includes(query)
       )
     }
-    
-    // Filter by supplier
+
     if (supplierFilter) {
       result = result.filter(brand =>
         brand.supplier_brands?.some(sb => sb.supplier_id === supplierFilter)
       )
     }
-    
+
     return result
-  }, [brands, searchQuery, supplierFilter])
+  }, [brands, searchQuery, supplierFilter, showInactive])
+
+  const inactiveCount = useMemo(() => brands.filter(b => b.active === false).length, [brands])
 
   const columns: CatalogTableColumn<Brand>[] = [
     { key: 'name', label: 'Nombre' },
@@ -84,6 +89,13 @@ export function BrandsManager({ initialBrands, suppliers }: BrandsManagerProps) 
       }
     },
     { key: 'description', label: 'Descripción' },
+    {
+      key: 'active',
+      label: 'Estado',
+      render: (brand) => brand.active
+        ? <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">Activa</Badge>
+        : <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">Inactiva</Badge>
+    },
     {
       key: 'created_at',
       label: 'Fecha de creación',
@@ -119,13 +131,33 @@ export function BrandsManager({ initialBrands, suppliers }: BrandsManagerProps) 
     return await deleteBrand(selectedBrand.id)
   }
 
+  const handleRestore = async (brand: Brand) => {
+    const res = await restoreBrand(brand.id)
+    if (res.success) {
+      setBrands(prev => prev.map(b => b.id === brand.id ? { ...b, active: true } : b))
+      toast.success(`Marca "${brand.name}" restaurada`)
+    } else {
+      toast.error(typeof res.error === 'string' ? res.error : 'Error al restaurar la marca')
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Marca
-        </Button>
+      <div className="flex justify-between items-center">
+        <ActiveInactiveToggle
+          showInactive={showInactive}
+          onChange={setShowInactive}
+          inactiveCount={inactiveCount}
+          activeLabel="Activas"
+          inactiveLabel="Inactivas"
+        />
+
+        {!showInactive && (
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Marca
+          </Button>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -154,11 +186,14 @@ export function BrandsManager({ initialBrands, suppliers }: BrandsManagerProps) 
         </div>
       </div>
 
+      {showInactive && <InactiveBanner entityName="marcas" />}
+
       <CatalogTable
         data={filteredBrands}
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRestore={handleRestore}
       />
 
       <CatalogFormDialog

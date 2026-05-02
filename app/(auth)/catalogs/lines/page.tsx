@@ -11,10 +11,10 @@ export const metadata = {
 async function LinesData() {
   const supabase = await createServerClient()
   
+  // Cargamos TODAS las líneas (activas e inactivas) — el manager filtra con toggle
   const { data: lines, error } = await supabase
     .from('lines')
     .select('*')
-    .eq('active', true)
     .order('name')
   
   if (error) {

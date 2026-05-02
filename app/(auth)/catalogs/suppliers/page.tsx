@@ -11,10 +11,10 @@ export const metadata = {
 async function SuppliersData() {
   const supabase = await createServerClient()
   
+  // Cargamos TODOS los proveedores (activos e inactivos) — el manager filtra con toggle
   const { data: suppliers, error } = await supabase
     .from('suppliers')
     .select('*')
-    .eq('active', true)
     .order('name')
   
   if (error) {

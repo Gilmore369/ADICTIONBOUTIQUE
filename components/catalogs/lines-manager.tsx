@@ -10,13 +10,16 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
+import { ActiveInactiveToggle, InactiveBanner } from './active-inactive-toggle'
 import { LineForm } from './line-form'
 import { SearchFilter } from './search-filter'
-import { createLine, updateLine, deleteLine } from '@/actions/catalogs'
+import { createLine, updateLine, deleteLine, restoreLine } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 import { useStore } from '@/contexts/store-context'
 
@@ -39,6 +42,7 @@ export function LinesManager({ initialLines }: LinesManagerProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedLine, setSelectedLine] = useState<Line | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
 
   // Filter lines by store when store changes
   useEffect(() => {
@@ -64,6 +68,13 @@ export function LinesManager({ initialLines }: LinesManagerProps) {
   const columns: CatalogTableColumn<Line>[] = [
     { key: 'name', label: 'Nombre' },
     { key: 'description', label: 'Descripción' },
+    {
+      key: 'active',
+      label: 'Estado',
+      render: (line) => line.active
+        ? <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">Activa</Badge>
+        : <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">Inactiva</Badge>
+    },
     {
       key: 'created_at',
       label: 'Fecha de creación',
@@ -99,24 +110,53 @@ export function LinesManager({ initialLines }: LinesManagerProps) {
     return await deleteLine(selectedLine.id)
   }
 
-  // Filter lines by search query
-  const filteredLines = useMemo(() => {
-    if (!searchQuery.trim()) return lines
+  const handleRestore = async (line: Line) => {
+    const res = await restoreLine(line.id)
+    if (res.success) {
+      setLines(prev => prev.map(l => l.id === line.id ? { ...l, active: true } : l))
+      toast.success(`Línea "${line.name}" restaurada`)
+    } else {
+      toast.error(typeof res.error === 'string' ? res.error : 'Error al restaurar la línea')
+    }
+  }
 
-    const query = searchQuery.toLowerCase()
-    return lines.filter(line =>
-      line.name.toLowerCase().includes(query) ||
-      line.description?.toLowerCase().includes(query)
-    )
-  }, [lines, searchQuery])
+  // Filter lines by search query + active state
+  const filteredLines = useMemo(() => {
+    let result = lines
+
+    // Por defecto SOLO activas. Si showInactive, solo INACTIVAS
+    result = result.filter(l => showInactive ? l.active === false : l.active !== false)
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(line =>
+        line.name.toLowerCase().includes(query) ||
+        line.description?.toLowerCase().includes(query)
+      )
+    }
+
+    return result
+  }, [lines, searchQuery, showInactive])
+
+  const inactiveCount = useMemo(() => lines.filter(l => l.active === false).length, [lines])
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Línea
-        </Button>
+      <div className="flex justify-between items-center">
+        <ActiveInactiveToggle
+          showInactive={showInactive}
+          onChange={setShowInactive}
+          inactiveCount={inactiveCount}
+          activeLabel="Activas"
+          inactiveLabel="Inactivas"
+        />
+
+        {!showInactive && (
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Línea
+          </Button>
+        )}
       </div>
 
       <SearchFilter
@@ -125,11 +165,14 @@ export function LinesManager({ initialLines }: LinesManagerProps) {
         placeholder="Buscar por nombre o descripción..."
       />
 
+      {showInactive && <InactiveBanner entityName="líneas" />}
+
       <CatalogTable
         data={filteredLines}
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRestore={handleRestore}
       />
 
       <CatalogFormDialog

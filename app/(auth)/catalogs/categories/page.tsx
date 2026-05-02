@@ -11,8 +11,9 @@ export const metadata = {
 async function CategoriesData() {
   const supabase = await createServerClient()
   
+  // Cargamos TODAS las categorías (activas e inactivas) — el manager filtra con toggle
   const [categoriesResult, linesResult] = await Promise.all([
-    supabase.from('categories').select('*, lines(name)').eq('active', true).order('name'),
+    supabase.from('categories').select('*, lines(name)').order('name'),
     supabase.from('lines').select('id, name').eq('active', true).order('name')
   ])
   
