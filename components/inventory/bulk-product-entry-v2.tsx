@@ -92,8 +92,11 @@ export function BulkProductEntryV2() {
   const [showLineDialog, setShowLineDialog] = useState(false)
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
   const [showSizeDialog, setShowSizeDialog] = useState(false)
+  // Tracking unificado: cada dialog recuerda QUÉ modelo lo disparó para auto-seleccionar después
   const [selectedModelForSize, setSelectedModelForSize] = useState<string>('')
-  const [selectedModelForDialog, setSelectedModelForDialog] = useState<string>('')
+  const [selectedModelForLine, setSelectedModelForLine] = useState<string>('')
+  const [selectedModelForCategory, setSelectedModelForCategory] = useState<string>('')
+  const [selectedModelForBrand, setSelectedModelForBrand] = useState<string>('')
 
   // Available sizes for current category
   const [availableSizesByCategory, setAvailableSizesByCategory] = useState<{ [categoryId: string]: Size[] }>({})
@@ -123,18 +126,14 @@ export function BulkProductEntryV2() {
   }, [supplier])
 
   const loadBrandsForSupplier = async (supplierId: string) => {
+    // Solo carga marcas asociadas al proveedor seleccionado.
+    // Eliminado el fallback peligroso que mostraba TODAS las marcas si el proveedor
+    // no tenía ninguna asociada — eso permitía asociar marcas equivocadas y
+    // crecer datos inconsistentes. Si no hay marcas, el usuario debe crearla con +.
     try {
       const response = await fetch(`/api/suppliers/${supplierId}/brands`)
       const { data } = await response.json()
-      if (data && data.length > 0) {
-        setBrands(data)
-      } else {
-        // Fallback: show all brands if supplier has none linked
-        const allBrandsRes = await fetch('/api/catalogs/brands')
-        const allBrandsData = await allBrandsRes.json()
-        const allBrands = Array.isArray(allBrandsData) ? allBrandsData : (allBrandsData.data || [])
-        setBrands(allBrands)
-      }
+      setBrands(data || [])
     } catch (error) {
       console.error('[loadBrandsForSupplier] Error loading brands:', error)
       setBrands([])
@@ -181,39 +180,52 @@ export function BulkProductEntryV2() {
     }
   }
 
-  // Handle quick create success
-  const handleSupplierCreated = (id: string, name: string) => {
-    setSuppliers([...suppliers, { id, name }])
-    setSupplier(id)
-    toast.success(`Proveedor "${name}" creado`)
+  // ─── Handlers de creación inline ────────────────────────────────────────
+  // Patrón uniforme: tras crear, AUTO-SELECCIONAR la nueva entidad en el modelo
+  // que disparó el dialog. El toast de éxito ya lo muestra el QuickCreateDialog.
+
+  const handleSupplierCreated = (id: string, _name: string) => {
+    setSuppliers([...suppliers, { id, name: _name }])
+    setSupplier(id)  // El proveedor es global al lote, así que selecciona arriba
   }
 
   const handleBrandCreated = (id: string, name: string) => {
     setBrands([...brands, { id, name }])
-    toast.success(`Marca "${name}" creada`)
+    // Auto-seleccionar la marca en el modelo que disparó el dialog
+    if (selectedModelForBrand) {
+      updateModel(selectedModelForBrand, 'brandId', id)
+    }
   }
 
   const handleLineCreated = (id: string, name: string) => {
     setLines([...lines, { id, name }])
-    // Auto-select the new line on the model that triggered the dialog
-    if (selectedModelForDialog) {
-      updateModel(selectedModelForDialog, 'lineId', id)
+    // Auto-seleccionar la línea en el modelo que disparó el dialog
+    if (selectedModelForLine) {
+      updateModel(selectedModelForLine, 'lineId', id)
     }
-    toast.success(`Línea "${name}" creada`)
   }
 
-  const handleCategoryCreated = (id: string, name: string) => {
-    loadCatalogs() // Reload to get updated categories
-    toast.success(`Categoría "${name}" creada`)
+  const handleCategoryCreated = async (id: string, name: string) => {
+    // Recargar categorías para tenerla disponible en la lista
+    await loadCatalogs()
+    // Auto-seleccionar la categoría en el modelo que disparó el dialog
+    if (selectedModelForCategory) {
+      // updateModel hace lookup por id en categories, por eso primero recargamos
+      updateModel(selectedModelForCategory, 'categoryId', id)
+    }
   }
 
-  const handleSizeCreated = (id: string, name: string) => {
-    // Reload sizes for the current model's category
+  const handleSizeCreated = async (_id: string, _name: string) => {
+    // Recargar tallas para la categoría del modelo y auto-marcar las nuevas
     const model = models.find(m => m.id === selectedModelForSize)
     if (model?.categoryId) {
-      loadSizesForCategory(model.categoryId).then(() => {
-        toast.success(`Talla(s) creada(s)`)
-      })
+      const previousSizeIds = (availableSizesByCategory[model.categoryId] || []).map(s => s.id)
+      const newSizes = await loadSizesForCategory(model.categoryId)
+      // Auto-toggle: marcar como seleccionadas las tallas que NO existían antes
+      const justCreated = newSizes.filter((s: Size) => !previousSizeIds.includes(s.id))
+      for (const s of justCreated) {
+        toggleSize(model.id, s)
+      }
     }
   }
 
@@ -834,7 +846,7 @@ export function BulkProductEntryV2() {
                         type="button"
                         variant="outline"
                         size="icon"
-                        onClick={() => { setSelectedModelForDialog(model.id); setShowLineDialog(true) }}
+                        onClick={() => { setSelectedModelForLine(model.id); setShowLineDialog(true) }}
                         title="Crear línea"
                         disabled={loading}
                       >
@@ -868,7 +880,7 @@ export function BulkProductEntryV2() {
                         type="button"
                         variant="outline"
                         size="icon"
-                        onClick={() => setShowCategoryDialog(true)}
+                        onClick={() => { setSelectedModelForCategory(model.id); setShowCategoryDialog(true) }}
                         disabled={!model.lineId || loading}
                         title={!model.lineId ? 'Selecciona una línea primero' : 'Crear categoría'}
                       >
@@ -934,13 +946,18 @@ export function BulkProductEntryV2() {
                         type="button"
                         variant="outline"
                         size="icon"
-                        onClick={() => setShowBrandDialog(true)}
-                        title="Crear marca"
-                        disabled={loading}
+                        onClick={() => { setSelectedModelForBrand(model.id); setShowBrandDialog(true) }}
+                        title={!supplier ? 'Selecciona un proveedor primero' : 'Crear marca'}
+                        disabled={loading || !supplier}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
+                    {supplier && brands.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Este proveedor no tiene marcas. Crea una con el botón +
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -1122,7 +1139,13 @@ export function BulkProductEntryV2() {
         </Button>
       </div>
 
-      {/* Quick Create Dialogs */}
+      {/* ─── Quick Create Dialogs ─────────────────────────────────────── */}
+      {/* Cada dialog recibe contexto del modelo que lo disparó:
+          - Para 'brand': supplierName/Id (proveedor global)
+          - Para 'category': lineName/Id del modelo seleccionado
+          - Para 'size': categoryName/Id del modelo seleccionado
+         Esto permite mostrar chips contextuales y bloquear selectores redundantes. */}
+
       <QuickCreateDialog
         type="supplier"
         open={showSupplierDialog}
@@ -1136,6 +1159,7 @@ export function BulkProductEntryV2() {
         onOpenChange={setShowBrandDialog}
         onSuccess={handleBrandCreated}
         supplierId={supplier}
+        supplierName={suppliers.find((s: any) => s.id === supplier)?.name}
       />
 
       <QuickCreateDialog
@@ -1150,7 +1174,8 @@ export function BulkProductEntryV2() {
         open={showCategoryDialog}
         onOpenChange={setShowCategoryDialog}
         onSuccess={handleCategoryCreated}
-        lineId={models.find(m => m.id === selectedModelForDialog)?.lineId || models[0]?.lineId}
+        lineId={models.find(m => m.id === selectedModelForCategory)?.lineId}
+        lineName={lines.find((l: any) => l.id === models.find(m => m.id === selectedModelForCategory)?.lineId)?.name}
       />
 
       <QuickCreateDialog
@@ -1159,6 +1184,7 @@ export function BulkProductEntryV2() {
         onOpenChange={setShowSizeDialog}
         onSuccess={handleSizeCreated}
         categoryId={models.find(m => m.id === selectedModelForSize)?.categoryId}
+        categoryName={categories.find((c: any) => c.id === models.find(m => m.id === selectedModelForSize)?.categoryId)?.name}
       />
     </div>
   )

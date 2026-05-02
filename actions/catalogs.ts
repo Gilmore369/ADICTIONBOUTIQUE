@@ -829,6 +829,7 @@ export async function createSupplier(formData: FormData): Promise<ActionResponse
   // Validate input
   const validated = supplierSchema.safeParse({
     name: formData.get('name'),
+    ruc: formData.get('ruc') || undefined,
     contact_name: formData.get('contact_name') || undefined,
     phone: formData.get('phone') || undefined,
     email: formData.get('email') || undefined,
@@ -840,12 +841,11 @@ export async function createSupplier(formData: FormData): Promise<ActionResponse
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
-  // Insert supplier — exclude 'notes' until migration adds the column
-  const { notes: _notes, ...insertData } = validated.data as any
+  // Insert supplier — incluye notes y ruc (columnas presentes tras migraciones)
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from('suppliers')
-    .insert(insertData)
+    .insert(validated.data)
     .select()
     .single()
 
@@ -876,6 +876,7 @@ export async function updateSupplier(id: string, formData: FormData): Promise<Ac
   // Validate input
   const validated = supplierSchema.partial().safeParse({
     name: formData.get('name') || undefined,
+    ruc: formData.get('ruc') || undefined,
     contact_name: formData.get('contact_name') || undefined,
     phone: formData.get('phone') || undefined,
     email: formData.get('email') || undefined,
@@ -888,12 +889,11 @@ export async function updateSupplier(id: string, formData: FormData): Promise<Ac
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
-  // Update supplier — exclude 'notes' until migration adds the column
-  const { notes: _notes2, ...updateData } = validated.data as any
+  // Update supplier — incluye notes y ruc (columnas presentes tras migraciones)
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from('suppliers')
-    .update(updateData)
+    .update(validated.data)
     .eq('id', id)
     .select()
     .single()

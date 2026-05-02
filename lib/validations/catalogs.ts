@@ -43,10 +43,14 @@ export const sizeSchema = z.object({
  * Supplier validation schema
  */
 export const supplierSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
+  name: z.string().min(1, 'El nombre es obligatorio').max(100, 'El nombre debe tener menos de 100 caracteres'),
+  ruc: z.string()
+    .regex(/^\d{11}$/, 'El RUC debe tener exactamente 11 dígitos')
+    .optional()
+    .or(z.literal('')),
   contact_name: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().email('Invalid email format').optional().or(z.literal('')),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   address: z.string().optional(),
   notes: z.string().optional()
 })
