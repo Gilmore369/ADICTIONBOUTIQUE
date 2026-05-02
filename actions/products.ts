@@ -16,6 +16,7 @@ import { revalidatePath } from 'next/cache'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
 import { getTodayPeru } from '@/lib/utils/timezone'
+import { translateProductError } from '@/lib/errors/product-errors'
 
 /**
  * Standard response type for server actions
@@ -48,6 +49,21 @@ interface BulkProductInput {
 }
 
 /**
+ * Modo de actualización para productos que ya existen en la BD.
+ *
+ * - INCREMENT (default): suma la cantidad al stock existente. Comportamiento histórico.
+ * - REPLACE: reemplaza el stock con la cantidad nueva (ajuste). Requiere reason.
+ * - SKIP: no toca productos existentes, solo crea los nuevos.
+ * - UPDATE_ONLY: actualiza precios/datos pero NO toca el stock.
+ */
+export type BulkUpdateMode = 'INCREMENT' | 'REPLACE' | 'SKIP' | 'UPDATE_ONLY'
+
+interface BulkOptions {
+  mode?: BulkUpdateMode
+  reason?: string  // Obligatorio si mode === 'REPLACE'
+}
+
+/**
  * Creates or updates multiple products with stock
  * 
  * Process:
@@ -66,8 +82,19 @@ interface BulkProductInput {
  * @returns ActionResponse with created/updated product count or error
  */
 export async function createBulkProducts(
-  products: BulkProductInput[]
+  products: BulkProductInput[],
+  options: BulkOptions = {}
 ): Promise<ActionResponse> {
+  const mode: BulkUpdateMode = options.mode || 'INCREMENT'
+
+  // Validar que REPLACE tenga motivo
+  if (mode === 'REPLACE' && (!options.reason || options.reason.trim().length < 5)) {
+    return {
+      success: false,
+      error: 'El modo "Reemplazar stock" requiere un motivo de al menos 5 caracteres (ej: "Conteo físico inventario abril")'
+    }
+  }
+
   // 1. Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
   if (!hasPermission) {
@@ -199,62 +226,85 @@ export async function createBulkProducts(
       }
 
       if (existingProduct) {
-        // Product exists - update stock
-        console.log('[createBulkProducts] Product exists, updating stock:', product.name, product.size, product.color)
-        
-        // Check if stock record exists for this warehouse
+        // Producto existe — aplicar el MODO seleccionado por el usuario
+        if (mode === 'SKIP') {
+          // Modo SKIP: no tocar productos existentes
+          updatedCount++  // contar como "procesado pero omitido"
+          continue
+        }
+
+        // Buscar registro de stock para este almacén
         const { data: existingStock } = await supabase
           .from('stock')
           .select('id, quantity')
           .eq('product_id', existingProduct.id)
           .eq('warehouse_id', product.warehouse_id)
-          .single()
+          .maybeSingle()
 
-        if (existingStock) {
-          // Update existing stock
-          const newQuantity = existingStock.quantity + product.quantity
-          const { error: updateError } = await supabase
-            .from('stock')
-            .update({ quantity: newQuantity })
-            .eq('product_id', existingProduct.id)
-            .eq('warehouse_id', product.warehouse_id)
+        const stockAnterior = existingStock?.quantity ?? 0
+        let stockNuevo = stockAnterior
+        let movementType: 'ENTRADA' | 'AJUSTE' = 'ENTRADA'
+        let movementQty = 0
+        let movementRef = ''
 
-          if (updateError) {
-            console.error('[createBulkProducts] Stock update error:', updateError)
-            return {
-              success: false,
-              error: `Failed to update stock for ${product.name}: ${updateError.message}`
-            }
-          }
+        if (mode === 'UPDATE_ONLY') {
+          // No tocar stock, solo seguir con actualización de precios más abajo
+          // (el flujo actual no actualiza precios automáticamente; queda como TODO)
+        } else if (mode === 'REPLACE') {
+          stockNuevo = product.quantity
+          movementType = 'AJUSTE'
+          movementQty = stockNuevo - stockAnterior
+          movementRef = `Reemplazo masivo: ${options.reason}`
         } else {
-          // Create new stock record for this warehouse
-          const { error: insertError } = await supabase
-            .from('stock')
-            .insert({
-              warehouse_id: product.warehouse_id,
-              product_id: existingProduct.id,
-              quantity: product.quantity
-            })
-
-          if (insertError) {
-            console.error('[createBulkProducts] Stock insert error:', insertError)
-            return {
-              success: false,
-              error: `Failed to create stock for ${product.name}: ${insertError.message}`
-            }
-          }
+          // INCREMENT (default)
+          stockNuevo = stockAnterior + product.quantity
+          movementType = 'ENTRADA'
+          movementQty = product.quantity
+          movementRef = `Compra al contado - Restock`
         }
 
-        // Add movement record
-        if (product.quantity > 0) {
-          movementsToInsert.push({
-            warehouse_id: product.warehouse_id,
-            product_id: existingProduct.id,
-            type: 'ENTRADA',
-            quantity: product.quantity,
-            reference: `Compra al contado - Restock`,
-            user_id: user.id
-          })
+        if (mode !== 'UPDATE_ONLY') {
+          if (existingStock) {
+            const { error: updateError } = await supabase
+              .from('stock')
+              .update({ quantity: stockNuevo })
+              .eq('product_id', existingProduct.id)
+              .eq('warehouse_id', product.warehouse_id)
+
+            if (updateError) {
+              return {
+                success: false,
+                error: `No se pudo actualizar el stock de "${product.name}": ${updateError.message}`
+              }
+            }
+          } else {
+            const { error: insertError } = await supabase
+              .from('stock')
+              .insert({
+                warehouse_id: product.warehouse_id,
+                product_id: existingProduct.id,
+                quantity: stockNuevo
+              })
+
+            if (insertError) {
+              return {
+                success: false,
+                error: `No se pudo crear el registro de stock para "${product.name}": ${insertError.message}`
+              }
+            }
+          }
+
+          // Movimiento de auditoría (siempre, salvo que la cantidad sea 0)
+          if (movementQty !== 0) {
+            movementsToInsert.push({
+              warehouse_id: product.warehouse_id,
+              product_id: existingProduct.id,
+              type: movementType,
+              quantity: Math.abs(movementQty),
+              reference: movementRef,
+              user_id: user.id
+            })
+          }
         }
 
         updatedCount++
@@ -291,7 +341,7 @@ export async function createBulkProducts(
           console.error('[createBulkProducts] Product insert error:', productError)
           return {
             success: false,
-            error: `Failed to create product ${product.name}: ${productError.message}`
+            error: `No se pudo crear "${product.name}": ${translateProductError(productError, { barcode: product.barcode, name: product.name })}`
           }
         }
 
@@ -312,15 +362,15 @@ export async function createBulkProducts(
 
         if (stockError) {
           console.error('[createBulkProducts] Stock insert error:', stockError)
-          // Rollback: delete created product
+          // Rollback: eliminar el producto recién creado para no dejarlo huérfano
           await supabase
             .from('products')
             .delete()
             .eq('id', createdProduct.id)
-          
+
           return {
             success: false,
-            error: `Failed to create stock for ${product.name}: ${stockError.message}`
+            error: `No se pudo crear el stock de "${product.name}": ${translateProductError(stockError, { name: product.name })}. El producto fue revertido.`
           }
         }
 
