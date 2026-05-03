@@ -225,7 +225,14 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
           </label>
           <select
             value={filterLine}
-            onChange={(e) => setFilterLine(e.target.value)}
+            onChange={(e) => {
+              setFilterLine(e.target.value)
+              // Reset category if it doesn't belong to the new line
+              if (filterCategory) {
+                const cat = categories.find(c => c.id === filterCategory)
+                if (cat && cat.line_id !== e.target.value) setFilterCategory('')
+              }
+            }}
             className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Todas las líneas</option>
@@ -243,11 +250,15 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
             className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={!filterLine}
+            title={!filterLine ? 'Elige una línea primero' : ''}
           >
-            <option value="">Todas las categorías</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
+            <option value="">{filterLine ? 'Todas las categorías' : 'Elige línea primero'}</option>
+            {categories
+              .filter(cat => !filterLine || cat.line_id === filterLine)
+              .map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
           </select>
         </div>
       </div>

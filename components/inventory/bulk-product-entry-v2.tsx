@@ -48,6 +48,7 @@ interface SizeVariant {
   sizeName: string
   quantity: number
   color?: string // Color específico para esta variante (opcional)
+  barcode?: string // Código de barras único por variante (manual o lector)
 }
 
 interface ProductModel {
@@ -461,6 +462,20 @@ export function BulkProductEntryV2() {
     }))
   }
 
+  const updateVariantBarcode = (modelId: string, sizeId: string, barcode: string) => {
+    setModels(models.map(m => {
+      if (m.id === modelId) {
+        return {
+          ...m,
+          variants: m.variants.map(v =>
+            v.sizeId === sizeId ? { ...v, barcode } : v
+          )
+        }
+      }
+      return m
+    }))
+  }
+
   const toggleExpanded = (modelId: string) => {
     setModels(models.map(m =>
       m.id === modelId ? { ...m, expanded: !m.expanded } : m
@@ -534,6 +549,22 @@ export function BulkProductEntryV2() {
       return
     }
 
+    // Validación 4: Códigos de barras duplicados entre variantes
+    const allBarcodes: string[] = []
+    for (const m of validModels) {
+      for (const v of m.variants) {
+        if (v.quantity <= 0) continue
+        const code = (v.barcode || '').trim() || `${m.baseCode}-${v.sizeName}`
+        allBarcodes.push(code)
+      }
+    }
+    const dup = allBarcodes.find((b, i) => allBarcodes.indexOf(b) !== i)
+    if (dup) {
+      toast.error('Código de barras duplicado',
+        `"${dup}" se repite — cada variante necesita un código único`)
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -541,7 +572,7 @@ export function BulkProductEntryV2() {
         model.variants
           .filter(v => v.quantity > 0)
           .map(variant => ({
-            barcode: `${model.baseCode}-${variant.sizeName}`,
+            barcode: (variant.barcode || '').trim() || `${model.baseCode}-${variant.sizeName}`,
             name: `${model.baseName} - ${variant.sizeName}`,
             base_code: model.baseCode,        // Clave de agrupación para Catálogo Visual
             base_name: model.baseName,        // Nombre del modelo sin sufijo de talla
@@ -1062,6 +1093,7 @@ export function BulkProductEntryV2() {
                         <thead className="bg-gray-50 border-b">
                           <tr>
                             <th className="text-left p-3 font-semibold">Talla</th>
+                            <th className="text-left p-3 font-semibold">Código de Barras *</th>
                             <th className="text-left p-3 font-semibold">Color</th>
                             <th className="text-center p-3 font-semibold">Cantidad</th>
                           </tr>
@@ -1075,6 +1107,22 @@ export function BulkProductEntryV2() {
                                   <span className="font-semibold text-gray-700">
                                     {variant.sizeName}
                                   </span>
+                                </td>
+                                <td className="p-3 min-w-[200px]">
+                                  <Input
+                                    type="text"
+                                    placeholder={`Ej: ${model.baseCode || 'COD'}-${variant.sizeName}`}
+                                    value={variant.barcode || ''}
+                                    onChange={e =>
+                                      updateVariantBarcode(
+                                        model.id,
+                                        variant.sizeId,
+                                        e.target.value
+                                      )
+                                    }
+                                    className="font-mono text-xs"
+                                    autoComplete="off"
+                                  />
                                 </td>
                                 <td className="p-3 min-w-[150px]">
                                   <CompactColorPicker
@@ -1108,7 +1156,7 @@ export function BulkProductEntryV2() {
                       </table>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      💡 Tip: Puedes especificar un color diferente para cada talla. Si dejas vacío, usará el color base del modelo.
+                      💡 Tip: Escribe el código de barras o escanéalo con un lector. Si lo dejas vacío, se generará automáticamente como <code className="bg-gray-100 px-1 rounded">CODIGO-TALLA</code>. El color y código son personalizables por talla.
                     </p>
                   </div>
                 )}

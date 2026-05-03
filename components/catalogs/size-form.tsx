@@ -23,7 +23,8 @@ import {
 } from '@/components/ui/select'
 
 interface SizeFormProps {
-  categories: Array<{ id: string; name: string }>
+  categories: Array<{ id: string; name: string; line_id?: string }>
+  lines?: Array<{ id: string; name: string }>
   defaultValues?: {
     name?: string
     category_id?: string
@@ -32,10 +33,31 @@ interface SizeFormProps {
   isEditing?: boolean
 }
 
-export function SizeForm({ categories, defaultValues, isEditing = false }: SizeFormProps) {
+export function SizeForm({ categories, lines = [], defaultValues, isEditing = false }: SizeFormProps) {
+  // Derive initial line from the default category (when editing)
+  const initialLineId = (() => {
+    if (!defaultValues?.category_id) return ''
+    const cat = categories.find(c => c.id === defaultValues.category_id)
+    return cat?.line_id || ''
+  })()
+
+  const [lineId, setLineId] = useState(initialLineId)
   const [categoryId, setCategoryId] = useState(defaultValues?.category_id || '')
   // Multiple names when creating
   const [names, setNames] = useState<string[]>(isEditing ? [defaultValues?.name || ''] : [''])
+
+  const filteredCategories = lineId
+    ? categories.filter(c => c.line_id === lineId)
+    : categories
+
+  const handleLineChange = (newLineId: string) => {
+    setLineId(newLineId)
+    // Reset category if it doesn't belong to the newly selected line
+    if (categoryId) {
+      const cat = categories.find(c => c.id === categoryId)
+      if (cat?.line_id !== newLineId) setCategoryId('')
+    }
+  }
 
   const addRow = () => setNames(prev => [...prev, ''])
   const removeRow = (idx: number) => setNames(prev => prev.filter((_, i) => i !== idx))
@@ -44,17 +66,42 @@ export function SizeForm({ categories, defaultValues, isEditing = false }: SizeF
 
   return (
     <div className="space-y-4">
-      {/* Category */}
+      {/* Line — only shown when lines were passed */}
+      {lines.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="line_id">
+            Línea <span className="text-destructive">*</span>
+          </Label>
+          <Select value={lineId} onValueChange={handleLineChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar línea" />
+            </SelectTrigger>
+            <SelectContent>
+              {lines.map((line) => (
+                <SelectItem key={line.id} value={line.id}>
+                  {line.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Category — filtered by selected line */}
       <div className="space-y-2">
         <Label htmlFor="category_id">
           Categoría <span className="text-destructive">*</span>
         </Label>
-        <Select value={categoryId} onValueChange={setCategoryId}>
+        <Select
+          value={categoryId}
+          onValueChange={setCategoryId}
+          disabled={lines.length > 0 && !lineId}
+        >
           <SelectTrigger>
-            <SelectValue placeholder="Seleccionar categoría" />
+            <SelectValue placeholder={lines.length > 0 && !lineId ? 'Elige línea primero' : 'Seleccionar categoría'} />
           </SelectTrigger>
           <SelectContent>
-            {categories.map((category) => (
+            {filteredCategories.map((category) => (
               <SelectItem key={category.id} value={category.id}>
                 {category.name}
               </SelectItem>

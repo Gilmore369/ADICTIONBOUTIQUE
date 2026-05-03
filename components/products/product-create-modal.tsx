@@ -410,10 +410,13 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
-  // Derived: categories filtered by line
+  // Derived: categories filtered by line — STRICT: a category without line_id
+  // would otherwise leak into every line, allowing line/category mismatches
+  // (e.g. a "Casaca" de Mujeres asignada a un producto de Niños). Force the
+  // user to pick a line before any category becomes selectable.
   const categories = lineId
-    ? allCategories.filter((c) => !c.line_id || c.line_id === lineId)
-    : allCategories
+    ? allCategories.filter((c) => c.line_id === lineId)
+    : []
 
   // When line changes: reset category + auto-set warehouse from line name
   useEffect(() => {

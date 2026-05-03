@@ -258,9 +258,10 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
         description={selectedSize ? 'Modifica los datos de la talla' : 'Crea una nueva talla'}
         onSubmit={handleSubmit}
       >
-        <SizeForm 
-          categories={categories} 
-          defaultValues={selectedSize || undefined} 
+        <SizeForm
+          categories={categories}
+          lines={lines}
+          defaultValues={selectedSize || undefined}
           isEditing={!!selectedSize}
         />
       </CatalogFormDialog>

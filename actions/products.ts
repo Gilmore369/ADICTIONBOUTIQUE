@@ -171,6 +171,28 @@ export async function createBulkProducts(
     seenBarcodes.set(bc, i)
   }
 
+  // 3.1.5 Pre-check: verificar que cada categoría pertenezca a la línea indicada.
+  // El frontend lo filtra, pero un API directo podría enviar combinaciones inválidas.
+  const uniqueCatLineMap = new Map<string, string>() // category_id → line_id
+  for (const p of products) {
+    if (p.category_id && p.line_id) uniqueCatLineMap.set(p.category_id, p.line_id)
+  }
+  if (uniqueCatLineMap.size > 0) {
+    const catIds = [...uniqueCatLineMap.keys()]
+    const { data: cats } = await supabase
+      .from('categories')
+      .select('id, name, line_id')
+      .in('id', catIds)
+    for (const cat of (cats || [])) {
+      if (cat.line_id && cat.line_id !== uniqueCatLineMap.get(cat.id)) {
+        return {
+          success: false,
+          error: `La categoría "${cat.name}" no pertenece a la línea seleccionada. Verifica la combinación Línea/Categoría.`
+        }
+      }
+    }
+  }
+
   // 3.2 Pre-check: detectar duplicados intra-lote por (base_code + size + color)
   // Dos modelos con mismo base_code+size+color son la misma variante con códigos distintos = bug
   const seenVariants = new Map<string, number>()

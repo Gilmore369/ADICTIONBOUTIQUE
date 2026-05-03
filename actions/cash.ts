@@ -163,12 +163,16 @@ export async function closeCashShift(shiftId: string, closingAmount: number) {
     const cashSales = sales?.filter(s => s.sale_type === 'CONTADO') || []
     const totalCashSales = cashSales.reduce((sum, sale) => sum + parseFloat(sale.total?.toString() || '0'), 0)
 
-    // Collection payments (debt repayments) received during this shift
-    // These are cash that enters the register from credit clients
+    // Collection payments (debt repayments) received during this shift.
+    // These are cash that enters the register from credit clients. NOTE:
+    // intentionally NOT filtered by user_id — payments registered by other
+    // users (e.g. an admin) during this shift still go into the register
+    // and must be reflected in the cuadre. Filtering by user_id caused
+    // expected_amount to be miscalculated (sometimes negative, violating
+    // the CHECK constraint and blocking shift closure).
     const { data: collectionPayments } = await supabase
       .from('payments')
       .select('amount')
-      .eq('user_id', shift.user_id)
       .gte('created_at', shift.opened_at)
       .lte('created_at', now)
 

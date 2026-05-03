@@ -123,20 +123,39 @@ export function ProductForm({
     },
   })
 
-  // Watch line_id to filter categories
+  // Watch line_id to filter categories — STRICT: only categories whose
+  // line_id matches the selected line are shown. Categories without a
+  // line_id used to leak across all lines, allowing line/category mismatches.
   const watchedLineId = form.watch('line_id')
   const [allCategories, setAllCategories] = useState<CatalogOption[]>([])
   const filteredCategories = useMemo(() => {
-    if (!watchedLineId || watchedLineId === 'none') return allCategories
-    return (allCategories as any[]).filter((c: any) => !c.line_id || c.line_id === watchedLineId)
+    if (!watchedLineId || watchedLineId === 'none') return []
+    return (allCategories as any[]).filter((c: any) => c.line_id === watchedLineId)
   }, [allCategories, watchedLineId])
 
-  // Reset category when line changes
+  // Reset category only when the user manually changes the line — not on the
+  // initial render (which would wipe the category loaded from initialData).
+  const initialLineRef = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (watchedLineId) {
-      form.setValue('category_id', '')
+    if (initialLineRef.current === undefined) {
+      // First render: capture the initial line and skip the reset.
+      initialLineRef.current = watchedLineId || ''
+      return
     }
-  }, [watchedLineId])
+    if (watchedLineId !== initialLineRef.current) {
+      // User changed the line → invalidate the category if it doesn't belong
+      // to the new line. Keep it otherwise so re-selecting the same line
+      // doesn't clobber a valid value.
+      const currentCat = form.getValues('category_id')
+      if (currentCat) {
+        const cat = (allCategories as any[]).find(c => c.id === currentCat)
+        if (cat && cat.line_id && cat.line_id !== watchedLineId) {
+          form.setValue('category_id', '')
+        }
+      }
+      initialLineRef.current = watchedLineId || ''
+    }
+  }, [watchedLineId, allCategories])
 
   // Load catalog data (lines, categories, brands, suppliers)
   useEffect(() => {
@@ -307,7 +326,7 @@ export function ProductForm({
                 <FormLabel>Línea *</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value || ''}
                   disabled={loadingCatalogs}
                 >
                   <FormControl>
@@ -328,7 +347,7 @@ export function ProductForm({
             )}
           />
 
-          {/* Category */}
+          {/* Category — only shows categories that belong to the selected line */}
           <FormField
             control={form.control}
             name="category_id"
@@ -337,20 +356,30 @@ export function ProductForm({
                 <FormLabel>Categoría *</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  disabled={loadingCatalogs}
+                  value={field.value || ''}
+                  disabled={loadingCatalogs || !watchedLineId || watchedLineId === 'none'}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar categoría" />
+                      <SelectValue placeholder={
+                        !watchedLineId || watchedLineId === 'none'
+                          ? 'Selecciona una línea primero'
+                          : 'Seleccionar categoría'
+                      } />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {filteredCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                    {filteredCategories.length === 0 ? (
+                      <div className="px-3 py-4 text-sm text-center text-muted-foreground">
+                        No hay categorías para esta línea
+                      </div>
+                    ) : (
+                      filteredCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -367,7 +396,7 @@ export function ProductForm({
                 <FormLabel>Marca</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value || ''}
                   disabled={loadingCatalogs}
                 >
                   <FormControl>
@@ -398,7 +427,7 @@ export function ProductForm({
                 <FormLabel>Proveedor</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value || ''}
                   disabled={loadingCatalogs}
                 >
                   <FormControl>

@@ -147,15 +147,20 @@ export function CreditPlansView() {
       const paidAmt = insts.reduce((s, i) => s + Number(i.paid_amount || 0), 0)
       const pendingAmt = Number(plan.total_amount) - paidAmt
 
-      // Vencidas: por fecha real (due_date < hoy) sin depender del campo status en BD
+      // Vencidas: cuotas con saldo real pendiente y due_date < hoy.
+      // No depender solo del campo status: hay cuotas PARTIAL/OVERDUE en BD
+      // cuyo paid_amount cubre el monto pero el status nunca se actualizó a
+      // PAID; esas no deben contar como vencidas.
       const todayDateStr = (() => {
         const n = new Date()
         return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
       })()
-      const overdueInsts = insts.filter(i =>
-        i.status !== 'PAID' &&
-        (i.due_date as string).split('T')[0] < todayDateStr
-      )
+      const overdueInsts = insts.filter(i => {
+        const balance = Number(i.amount) - Number(i.paid_amount || 0)
+        return balance > 0.009 &&
+          i.status !== 'PAID' &&
+          (i.due_date as string).split('T')[0] < todayDateStr
+      })
       const overdueAmt = overdueInsts.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0)
       const sale = plan.sale as any
 

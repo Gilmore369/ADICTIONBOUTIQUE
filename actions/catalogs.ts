@@ -910,14 +910,10 @@ export async function deleteSupplier(id: string): Promise<ActionResponse> {
 
   const supabase = await createServerClient()
 
-  // Conteo exacto de productos que usan este proveedor
-  const depProducts = await countActiveDependents(supabase, 'products', 'supplier_id', id)
-  if (depProducts.error) return { success: false, error: depProducts.error }
-  if (depProducts.total > 0) {
-    return { success: false, error: buildDependencyError(depProducts.total, depProducts.sample, 'producto(s)', 'este proveedor') }
-  }
-
-  // Soft delete con verificación de filas afectadas
+  // Soft delete — no bloqueamos si el proveedor tiene productos.
+  // Marcar inactivo es seguro: los productos conservan el supplier_id,
+  // el proveedor simplemente deja de aparecer en los dropdowns.
+  // (La dependencia solo sería relevante para borrado físico.)
   const { data: updated, error } = await supabase
     .from('suppliers')
     .update({ active: false })
@@ -1071,8 +1067,24 @@ export async function createProduct(formData: FormData): Promise<ActionResponse>
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
-  // Check barcode uniqueness
   const supabase = await createServerClient()
+
+  // Check that the chosen category actually belongs to the chosen line.
+  // The frontend filters this, but we cannot trust the client — a stale
+  // form, a script, or a future API caller could submit a mismatch.
+  const { data: cat } = await supabase
+    .from('categories')
+    .select('id, line_id')
+    .eq('id', validated.data.category_id)
+    .maybeSingle()
+  if (!cat) {
+    return { success: false, error: 'La categoría seleccionada no existe' }
+  }
+  if (cat.line_id && cat.line_id !== validated.data.line_id) {
+    return { success: false, error: 'La categoría no pertenece a la línea seleccionada' }
+  }
+
+  // Check barcode uniqueness
   const { data: existing } = await supabase
     .from('products')
     .select('id')
@@ -1159,8 +1171,53 @@ export async function updateProduct(id: string, formData: FormData): Promise<Act
     return { success: false, error: validated.error.flatten().fieldErrors }
   }
 
-  // If barcode is being updated, check uniqueness
   const supabase = await createServerClient()
+
+  // Si se envía category_id, verificar que pertenezca a la línea.
+  // Puede ser que solo cambie la categoría (sin tocar la línea) → en ese caso
+  // cargamos la línea actual del producto para hacer la validación.
+  if (validated.data.category_id) {
+    const effectiveLineId = validated.data.line_id ?? (() => {
+      // lo resolvemos más abajo si hace falta
+      return undefined
+    })()
+
+    if (effectiveLineId) {
+      const { data: cat } = await supabase
+        .from('categories')
+        .select('id, line_id')
+        .eq('id', validated.data.category_id)
+        .maybeSingle()
+      if (!cat) {
+        return { success: false, error: 'La categoría seleccionada no existe' }
+      }
+      if (cat.line_id && cat.line_id !== effectiveLineId) {
+        return { success: false, error: 'La categoría no pertenece a la línea seleccionada' }
+      }
+    } else {
+      // No se envió line_id → cargamos la línea actual del producto
+      const { data: current } = await supabase
+        .from('products')
+        .select('line_id')
+        .eq('id', id)
+        .maybeSingle()
+      if (current?.line_id) {
+        const { data: cat } = await supabase
+          .from('categories')
+          .select('id, line_id')
+          .eq('id', validated.data.category_id)
+          .maybeSingle()
+        if (!cat) {
+          return { success: false, error: 'La categoría seleccionada no existe' }
+        }
+        if (cat.line_id && cat.line_id !== current.line_id) {
+          return { success: false, error: 'La categoría no pertenece a la línea seleccionada' }
+        }
+      }
+    }
+  }
+
+  // If barcode is being updated, check uniqueness
   if (validated.data.barcode) {
     const { data: existing } = await supabase
       .from('products')

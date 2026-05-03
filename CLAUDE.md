@@ -133,3 +133,42 @@ Auth state is saved to `tests/e2e/.auth/user.json` by `auth.setup.ts` and reused
 ## Database Migrations
 
 SQL files in `supabase/migrations/` must be run manually in the Supabase SQL Editor — there is no CLI migration runner configured. Files are named `YYYYMMDDHHMMSS_description.sql`.
+
+Key pending/applied migrations:
+- `20260501000002_fix_atomic_code_generation.sql` — `generate_next_product_code` RPC using `pg_advisory_xact_lock` (race-condition-free)
+- `20260501000003_add_supplier_ruc.sql` — adds `ruc TEXT` column to `suppliers`
+
+## Catalog Patterns
+
+### Line → Category strict filtering
+Categories have a `line_id` FK. A category must belong to the selected line. This is enforced:
+- **Frontend** (`ProductForm`, `ProductCreateModal`, `BulkProductEntryV2`): category dropdown disabled until line is chosen; only categories where `category_id.line_id == selected line_id` are shown
+- **Server** (`createProduct`, `updateProduct`, `createBulkProducts`): explicit check that the category's `line_id` matches the submitted `line_id` before insert/update
+
+### Soft-delete pattern (all catalog entities)
+All catalog tables (`suppliers`, `brands`, `categories`, `lines`, `sizes`, `products`) use `active: boolean`. Soft-delete sets `active = false`. Hard constraints (FK checks) are only enforced for entities that would leave orphan relationships; soft-delete of a supplier is always allowed even if it has products (the products keep the FK, the supplier just disappears from dropdowns).
+
+### Active/Inactive toggle in catalog managers
+All catalog managers support a `showInactive` toggle (`ActiveInactiveToggle` + `InactiveBanner` components in `components/catalogs/`). Inactive items show a "Restaurar" button instead of Edit/Delete. `restoreX(id)` server actions exist for all entities.
+
+### Size scoping
+Sizes are scoped to a `category_id`. The same name "S" in Billeteras is a different row than "S" in Casacas. All size lookups/deletes must filter by `category_id`.
+
+### Product code format
+`/api/catalogs/next-code?category_id=X[&brand_id=Y]` returns an atomic sequential code:
+- With brand: `NIK-BIL-001` (brand prefix + category prefix + zero-padded number)
+- Without brand: `BIL-001`
+
+The SQL function `generate_next_product_code(p_category_id, p_prefix)` uses `pg_advisory_xact_lock` to prevent race conditions.
+
+### SearchableSelect component
+`components/ui/searchable-select.tsx` — custom combobox for dropdowns with 20+ items. Supports `hint` (secondary text, also searchable). Used for suppliers in bulk entry.
+
+### ProductCreateModal (unified product creation)
+`components/products/product-create-modal.tsx` — the primary "New Product" UI. Handles:
+- Base data (name, auto-computed `base_code`, supplier, brand, line, category, warehouse)
+- Variants table (barcode, size, color, prices, initial stock) with inline size creation
+- Calls `createBulkProducts` from `actions/products`
+- Quick-create (+) buttons for supplier, brand, category, size inline
+
+The older `ProductForm` in mode="create" is no longer used for creating products (only for editing via dialog).
