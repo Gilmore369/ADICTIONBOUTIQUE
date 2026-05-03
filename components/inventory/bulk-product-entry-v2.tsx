@@ -31,6 +31,7 @@ import {
 import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createBulkProducts } from '@/actions/products'
 import { CompactColorPicker } from '@/components/ui/color-picker'
 import { QuickCreateDialog, type QuickCreateType } from './quick-create-dialog'
@@ -356,7 +357,7 @@ export function BulkProductEntryV2() {
 
       // Auto-generate code if not already set
       if (!currentModel?.baseCode) {
-        generateCodeForModel(id, value)
+        generateCodeForModel(id, value, currentModel?.brandId)
       }
     } else {
       // Para otros campos, actualizar normalmente
@@ -365,13 +366,24 @@ export function BulkProductEntryV2() {
           ? { ...m, [field]: value }
           : m
       ))
+
+      // Si cambia la marca y NO hay base_code aún, regenerar con marca incluida
+      if (field === 'brandId' && value) {
+        const m = models.find(mm => mm.id === id)
+        if (m && m.categoryId && !m.baseCode) {
+          generateCodeForModel(id, m.categoryId, value)
+        }
+      }
     }
   }
 
-  // Generar código automáticamente al seleccionar categoría
-  const generateCodeForModel = async (modelId: string, categoryId: string) => {
+  // Generar código base. Formato: {MARCA}-{CATEGORIA}-{NUM} si hay marca,
+  // o {CATEGORIA}-{NUM} si no. Ej: NIK-BIL-001 o BIL-001
+  const generateCodeForModel = async (modelId: string, categoryId: string, brandId?: string) => {
     try {
-      const response = await fetch(`/api/catalogs/next-code?category_id=${categoryId}`)
+      const params = new URLSearchParams({ category_id: categoryId })
+      if (brandId) params.set('brand_id', brandId)
+      const response = await fetch(`/api/catalogs/next-code?${params.toString()}`)
       const { data, error } = await response.json()
 
       if (error) {
@@ -379,11 +391,9 @@ export function BulkProductEntryV2() {
         return
       }
 
-      console.log('[generateCodeForModel] Generated code:', data.code)
-
       // Actualizar código directamente sin llamar a updateModel para evitar conflictos
-      setModels(prev => prev.map(m => 
-        m.id === modelId 
+      setModels(prev => prev.map(m =>
+        m.id === modelId
           ? { ...m, baseCode: data.code }
           : m
       ))
@@ -604,16 +614,23 @@ export function BulkProductEntryV2() {
                 Proveedor <span className="text-red-500">*</span>
               </Label>
               <div className="flex gap-2">
-                <Select value={supplier} onValueChange={setSupplier} disabled={loading}>
-                  <SelectTrigger className={`flex-1 ${!supplier ? 'border-red-300' : ''}`}>
-                    <SelectValue placeholder={loading ? "Cargando..." : "Seleccionar proveedor"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* SearchableSelect: permite filtrar escribiendo (útil con +100 proveedores) */}
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={suppliers.map((s: any) => ({
+                      value: s.id,
+                      label: s.name,
+                      hint: s.ruc ? `RUC ${s.ruc}` : undefined,
+                    }))}
+                    value={supplier}
+                    onChange={setSupplier}
+                    disabled={loading}
+                    invalid={!supplier}
+                    placeholder={loading ? 'Cargando…' : 'Seleccionar proveedor'}
+                    searchPlaceholder="Escribe nombre o RUC…"
+                    emptyMessage="No se encontró ningún proveedor"
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -775,10 +792,15 @@ export function BulkProductEntryV2() {
                     📦 Código Base: {model.baseCode || 'Se generará automáticamente'}
                   </p>
                   <p className="text-xs text-blue-700">
-                    El <strong>código base</strong> agrupa todos los colores del mismo modelo en el catálogo visual. 
-                    {model.baseCode 
-                      ? ' Este modelo ya existe. Todos los colores que agregues se mostrarán juntos en la misma tarjeta.'
-                      : ' Se generará automáticamente al seleccionar la categoría.'}
+                    {model.baseCode
+                      ? 'Este modelo agrupará todos los colores en la misma tarjeta del catálogo visual.'
+                      : (
+                        <>
+                          Se genera al seleccionar <strong>categoría</strong> (y opcionalmente marca).
+                          Formato: <code className="bg-white px-1 py-0.5 rounded text-[10px]">MARCA-CATEGORÍA-NÚMERO</code>
+                          {' '}(ej: <code className="bg-white px-1 py-0.5 rounded text-[10px]">NIK-BIL-001</code>) o <code className="bg-white px-1 py-0.5 rounded text-[10px]">CATEGORÍA-NÚMERO</code> si no eliges marca.
+                        </>
+                      )}
                   </p>
                 </div>
                 
@@ -799,7 +821,7 @@ export function BulkProductEntryV2() {
                         type="button"
                         variant="outline"
                         size="icon"
-                        onClick={() => model.categoryId && generateCodeForModel(model.id, model.categoryId)}
+                        onClick={() => model.categoryId && generateCodeForModel(model.id, model.categoryId, model.brandId)}
                         disabled={!model.categoryId}
                         title="Generar código automáticamente"
                       >

@@ -14,13 +14,14 @@ export async function GET() {
   try {
     const supabase = await createServerClient()
 
-    // Query suppliers with LIMIT (reduced for performance)
+    // Trae todos los proveedores activos con RUC (la UI usa SearchableSelect
+    // con búsqueda local, así que cargar 1000 ítems es OK).
     const { data, error } = await supabase
       .from('suppliers')
-      .select('id, name')
+      .select('id, name, ruc')
       .eq('active', true)
       .order('name')
-      .limit(50)
+      .limit(1000)
 
     if (error) {
       return NextResponse.json(

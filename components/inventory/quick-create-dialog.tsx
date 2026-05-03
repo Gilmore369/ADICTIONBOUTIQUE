@@ -27,8 +27,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Lock, Sparkles } from 'lucide-react'
-import { createSupplier, createBrand, createCategory, createSize, createLine } from '@/actions/catalogs'
+import { Lock, Sparkles, Search, Plus, Check } from 'lucide-react'
+import { createSupplier, createBrand, createCategory, createSize, createLine, linkBrandToSupplier } from '@/actions/catalogs'
 import { createBrowserClient } from '@/lib/supabase/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -125,6 +125,13 @@ export function QuickCreateDialog({
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([])
   const [loadingCatalogs, setLoadingCatalogs] = useState(false)
 
+  // Para el modal de Marca: tabs y búsqueda de marcas existentes
+  const [brandMode, setBrandMode] = useState<'existing' | 'new'>('existing')
+  const [allBrands, setAllBrands] = useState<Array<{ id: string; name: string; description?: string }>>([])
+  const [linkedBrandIds, setLinkedBrandIds] = useState<Set<string>>(new Set())
+  const [brandSearch, setBrandSearch] = useState('')
+  const [loadingBrands, setLoadingBrands] = useState(false)
+
   // Reset cuando abre
   useEffect(() => {
     if (!open) return
@@ -137,8 +144,27 @@ export function QuickCreateDialog({
     // Solo cargar catálogos si NO hay contexto
     if (type === 'category' && !lineId) loadLines()
     if (type === 'size'     && !categoryId) loadCategories()
+
+    // Para marcas: cargar todas las globales + las ya asociadas al proveedor
+    if (type === 'brand' && supplierId) {
+      setBrandMode('existing')
+      setBrandSearch('')
+      loadAllBrands(supplierId)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, type, lineId, categoryId])
+  }, [open, type, lineId, categoryId, supplierId])
+
+  const loadAllBrands = async (currentSupplierId: string) => {
+    setLoadingBrands(true)
+    const supabase = createBrowserClient()
+    const [allRes, linkedRes] = await Promise.all([
+      supabase.from('brands').select('id, name, description').eq('active', true).order('name'),
+      supabase.from('supplier_brands').select('brand_id').eq('supplier_id', currentSupplierId),
+    ])
+    setAllBrands(allRes.data || [])
+    setLinkedBrandIds(new Set((linkedRes.data || []).map(r => r.brand_id)))
+    setLoadingBrands(false)
+  }
 
   const loadLines = async () => {
     setLoadingCatalogs(true)
@@ -194,19 +220,52 @@ export function QuickCreateDialog({
   }
 
   const saveBrand = async () => {
-    if (!brand.name.trim()) { toast.error('El nombre es obligatorio'); return }
     if (!supplierId) { toast.error('Selecciona un proveedor en el formulario principal antes de crear una marca'); return }
-    const fd = new FormData()
-    fd.append('name',           brand.name.trim())
-    fd.append('description',    brand.description.trim())
-    fd.append('supplier_ids[]', supplierId)
-    const res = await createBrand(fd)
+
+    if (brandMode === 'new') {
+      // Crear marca nueva (validar duplicado antes para mensaje claro)
+      const trimmed = brand.name.trim()
+      if (!trimmed) { toast.error('El nombre es obligatorio'); return }
+
+      const dup = allBrands.find(b => b.name.toLowerCase() === trimmed.toLowerCase())
+      if (dup) {
+        toast.error(`La marca "${dup.name}" ya existe. Usa la pestaña "Asociar existente" para vincularla a este proveedor.`)
+        // Cambiar a tab existente y prellenar búsqueda con el nombre
+        setBrandMode('existing')
+        setBrandSearch(trimmed)
+        return
+      }
+
+      const fd = new FormData()
+      fd.append('name',           trimmed)
+      fd.append('description',    brand.description.trim())
+      fd.append('supplier_ids[]', supplierId)
+      const res = await createBrand(fd)
+      if (res?.success && res.data) {
+        toast.success(`Marca "${res.data.name}" creada y asociada a ${supplierName || 'el proveedor'}`)
+        onSuccess(res.data.id, res.data.name)
+        onOpenChange(false)
+      } else {
+        toast.error(typeof res?.error === 'string' ? res.error : 'Error al crear marca')
+      }
+    }
+    // brandMode === 'existing' usa handlePickExistingBrand directamente desde el click
+  }
+
+  const handlePickExistingBrand = async (b: { id: string; name: string }) => {
+    if (!supplierId) return
+    const res = await linkBrandToSupplier(b.id, supplierId)
     if (res?.success && res.data) {
-      toast.success(`Marca "${res.data.name}" creada y asociada a ${supplierName || 'el proveedor'}`)
-      onSuccess(res.data.id, res.data.name)
+      const wasLinked = res.data.alreadyLinked
+      toast.success(
+        wasLinked
+          ? `"${b.name}" ya estaba asociada — seleccionada`
+          : `"${b.name}" asociada a ${supplierName || 'el proveedor'}`
+      )
+      onSuccess(b.id, b.name)
       onOpenChange(false)
     } else {
-      toast.error(typeof res?.error === 'string' ? res.error : 'Error al crear marca')
+      toast.error(typeof res?.error === 'string' ? res.error : 'Error al asociar la marca')
     }
   }
 
@@ -376,7 +435,7 @@ export function QuickCreateDialog({
             </>
           )}
 
-          {/* ── MARCA ─────────────────────────────────────────────────── */}
+          {/* ── MARCA (con tabs: Asociar existente | Crear nueva) ───────── */}
           {type === 'brand' && (
             <>
               {!supplierId && (
@@ -384,25 +443,136 @@ export function QuickCreateDialog({
                   Necesitas seleccionar un proveedor en el formulario principal antes de crear la marca.
                 </p>
               )}
-              <Field label="Nombre de la marca *">
-                <Input
-                  autoFocus
-                  placeholder="Ej: Nike, Adidas, Tommy…"
-                  value={brand.name}
-                  onChange={e => setBrand(p => ({ ...p, name: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && handleSave()}
+
+              {/* Tabs: existente / nueva */}
+              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 text-sm w-full">
+                <button
+                  type="button"
+                  onClick={() => setBrandMode('existing')}
                   disabled={!supplierId}
-                />
-              </Field>
-              <Field label="Descripción (opcional)">
-                <Textarea
-                  rows={2}
-                  placeholder="Información sobre la marca"
-                  value={brand.description}
-                  onChange={e => setBrand(p => ({ ...p, description: e.target.value }))}
+                  className={`flex-1 px-3 py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 ${
+                    brandMode === 'existing' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Asociar existente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBrandMode('new')}
                   disabled={!supplierId}
-                />
-              </Field>
+                  className={`flex-1 px-3 py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 ${
+                    brandMode === 'new' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Crear nueva
+                </button>
+              </div>
+
+              {brandMode === 'existing' ? (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Las marcas que <strong>no</strong> están asociadas a este proveedor aparecen con &quot;+ Asociar&quot;.
+                    Las que sí, con un check verde.
+                  </p>
+                  <Field label="Buscar marca">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                      <Input
+                        autoFocus
+                        placeholder="Escribe para filtrar (Nike, Adidas...)"
+                        value={brandSearch}
+                        onChange={e => setBrandSearch(e.target.value)}
+                        className="pl-8"
+                        disabled={!supplierId}
+                      />
+                    </div>
+                  </Field>
+                  <div className="max-h-[260px] overflow-y-auto border rounded-md divide-y">
+                    {loadingBrands ? (
+                      <p className="text-center text-sm text-gray-400 py-6">Cargando…</p>
+                    ) : (() => {
+                      const filtered = allBrands.filter(b =>
+                        !brandSearch || b.name.toLowerCase().includes(brandSearch.toLowerCase())
+                      )
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-6 px-4 space-y-2">
+                            <p className="text-sm text-gray-500">
+                              {brandSearch
+                                ? `No se encontró ninguna marca con "${brandSearch}"`
+                                : 'No hay marcas creadas'}
+                            </p>
+                            {brandSearch && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBrandMode('new')
+                                  setBrand({ name: brandSearch, description: '' })
+                                }}
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                Crear &quot;{brandSearch}&quot; como marca nueva →
+                              </button>
+                            )}
+                          </div>
+                        )
+                      }
+                      return filtered.map(b => {
+                        const isLinked = linkedBrandIds.has(b.id)
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => handlePickExistingBrand(b)}
+                            disabled={saving}
+                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-blue-50 text-left transition-colors disabled:opacity-50"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">{b.name}</p>
+                              {b.description && (
+                                <p className="text-[11px] text-gray-500 truncate">{b.description}</p>
+                              )}
+                            </div>
+                            {isLinked ? (
+                              <span className="flex items-center gap-1 text-[11px] text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                                <Check className="h-3 w-3" /> Asociada
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-blue-600 hover:text-blue-800 font-medium">
+                                + Asociar
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })
+                    })()}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Field label="Nombre de la marca *">
+                    <Input
+                      autoFocus
+                      placeholder="Ej: Nike, Adidas, Tommy…"
+                      value={brand.name}
+                      onChange={e => setBrand(p => ({ ...p, name: e.target.value }))}
+                      onKeyDown={e => e.key === 'Enter' && handleSave()}
+                      disabled={!supplierId}
+                    />
+                  </Field>
+                  <Field label="Descripción (opcional)">
+                    <Textarea
+                      rows={2}
+                      placeholder="Información sobre la marca"
+                      value={brand.description}
+                      onChange={e => setBrand(p => ({ ...p, description: e.target.value }))}
+                      disabled={!supplierId}
+                    />
+                  </Field>
+                </>
+              )}
             </>
           )}
 
@@ -534,11 +704,14 @@ export function QuickCreateDialog({
         {/* Footer */}
         <div className="flex gap-2 justify-end pt-2 border-t border-border">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancelar
+            {type === 'brand' && brandMode === 'existing' ? 'Cerrar' : 'Cancelar'}
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || (type === 'brand' && !supplierId)}>
-            {saving ? 'Guardando…' : 'Crear y usar'}
-          </Button>
+          {/* En modo "asociar existente" no hay botón Crear: el click en la lista ya asocia */}
+          {!(type === 'brand' && brandMode === 'existing') && (
+            <Button size="sm" onClick={handleSave} disabled={saving || (type === 'brand' && !supplierId)}>
+              {saving ? 'Guardando…' : 'Crear y usar'}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

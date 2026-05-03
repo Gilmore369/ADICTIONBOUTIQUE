@@ -36,9 +36,14 @@ async function StockData() {
   const cookieStore = await cookies()
   const cookieSelected = cookieStore.get('selected-store')?.value  // 'ALL' | 'MUJERES' | 'HOMBRES'
 
+  // INNER JOIN con products + filtro active=true para excluir stock huérfano
+  // de productos eliminados (soft-deleted). Bug reportado: usuario eliminó
+  // productos pero seguían apareciendo en Stock. Causa: el LEFT JOIN
+  // implícito traía stock de productos con active=false.
   let stockQuery = supabase
     .from('stock')
-    .select('*, products(id, name, barcode, min_stock)')
+    .select('*, products!inner(id, name, barcode, min_stock, active)')
+    .eq('products.active', true)
     .order('warehouse_id')
 
   if (!hasAllAccess && userStores.length > 0) {

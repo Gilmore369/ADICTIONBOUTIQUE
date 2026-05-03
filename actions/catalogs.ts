@@ -938,6 +938,63 @@ export async function deleteSupplier(id: string): Promise<ActionResponse> {
 }
 
 /**
+ * Asocia una marca EXISTENTE a un proveedor sin tocar las demás.
+ * Útil desde el ingreso masivo cuando el usuario quiere usar una marca
+ * que ya está en la BD pero aún no está asociada al proveedor seleccionado.
+ *
+ * Si la asociación ya existe, retorna success sin hacer nada (idempotente).
+ */
+export async function linkBrandToSupplier(brandId: string, supplierId: string): Promise<ActionResponse> {
+  const hasPermission = await checkPermission(Permission.MANAGE_PRODUCTS)
+  if (!hasPermission) {
+    return { success: false, error: 'Forbidden: Insufficient permissions' }
+  }
+
+  if (!brandId || !supplierId) {
+    return { success: false, error: 'brandId y supplierId son obligatorios' }
+  }
+
+  const supabase = await createServerClient()
+
+  // Verificar que ambos existan y estén activos
+  const [brandRes, supplierRes] = await Promise.all([
+    supabase.from('brands').select('id, name, active').eq('id', brandId).maybeSingle(),
+    supabase.from('suppliers').select('id, name, active').eq('id', supplierId).maybeSingle(),
+  ])
+  if (!brandRes.data) return { success: false, error: 'La marca no existe' }
+  if (!supplierRes.data) return { success: false, error: 'El proveedor no existe' }
+
+  // Idempotente: si ya existe, OK
+  const { data: existing } = await supabase
+    .from('supplier_brands')
+    .select('id')
+    .eq('supplier_id', supplierId)
+    .eq('brand_id', brandId)
+    .maybeSingle()
+
+  if (existing) {
+    return { success: true, data: { id: brandId, name: brandRes.data.name, alreadyLinked: true } }
+  }
+
+  const { error } = await supabase
+    .from('supplier_brands')
+    .insert({ supplier_id: supplierId, brand_id: brandId })
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/catalogs/suppliers')
+  revalidatePath('/catalogs/brands')
+
+  const uid = await getCurrentUserId()
+  await logAudit({
+    userId: uid, action: 'UPDATE', entityType: 'supplier_brand', entityId: supplierId,
+    detail: `Marca "${brandRes.data.name}" asociada a proveedor "${supplierRes.data.name}"`,
+  })
+
+  return { success: true, data: { id: brandId, name: brandRes.data.name } }
+}
+
+/**
  * Updates the brands associated with a supplier.
  * Replaces the current set of brands with the provided list.
  */
