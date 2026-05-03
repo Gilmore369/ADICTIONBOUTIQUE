@@ -32,7 +32,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CompactColorPicker } from '@/components/ui/color-picker'
 import { createBulkProducts } from '@/actions/products'
-import { createSupplier, createBrand, createCategory, createSize } from '@/actions/catalogs'
+import { createSupplier, createBrand, createCategory, createSize, linkBrandToSupplier } from '@/actions/catalogs'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import {
@@ -518,16 +518,28 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
       toast.error('Proveedor requerido', 'Selecciona un proveedor antes de crear una marca')
       return
     }
-    const res = await createBrand({ name: brandName, supplier_ids: [supplierId] })
+
+    // ── Dedup: si la marca ya existe en el listado, solo la asociamos ──────
+    const trimmed = brandName.trim()
+    const existing = brands.find(b => b.name.trim().toLowerCase() === trimmed.toLowerCase())
+    if (existing) {
+      // Associate with current supplier (idempotent)
+      await linkBrandToSupplier(existing.id, supplierId)
+      setBrandId(existing.id)
+      toast.success('Marca seleccionada', `"${existing.name}" ya existía — fue seleccionada`)
+      return
+    }
+
+    const res = await createBrand({ name: trimmed, supplier_ids: [supplierId] })
     if (res.success && res.data) {
       const br = { id: res.data.id, name: res.data.name }
       setBrands((p) => [...p, br]); setBrandId(br.id)
-      toast.success('Marca creada', brandName)
+      toast.success('Marca creada', trimmed)
     } else {
       const errMsg = typeof res.error === 'string' ? res.error : 'No se pudo crear la marca'
       toast.error('Error', errMsg)
     }
-  }, [supplierId])
+  }, [supplierId, brands])
 
   const handleCreateCategory = useCallback(async (categoryName: string) => {
     if (!lineId) { toast.error('Línea requerida', 'Selecciona una línea primero'); return }

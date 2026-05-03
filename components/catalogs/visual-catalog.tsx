@@ -44,7 +44,9 @@ import { createSize } from '@/actions/catalogs'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ITEMS_PER_PAGE = 24
+const ITEMS_PER_PAGE = 60   // modelos por página — 60 da buena densidad sin sobrecargar
+const FIRST_BATCH    = 800  // productos en primera carga (rápida, ~60-80 modelos)
+const SECOND_BATCH   = 2000 // productos en segunda carga (background, completa el catálogo)
 const CART_KEY = 'boutique_visual_cart'
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'UNICA', 'ÚNICA']
 
@@ -1533,11 +1535,12 @@ export function VisualCatalog() {
   const { selectedStore, storeId } = useStore()
 
   // ── Data ───────────────────────────────────────────────────────────────────
-  const [models,     setModels]     = useState<ModelCard[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [lines,      setLines]      = useState<FilterOption[]>([])
-  const [categories, setCategories] = useState<FilterOption[]>([])
-  const [brands,     setBrands]     = useState<FilterOption[]>([])
+  const [models,      setModels]      = useState<ModelCard[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)   // segunda fase en background
+  const [lines,       setLines]       = useState<FilterOption[]>([])
+  const [categories,  setCategories]  = useState<FilterOption[]>([])
+  const [brands,      setBrands]      = useState<FilterOption[]>([])
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [search,          setSearch]          = useState('')
@@ -1640,133 +1643,22 @@ export function VisualCatalog() {
   }, [cartItems, router])
 
   // ── Load data ──────────────────────────────────────────────────────────────
-  const loadData = useCallback(async (activeStoreId: string | null) => {
-    setLoading(true)
-    const supabase = createBrowserClient()
 
-    // 1. Get user's stores (TEXT array like ['MUJERES', 'HOMBRES'])
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setLoading(false)
-      return
-    }
-
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('stores')
-      .eq('id', user.id)
-      .single()
-
-    const userStores = userProfile?.stores || []
-
-    // 2. Get store UUIDs from store codes
-    let storeIds: string[] = []
-    if (userStores.length > 0) {
-      const { data: stores } = await supabase
-        .from('stores')
-        .select('id')
-        .in('code', userStores)
-
-      storeIds = (stores || []).map(s => s.id)
-    }
-
-    // 2b. If a specific store is selected globally, restrict to that store only
-    if (activeStoreId) {
-      storeIds = storeIds.includes(activeStoreId)
-        ? [activeStoreId]   // user has access to that store
-        : [activeStoreId]   // respect global selection regardless
-    }
-
-    // 3. Get lines available for these stores (via line_stores)
-    let availableLineIds: string[] = []
-    if (storeIds.length > 0) {
-      const { data: lineStores } = await supabase
-        .from('line_stores')
-        .select('line_id')
-        .in('store_id', storeIds)
-
-      availableLineIds = (lineStores || []).map(ls => ls.line_id)
-    }
-
-    // 4. Load lines filtered by stores
-    const linesQuery = supabase
-      .from('lines')
-      .select('id, name')
-      .eq('active', true)
-      .order('name')
-
-    if (availableLineIds.length > 0) {
-      linesQuery.in('id', availableLineIds)
-    }
-
-    const [linesRes, catsRes, brandsRes] = await Promise.all([
-      linesQuery,
-      supabase.from('categories').select('id, name').eq('active', true).order('name'),
-      supabase.from('brands').select('id, name').eq('active', true).order('name'),
-    ])
-    
-    setLines(linesRes.data || [])
-    setCategories(catsRes.data || [])
-    setBrands(brandsRes.data || [])
-
-    // 5. Load products filtered by available lines
-    const productsQuery = supabase
-      .from('products')
-      .select(`
-        id, barcode, name, size, color, base_code, base_name,
-        purchase_price, price, category_id, brand_id, line_id,
-        image_url, entry_date, catalog_visible,
-        categories ( id, name, line_id, lines ( id, name ) ),
-        brands ( id, name ),
-        stock ( quantity )
-      `)
-      .eq('active', true)
-      .order('base_code', { nullsFirst: false })
-      .limit(2000)
-
-    // Filter by available lines if user has stores
-    if (availableLineIds.length > 0) {
-      productsQuery.in('line_id', availableLineIds)
-    }
-
-    const { data: products, error: productsError } = await productsQuery
-
-    if (productsError) {
-      console.error('[VisualCatalog] Products error:', productsError)
-      setLoading(false)
-      return
-    }
-
-    // ── Group by derived base_code from barcode ──────────────────────────
-    // Barcode format: "{baseCode}-{sizeName}" e.g. "CHA-L" → group "CHA"
-    const grouped: Record<string, ModelCard> = {}
-
-    for (const p of products || []) {
+  /** Agrupa un array de productos crudos en ModelCard[]. Puro JS, sin efectos. */
+  const groupProducts = useCallback((products: any[], existingGrouped: Record<string, ModelCard> = {}): Record<string, ModelCard> => {
+    const grouped = { ...existingGrouped }
+    for (const p of products) {
       const pAny = p as any
-
-      // Use explicit base_code when present (populated by migration/bulk-entry).
-      // Fall back to stripping the last -SEGMENT from barcode for legacy data.
       const groupKey: string =
         (pAny.base_code as string | null)?.trim() ||
-        (pAny.barcode
-          ? (pAny.barcode as string).replace(/-[^-]+$/, '')
-          : pAny.id)
-
-      // Use explicit base_name when present; fall back to stripping " - SIZE" suffix.
+        (pAny.barcode ? (pAny.barcode as string).replace(/-[^-]+$/, '') : pAny.id)
       const displayName: string =
         (pAny.base_name as string | null)?.trim() ||
-        (pAny.name
-          ? (pAny.name as string).replace(/ - [^-\s][^-]*$/, '').trim()
-          : '(sin nombre)')
-
+        (pAny.name ? (pAny.name as string).replace(/ - [^-\s][^-]*$/, '').trim() : '(sin nombre)')
       const cat   = pAny.categories as any
       const brand = pAny.brands     as any
       const line  = cat?.lines      as any
-
-      // Compute this variant's stock
-      const stockArr: any[] = Array.isArray(pAny.stock)
-        ? pAny.stock
-        : (pAny.stock ? [pAny.stock] : [])
+      const stockArr: any[] = Array.isArray(pAny.stock) ? pAny.stock : (pAny.stock ? [pAny.stock] : [])
       const variantStock = stockArr.reduce((s: number, st: any) => s + (Number(st.quantity) || 0), 0)
 
       if (!grouped[groupKey]) {
@@ -1781,89 +1673,61 @@ export function VisualCatalog() {
           brand_name:     brand?.name        ?? null,
           sale_price:     Number(pAny.price         ?? 0),
           purchase_price: Number(pAny.purchase_price ?? 0),
-          total_stock:    0,
-          variant_count:  0,
-          size_names:     [],
-          colors:         [],
+          total_stock:    0, variant_count: 0,
+          size_names: [], colors: [],
           primary_image_url: pAny.image_url ?? null,
-          color_images:   {},
-          variants:       [],
+          color_images: [], variants: [],
           catalog_visible: Boolean(pAny.catalog_visible),
-        }
+        } as any
       } else if (pAny.catalog_visible) {
-        // If any variant has catalog_visible=true, mark the whole model
         grouped[groupKey].catalog_visible = true
       }
-
       const g = grouped[groupKey]
       g.total_stock   += variantStock
       g.variant_count += 1
-
-      // Use the first non-null image_url found in the group
-      if (pAny.image_url && !g.primary_image_url) {
-        g.primary_image_url = pAny.image_url as string
-      }
-
-      const sizeText: string | null = pAny.size ?? null
+      if (pAny.image_url && !g.primary_image_url) g.primary_image_url = pAny.image_url as string
+      const sizeText: string | null  = pAny.size  ?? null
       const colorText: string | null = pAny.color ?? null
-
       if (sizeText  && !g.size_names.includes(sizeText))  g.size_names.push(sizeText)
       if (colorText && !g.colors.includes(colorText))     g.colors.push(colorText)
-
       g.variants.push({
-        product_id:     pAny.id as string,
-        barcode:        (pAny.barcode as string) || groupKey,
-        size:           sizeText,
-        color:          colorText,
-        stock:          variantStock,
-        price:          Number(pAny.price         ?? 0),
-        purchase_price: Number(pAny.purchase_price ?? 0),
+        product_id: pAny.id as string, barcode: (pAny.barcode as string) || groupKey,
+        size: sizeText, color: colorText, stock: variantStock,
+        price: Number(pAny.price ?? 0), purchase_price: Number(pAny.purchase_price ?? 0),
       })
     }
+    return grouped
+  }, [])
 
-    // ── Override primary images + build color_images map ────────────────
-    const baseCodes = Object.keys(grouped)
-    if (baseCodes.length > 0) {
-      try {
-        const { data: imgs, error: imgErr } = await supabase
-          .from('product_images')
-          .select('base_code, public_url, is_primary, color')
-          .in('base_code', baseCodes)
-          .order('is_primary', { ascending: false })  // primarias primero
-          .order('sort_order' as any)
-
-        if (!imgErr && imgs) {
-          for (const img of imgs) {
-            const imgAny = img as any
-            const group = grouped[imgAny.base_code]
-            if (!group || !imgAny.public_url) continue
-
-            // Imagen primaria → sobrescribe primary_image_url
-            if (imgAny.is_primary) {
-              group.primary_image_url = imgAny.public_url as string
-            }
-
-            // Imagen con color etiquetado → guardar en mapa color_images
-            // Solo guarda la primera imagen encontrada por color (is_primary primero)
-            if (imgAny.color) {
-              const colorKey = (imgAny.color as string).toLowerCase()
-              if (!group.color_images[colorKey]) {
-                group.color_images[colorKey] = imgAny.public_url as string
-              }
-            }
-
-            // Fallback: si aún no hay primary_image_url, usar la primera imagen disponible
-            if (!group.primary_image_url) {
-              group.primary_image_url = imgAny.public_url as string
-            }
+  /** Carga imágenes de product_images para una lista de base_codes y las aplica al grouped map. */
+  const applyImages = useCallback(async (supabase: any, grouped: Record<string, ModelCard>, newBaseCodes: string[]) => {
+    if (newBaseCodes.length === 0) return
+    try {
+      const { data: imgs, error: imgErr } = await supabase
+        .from('product_images')
+        .select('base_code, public_url, is_primary, color')
+        .in('base_code', newBaseCodes)
+        .order('is_primary', { ascending: false })
+        .order('sort_order' as any)
+      if (imgErr || !imgs) return
+      for (const img of imgs) {
+        const imgAny = img as any
+        const group  = grouped[imgAny.base_code]
+        if (!group || !imgAny.public_url) continue
+        if (imgAny.is_primary) group.primary_image_url = imgAny.public_url as string
+        if (imgAny.color) {
+          const colorKey = (imgAny.color as string).toLowerCase()
+          if (!(group.color_images as any)[colorKey]) {
+            (group.color_images as any)[colorKey] = imgAny.public_url as string
           }
         }
-      } catch (err) {
-        // Silently ignore if product_images table doesn't exist
+        if (!group.primary_image_url) group.primary_image_url = imgAny.public_url as string
       }
-    }
+    } catch { /* silently ignore */ }
+  }, [])
 
-    // ── Sort sizes and variants ──────────────────────────────────────────
+  /** Convierte un grouped map en ModelCard[] ya ordenado internamente. */
+  const finalizeGrouped = useCallback((grouped: Record<string, ModelCard>): ModelCard[] => {
     const result = Object.values(grouped)
     result.forEach(m => {
       m.size_names = sortSizes(m.size_names)
@@ -1876,10 +1740,98 @@ export function VisualCatalog() {
         return (a.size ?? '').localeCompare(b.size ?? '', undefined, { numeric: true })
       })
     })
-
-    setModels(result)
-    setLoading(false)
+    return result
   }, [])
+
+  const loadData = useCallback(async (activeStoreId: string | null) => {
+    setLoading(true)
+    const supabase = createBrowserClient()
+
+    // 1. Autenticación y tiendas del usuario
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+
+    const { data: userProfile } = await supabase.from('users').select('stores').eq('id', user.id).single()
+    const userStores = userProfile?.stores || []
+
+    let storeIds: string[] = []
+    if (userStores.length > 0) {
+      const { data: stores } = await supabase.from('stores').select('id').in('code', userStores)
+      storeIds = (stores || []).map((s: any) => s.id)
+    }
+    if (activeStoreId) storeIds = [activeStoreId]
+
+    // 2. Líneas disponibles para las tiendas
+    let availableLineIds: string[] = []
+    if (storeIds.length > 0) {
+      const { data: lineStores } = await supabase.from('line_stores').select('line_id').in('store_id', storeIds)
+      availableLineIds = (lineStores || []).map((ls: any) => ls.line_id)
+    }
+
+    // 3. Catálogos para filtros
+    const linesQuery = supabase.from('lines').select('id, name').eq('active', true).order('name')
+    if (availableLineIds.length > 0) linesQuery.in('id', availableLineIds)
+    const [linesRes, catsRes, brandsRes] = await Promise.all([
+      linesQuery,
+      supabase.from('categories').select('id, name').eq('active', true).order('name'),
+      supabase.from('brands').select('id, name').eq('active', true).order('name'),
+    ])
+    setLines(linesRes.data || [])
+    setCategories(catsRes.data || [])
+    setBrands(brandsRes.data || [])
+
+    // 4. Helper para construir la query de productos con filtros de tienda
+    const buildProductsQuery = (supabase: any) => {
+      const q = supabase
+        .from('products')
+        .select(`
+          id, barcode, name, size, color, base_code, base_name,
+          purchase_price, price, category_id, brand_id, line_id,
+          image_url, entry_date, catalog_visible,
+          categories ( id, name, line_id, lines ( id, name ) ),
+          brands ( id, name ),
+          stock ( quantity )
+        `)
+        .eq('active', true)
+        .order('base_code', { nullsFirst: false })
+      if (availableLineIds.length > 0) q.in('line_id', availableLineIds)
+      return q
+    }
+
+    // ── FASE 1: primera carga (FIRST_BATCH productos) — rápida ──────────
+    const { data: phase1, error: err1 } = await buildProductsQuery(supabase).limit(FIRST_BATCH)
+    if (err1) { console.error('[VisualCatalog] phase1 error:', err1); setLoading(false); return }
+
+    const grouped1 = groupProducts(phase1 || [])
+    await applyImages(supabase, grouped1, Object.keys(grouped1))
+    setModels(finalizeGrouped(grouped1))
+    setLoading(false)   // ← UI visible después de fase 1
+
+    // ── FASE 2: el resto (en background, sin bloquear UI) ───────────────
+    const needsMore = (phase1?.length ?? 0) >= FIRST_BATCH
+    if (!needsMore) return   // ya llegamos al final
+    setLoadingMore(true)
+    try {
+      const { data: phase2 } = await buildProductsQuery(supabase)
+        .range(FIRST_BATCH, SECOND_BATCH - 1)
+      if (phase2 && phase2.length > 0) {
+        // Merged en el mismo map para manejar modelos que cruzan el límite
+        const grouped2 = groupProducts(phase2, grouped1)
+        const newKeys = phase2.map((p: any) => {
+          const pAny = p as any
+          return (pAny.base_code as string | null)?.trim() ||
+            (pAny.barcode ? (pAny.barcode as string).replace(/-[^-]+$/, '') : pAny.id)
+        })
+        const newBaseCodes = [...new Set(newKeys)].filter(k => !Object.keys(grouped1).includes(k))
+        await applyImages(supabase, grouped2, newBaseCodes)
+        setModels(finalizeGrouped(grouped2))
+      }
+    } catch (err) {
+      console.warn('[VisualCatalog] phase2 error (non-fatal):', err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [groupProducts, applyImages, finalizeGrouped])
 
   // Recargar cuando cambie la tienda seleccionada globalmente
   useEffect(() => {
@@ -2343,6 +2295,14 @@ export function VisualCatalog() {
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
+                </div>
+              )}
+
+              {/* Loading more indicator — segunda fase en background */}
+              {loadingMore && (
+                <div className="flex items-center justify-center gap-2 pt-3 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Cargando más modelos…</span>
                 </div>
               )}
             </>

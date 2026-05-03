@@ -214,7 +214,7 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
           </label>
           <select
             value={lineFilter}
-            onChange={(e) => setLineFilter(e.target.value)}
+            onChange={(e) => { setLineFilter(e.target.value); setCategoryFilter('') }}
             className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Todas las líneas</option>
@@ -231,12 +231,16 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={!lineFilter}
+            title={!lineFilter ? 'Elige una línea primero' : ''}
+            className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <option value="">Todas las categorías</option>
-            {categories.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+            <option value="">{lineFilter ? 'Todas las categorías' : 'Elige línea primero'}</option>
+            {categories
+              .filter(c => !lineFilter || c.line_id === lineFilter)
+              .map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
           </select>
         </div>
       </div>
