@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { checkPermission } from '@/lib/auth/check-permission'
+import { Permission } from '@/lib/auth/permissions'
 
 const CONFIG_KEYS = ['store_name', 'store_address', 'store_phone', 'store_ruc', 'store_logo']
 
@@ -48,6 +50,16 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+    // Only admins can change store identity (logo, name, RUC, etc.)
+    // MANAGE_USERS is the admin-only permission per ROLE_PERMISSIONS.
+    const allowed = await checkPermission(Permission.MANAGE_USERS)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'No tienes permisos para modificar la configuración de la tienda' },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
     const { name, address, phone, ruc, logo } = body

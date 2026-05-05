@@ -10,6 +10,8 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
 import { createServerClient } from '@/lib/supabase/server'
+import { checkPermission } from '@/lib/auth/check-permission'
+import { Permission } from '@/lib/auth/permissions'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +20,16 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    // RBAC: only admins. The previous version trusted any authenticated user,
+    // so a vendedor could overwrite the store logo.
+    const allowed = await checkPermission(Permission.MANAGE_USERS)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'No tienes permisos para cambiar el logo' },
+        { status: 403 }
+      )
     }
 
     const formData = await request.formData()

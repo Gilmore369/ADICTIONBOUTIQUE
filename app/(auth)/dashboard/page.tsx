@@ -110,8 +110,11 @@ export default async function DashboardPage({
       }),
       buildSalesQuery(supabase.from('sales').select('total')
         .gte('created_at', yStr).lt('created_at', today).eq('voided', false)),
+      // Recent sales widget — exclude voided so anuladas no aparecen como
+      // tickets reales en la lista "Últimas ventas" del dashboard.
       buildSalesQuery(supabase.from('sales')
         .select('id,sale_number,total,sale_type,created_at,clients(name)')
+        .eq('voided', false)
         .order('created_at', { ascending: false }).limit(6)),
       supabase.from('collection_actions').select('result').gte('created_at', today),
       buildSalesQuery(supabase.from('sales').select('total,sale_type')

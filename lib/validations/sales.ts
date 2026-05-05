@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { isoDateTime, uuid } from './zod-compat'
 
 /**
  * Sale item validation schema
  * Validates individual items in a sale
  */
 export const saleItemSchema = z.object({
-  product_id: z.string().uuid('Invalid product ID'),
+  product_id: uuid('Invalid product ID'),
   quantity: z.number().int('Quantity must be an integer').positive('Quantity must be positive'),
   unit_price: z.number().positive('Unit price must be positive')
 })
@@ -24,7 +25,7 @@ export const saleSchema = z.object({
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
   discount: z.number().nonnegative('Discount cannot be negative').default(0),
   installments: z.number().int('Installments must be an integer').min(1).max(6).optional(),
-  sale_date: z.string().datetime('Invalid sale date format').optional().default(() => new Date().toISOString())
+  sale_date: isoDateTime('Invalid sale date format').optional().default(() => new Date().toISOString())
 }).refine(
   (data) => {
     // Credit sales require client_id and installments

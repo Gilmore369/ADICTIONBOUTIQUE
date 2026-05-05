@@ -9,7 +9,13 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   try {
     const supabase = await createServerClient()
-    
+
+    // Auth gate — catalog data is internal, do not expose to anonymous callers
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { data, error} = await supabase
       .from('categories')
       .select('id, name, line_id')

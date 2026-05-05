@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { email, url, uuid } from './zod-compat'
 
 /**
  * Line validation schema
@@ -50,7 +51,7 @@ export const supplierSchema = z.object({
     .or(z.literal('')),
   contact_name: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  email: email('Email inválido').optional().or(z.literal('')),
   address: z.string().optional(),
   notes: z.string().optional()
 })
@@ -83,7 +84,7 @@ export const productSchema = z.object({
   price: z.number().positive('El precio de venta debe ser mayor a 0'),
   min_stock: z.number().int('Min stock must be an integer').nonnegative('Min stock must be non-negative').default(0),
   entry_date: z.string().optional(), // ISO date string
-  image_url: z.string().url('Invalid image URL').optional().or(z.literal('')),
+  image_url: url('Invalid image URL').optional().or(z.literal('')),
   active: z.boolean().default(true)
 })
 
@@ -103,9 +104,9 @@ export const productSchema = z.object({
 export const clientSchema = z.object({
   dni: z.string().min(1, 'DNI is required').max(20, 'DNI must be less than 20 characters'),
   name: z.string().min(1, 'Name is required').max(200, 'Name must be less than 200 characters'),
-  referred_by: z.string().uuid('Invalid referrer ID').optional(), // UUID of referring client (OPTIONAL)
+  referred_by: uuid('Invalid referrer ID').optional(), // UUID of referring client (OPTIONAL)
   phone: z.string().max(20, 'Phone must be less than 20 characters').optional(),
-  email: z.string().email('Invalid email format').optional().or(z.literal('')),
+  email: email('Invalid email format').optional().or(z.literal('')),
   address: z.string().max(500, 'Address must be less than 500 characters').optional(),
   lat: z.number()
     .min(-90, 'Latitude must be between -90 and 90')
@@ -123,8 +124,8 @@ export const clientSchema = z.object({
     .default(0),
   rating: z.enum(['S', 'A', 'B', 'C', 'D', 'E']).optional(),
   blacklisted: z.boolean().optional(),
-  dni_photo_url: z.string().url('Invalid DNI photo URL').optional().or(z.literal('')),
-  client_photo_url: z.string().url('Invalid client photo URL').optional().or(z.literal('')),
+  dni_photo_url: url('Invalid DNI photo URL').optional().or(z.literal('')),
+  client_photo_url: url('Invalid client photo URL').optional().or(z.literal('')),
   birthday: z.string().optional(), // ISO date string
   active: z.boolean().default(true)
 }).refine(data => {
@@ -146,9 +147,9 @@ export const clientSchema = z.object({
 export const clientUpdateSchema = z.object({
   dni: z.string().min(1, 'DNI is required').max(20, 'DNI must be less than 20 characters'),
   name: z.string().min(1, 'Name is required').max(200, 'Name must be less than 200 characters'),
-  referred_by: z.string().uuid('Invalid referrer ID').optional(),
+  referred_by: uuid('Invalid referrer ID').optional(),
   phone: z.string().max(20, 'Phone must be less than 20 characters').optional(),
-  email: z.string().email('Invalid email format').optional().or(z.literal('')),
+  email: email('Invalid email format').optional().or(z.literal('')),
   address: z.string().max(500, 'Address must be less than 500 characters').optional(),
   lat: z.number()
     .min(-90, 'Latitude must be between -90 and 90')
@@ -166,8 +167,19 @@ export const clientUpdateSchema = z.object({
     .default(0),
   rating: z.enum(['S', 'A', 'B', 'C', 'D', 'E']).optional(),
   blacklisted: z.boolean().optional(),
-  dni_photo_url: z.string().url('Invalid DNI photo URL').optional().or(z.literal('')),
-  client_photo_url: z.string().url('Invalid client photo URL').optional().or(z.literal('')),
+  dni_photo_url: url('Invalid DNI photo URL').optional().or(z.literal('')),
+  client_photo_url: url('Invalid client photo URL').optional().or(z.literal('')),
   birthday: z.string().optional(),
   active: z.boolean().default(true)
+}).refine(data => {
+  // Same lat/lng coupling as create — A9 from the audit: clientUpdateSchema
+  // was missing this refine, so updates could leave a partial coordinate.
+  if ((data.lat !== undefined && data.lng === undefined) ||
+      (data.lng !== undefined && data.lat === undefined)) {
+    return false
+  }
+  return true
+}, {
+  message: 'Both latitude and longitude must be provided together',
+  path: ['lat']
 })

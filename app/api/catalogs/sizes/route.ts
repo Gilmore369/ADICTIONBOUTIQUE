@@ -13,6 +13,13 @@ import { createServerClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient()
+
+    // Auth gate — catalog data is internal, do not expose to anonymous callers
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const categoryId = searchParams.get('category_id')
 

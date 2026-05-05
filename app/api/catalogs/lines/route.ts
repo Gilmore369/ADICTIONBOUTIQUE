@@ -6,7 +6,13 @@ export async function GET(request: NextRequest) {
   const storeId = searchParams.get('store_id')
 
   const supabase = await createServerClient()
-  
+
+  // Auth gate — catalog data is internal, do not expose to anonymous callers
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   let query = supabase
     .from('lines')
     .select('*')

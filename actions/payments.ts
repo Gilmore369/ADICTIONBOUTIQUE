@@ -68,6 +68,7 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   // 2. Parse and validate input
   const receiptUrl = formData.get('receipt_url')
   const notes = formData.get('notes')
+  const idempotencyKey = (formData.get('idempotency_key') || '').toString().trim() || null
 
   const validated = paymentSchema.safeParse({
     client_id: formData.get('client_id'),
@@ -88,6 +89,35 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   }
 
   const { client_id, amount, payment_date, receipt_url: validatedReceiptUrl, notes: validatedNotes } = validated.data
+
+  // 2b. IDEMPOTENCY GUARD — if the client provided a key and we already have
+  // a payment row with it, short-circuit. Prevents double-clicks / network
+  // retries from cobrar dos veces la misma cuota. The column is added by
+  // 20260504000001_payments_idempotency_key.sql (nullable + unique-where-not-
+  // null) so older clients without a key still work.
+  if (idempotencyKey) {
+    const { data: existing, error: idemErr } = await supabase
+      .from('payments')
+      .select('id, amount')
+      .eq('idempotency_key', idempotencyKey)
+      .maybeSingle()
+    // 42703 = column does not exist → migration not applied yet, skip the check
+    if (idemErr && idemErr.code !== '42703') {
+      console.warn('[payments] idempotency lookup failed:', idemErr.message)
+    } else if (existing) {
+      console.info('[payments] idempotency hit — returning existing payment', existing.id)
+      return {
+        success: true,
+        data: {
+          payment_id: existing.id,
+          amount_applied: Number(existing.amount),
+          remaining_amount: 0,
+          installments_updated: 0,
+          deduplicated: true,
+        },
+      }
+    }
+  }
 
   // 3. Fetch client's unpaid installments
   // First get active plan IDs for this client (more reliable than cross-table filter)
@@ -197,19 +227,46 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
         receipt_url:    validatedReceiptUrl || null,
         notes:          validatedNotes || null,
         plan_id:        firstInstallment?.plan_id || null,
-        installment_id: updatedInstallments[0]?.id || null
+        installment_id: updatedInstallments[0]?.id || null,
+        idempotency_key: idempotencyKey,
       })
       .select()
       .single()
 
-    // Fallback: si las columnas plan_id/installment_id no existen en la BD,
-    // reintentar sin ellas para compatibilidad hacia atrás (migración no ejecutada)
+    // If two requests with the same idempotency_key race past the lookup
+    // above, one of them lands here and trips the unique index. That's the
+    // "good" failure mode — return the row that won the race.
+    if (insertResult.error && insertResult.error.code === '23505' && idempotencyKey) {
+      const { data: winner } = await supabase
+        .from('payments')
+        .select('id, amount')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle()
+      if (winner) {
+        console.info('[payments] idempotency race — returning winning payment', winner.id)
+        return {
+          success: true,
+          data: {
+            payment_id: winner.id,
+            amount_applied: Number(winner.amount),
+            remaining_amount: 0,
+            installments_updated: 0,
+            deduplicated: true,
+          },
+        }
+      }
+    }
+
+    // Fallback: si las columnas plan_id/installment_id/idempotency_key no
+    // existen en la BD, reintentar sin ellas para compatibilidad hacia atrás
+    // (migración no ejecutada).
     if (insertResult.error && (
       insertResult.error.message.includes('plan_id') ||
       insertResult.error.message.includes('installment_id') ||
+      insertResult.error.message.includes('idempotency_key') ||
       insertResult.error.code === '42703'
     )) {
-      console.warn('[payments] Fallback: plan_id/installment_id columns not found, retrying without them')
+      console.warn('[payments] Fallback: column not found, retrying without optional columns')
       insertResult = await supabase
         .from('payments')
         .insert({

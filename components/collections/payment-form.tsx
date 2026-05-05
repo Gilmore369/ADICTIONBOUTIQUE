@@ -118,6 +118,10 @@ export function PaymentForm({ onSuccess, onCancel, onClientChange, onAmountChang
       if (data.notes) {
         formData.append('notes', data.notes)
       }
+      // Idempotency: a fresh UUID per submit attempt — if the server sees the
+      // same key twice (double-click, retry) it returns the existing payment
+      // instead of cobrando dos veces.
+      formData.append('idempotency_key', crypto.randomUUID())
 
       const result = await processPayment(formData)
 
