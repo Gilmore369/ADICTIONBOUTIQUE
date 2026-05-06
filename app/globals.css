@@ -187,69 +187,6 @@
 }
 
 /* ============================================================================
-   HSL SLIDER — theme-settings.tsx
-   ============================================================================ */
-
-.theme-hsl-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-}
-
-/* Webkit (Chrome, Safari, Edge) */
-.theme-hsl-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  border: 2px solid oklch(0.85 0 0);
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-  transition: transform 0.1s, box-shadow 0.1s;
-  margin-top: -7px;
-}
-
-.theme-hsl-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.theme-hsl-slider::-webkit-slider-runnable-track {
-  height: 2px;
-  border-radius: 999px;
-}
-
-/* Firefox */
-.theme-hsl-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  border: 2px solid oklch(0.85 0 0);
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-}
-
-.theme-hsl-slider::-moz-range-track {
-  height: 2px;
-  border-radius: 999px;
-  background: transparent;
-}
-
-/* Dark mode thumb */
-.dark .theme-hsl-slider::-webkit-slider-thumb {
-  background: oklch(0.92 0 0);
-  border-color: oklch(0.45 0 0);
-}
-
-.dark .theme-hsl-slider::-moz-range-thumb {
-  background: oklch(0.92 0 0);
-  border-color: oklch(0.45 0 0);
-}
-
-/* ============================================================================
    PRINT STYLES FOR SALE RECEIPT
    ============================================================================ */
 
