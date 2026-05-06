@@ -65,8 +65,8 @@ import { MapPin, AlertTriangle } from 'lucide-react'
 // Configuración de ratings con rangos de crédito
 const RATING_CONFIG = {
   S: { label: 'S — Especial',    range: 'S/ 5,000 a más',   credit: 5000, color: 'bg-purple-100 border-purple-400 text-purple-800', dot: 'bg-purple-500', symbol: '⭐' },
-  A: { label: 'A — Excelente',   range: 'S/ 2,000 – 4,999', credit: 2500, color: 'bg-emerald-100 border-emerald-400 text-emerald-800', dot: 'bg-emerald-500', symbol: '🏆' },
-  B: { label: 'B — Bueno',       range: 'S/ 1,001 – 2,000', credit: 1500, color: 'bg-blue-100 border-blue-400 text-blue-800', dot: 'bg-blue-500', symbol: '👍' },
+  A: { label: 'A — Excelente',   range: 'S/ 2,000 – 4,999', credit: 2500, color: 'bg-emerald-100 border-emerald-400 text-emerald-800', dot: 'bg-emerald-50 dark:bg-emerald-950/300', symbol: '🏆' },
+  B: { label: 'B — Bueno',       range: 'S/ 1,001 – 2,000', credit: 1500, color: 'bg-blue-100 border-blue-400 text-blue-800', dot: 'bg-blue-50 dark:bg-blue-950/300', symbol: '👍' },
   C: { label: 'C — Regular',     range: 'S/ 751 – 1,000',   credit: 875,  color: 'bg-yellow-100 border-yellow-400 text-yellow-800', dot: 'bg-yellow-500', symbol: '🆗' },
   D: { label: 'D — Básico',      range: 'S/ 501 – 750',     credit: 625,  color: 'bg-orange-100 border-orange-400 text-orange-800', dot: 'bg-orange-500', symbol: '⚠️' },
   E: { label: 'E — Nuevo/Riesgo', range: 'S/ 100 – 500',    credit: 300,  color: 'bg-red-100 border-red-400 text-red-800', dot: 'bg-red-500', symbol: '🔴' },
@@ -373,13 +373,13 @@ export function ClientForm({
               />
               {searchingReferrer && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+                  <div className="animate-spin h-4 w-4 border-2 border-gray-300 dark:border-slate-600 border-t-gray-600 rounded-full" />
                 </div>
               )}
               
               {/* Search Results Dropdown */}
               {referredByResults.length > 0 && !referredBy && (
-                <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-900 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   {referredByResults.map(client => (
                     <button
                       key={client.id}
@@ -389,7 +389,7 @@ export function ClientForm({
                     >
                       <div className="font-medium">{client.name}</div>
                       {client.dni && (
-                        <div className="text-xs text-gray-500">DNI: {client.dni}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">DNI: {client.dni}</div>
                       )}
                     </button>
                   ))}
@@ -431,7 +431,7 @@ export function ClientForm({
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               💡 Solo se pueden crear clientes cuando son referidos por un cliente existente
             </p>
           </div>
@@ -661,7 +661,7 @@ export function ClientForm({
                   }}
                   className={[
                     'rounded-lg border-2 p-2.5 text-center transition-all flex flex-col items-center gap-1',
-                    isSelected ? cfg.color + ' border-current shadow-sm scale-105' : 'border-gray-200 hover:border-gray-400 bg-white',
+                    isSelected ? cfg.color + ' border-current shadow-sm scale-105' : 'border-gray-200 dark:border-slate-700 hover:border-gray-400 bg-white dark:bg-slate-900',
                   ].join(' ')}
                 >
                   <span className="text-lg leading-none">{cfg.symbol}</span>
@@ -760,7 +760,7 @@ export function ClientForm({
                   type="checkbox"
                   checked={field.value}
                   onChange={field.onChange}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 rounded border-gray-300 dark:border-slate-600"
                 />
               </FormControl>
               <FormLabel className="!mt-0">Cliente activo</FormLabel>

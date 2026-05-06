@@ -190,8 +190,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               className={cn(
                 'flex items-center justify-center h-10 rounded-lg transition-colors',
                 isActive
-                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                  : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-gray-100 dark:bg-slate-800 dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:text-white'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
               )}
             >
               <Icon className="h-5 w-5" />
@@ -210,7 +210,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                 className={cn(
                   'w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                    ? 'bg-gray-100 dark:bg-slate-800 dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:text-white'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900'
                 )}
               >
@@ -225,7 +225,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               </button>
 
               {isExpanded && (
-                <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-2">
+                <ul className="mt-0.5 ml-4 space-y-0.5 border-l border-gray-100 dark:border-slate-800 dark:border-gray-800 pl-2">
                   {item.subItems!.map(sub => {
                     const SubIcon     = sub.icon
                     const isSubActive = pathname === sub.href
@@ -237,8 +237,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                           className={cn(
                             'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                             isSubActive
-                              ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-medium'
-                              : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900'
+                              ? 'bg-gray-100 dark:bg-slate-800 dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:text-white font-medium'
+                              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900'
                           )}
                         >
                           <SubIcon className="h-4 w-4 flex-shrink-0" />
@@ -257,7 +257,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                  ? 'bg-gray-100 dark:bg-slate-800 dark:bg-gray-800 text-gray-900 dark:text-gray-100 dark:text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900'
               )}
             >
@@ -294,8 +294,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
         onMouseEnter={() => collapsed && setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={cn(
-          'fixed left-0 top-0 h-screen bg-white dark:bg-gray-900',
-          'border-r border-gray-200 dark:border-gray-800',
+          'fixed left-0 top-0 h-screen bg-white dark:bg-slate-900 dark:bg-gray-900',
+          'border-r border-gray-200 dark:border-slate-700 dark:border-gray-800',
           'transition-all duration-300 ease-in-out flex flex-col',
           // When hovering while collapsed → use z-50 so it overlays content
           collapsed && hovered ? 'z-50 shadow-xl' : 'z-40',
@@ -307,7 +307,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       >
         {/* ── Brand header ─────────────────────────────────────────────────── */}
         <div className={cn(
-          'flex items-center h-16 border-b border-gray-200 dark:border-gray-800 flex-shrink-0',
+          'flex items-center h-16 border-b border-gray-200 dark:border-slate-700 dark:border-gray-800 flex-shrink-0',
           effectiveCollapsed ? 'justify-center px-2' : 'gap-3 px-4'
         )}>
           {storeLogo ? (
@@ -318,7 +318,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
             </div>
           )}
           {!effectiveCollapsed && (
-            <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 dark:text-white truncate">
               {storeName}
             </span>
           )}
@@ -333,12 +333,12 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
 
         {/* ── Collapse toggle — always at the bottom (desktop only) ─────── */}
         {onToggleCollapse && (
-          <div className="hidden md:flex border-t border-gray-200 dark:border-gray-800 p-2 flex-shrink-0">
+          <div className="hidden md:flex border-t border-gray-200 dark:border-slate-700 dark:border-gray-800 p-2 flex-shrink-0">
             <button
               onClick={onToggleCollapse}
               title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
               className={cn(
-                'flex items-center gap-2 rounded-lg text-xs text-gray-500',
+                'flex items-center gap-2 rounded-lg text-xs text-gray-500 dark:text-gray-400',
                 'hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 transition-colors py-2',
                 effectiveCollapsed ? 'justify-center w-full px-2' : 'w-full px-3'
               )}

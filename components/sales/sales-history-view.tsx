@@ -175,8 +175,8 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Historial de Ventas</h1>
-        <p className="text-sm text-gray-600 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Historial de Ventas</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
           Consulta y descarga tickets de todas las ventas realizadas
         </p>
       </div>
@@ -191,8 +191,8 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             </div>
             <span className="text-xs font-medium text-emerald-600">TOTAL</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.total)}</p>
-          <p className="text-xs text-gray-600 mt-1">{metrics.count} ventas en filtro actual</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.total)}</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{metrics.count} ventas en filtro actual</p>
         </Card>
 
         {/* Contado */}
@@ -203,8 +203,8 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             </div>
             <span className="text-xs font-medium text-blue-600">CONTADO</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.contadoTotal)}</p>
-          <p className="text-xs text-gray-600 mt-1">{metrics.contadoCount} ventas · {metrics.contadoPct.toFixed(0)}% del total</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.contadoTotal)}</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{metrics.contadoCount} ventas · {metrics.contadoPct.toFixed(0)}% del total</p>
         </Card>
 
         {/* Crédito */}
@@ -215,8 +215,8 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             </div>
             <span className="text-xs font-medium text-purple-600">CRÉDITO</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.creditoTotal)}</p>
-          <p className="text-xs text-gray-600 mt-1">{metrics.creditoCount} ventas · {metrics.creditoPct.toFixed(0)}% del total</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.creditoTotal)}</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{metrics.creditoCount} ventas · {metrics.creditoPct.toFixed(0)}% del total</p>
         </Card>
 
         {/* Ticket Promedio */}
@@ -227,8 +227,8 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             </div>
             <span className="text-xs font-medium text-amber-600">TICKET PROM.</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(metrics.avgTicket)}</p>
-          <p className="text-xs text-gray-600 mt-1">{metrics.count} ventas en vista actual</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.avgTicket)}</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{metrics.count} ventas en vista actual</p>
         </Card>
       </div>
 
@@ -238,7 +238,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
           {/* Search */}
           <div className="lg:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <Input
                 placeholder="Buscar por ticket o cliente..."
                 value={searchTerm}
@@ -292,7 +292,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
           )}
         </div>
 
-        <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+        <div className="mt-3 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
           <span>Mostrando {filteredSales.length} de {sales.length} ventas</span>
           {(searchTerm || filterType !== 'ALL' || filterStore !== 'ALL' || filterPeriod !== 'ALL') && (
             <Button
@@ -315,34 +315,34 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 dark:bg-slate-900/40 border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tienda</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ticket</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tienda</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
               {filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                     No se encontraron ventas
                   </td>
                 </tr>
               ) : (
                 filteredSales.map((sale) => (
                   <tr key={sale.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
+                    <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900 dark:text-gray-100">
                       {sale.sale_number}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                       {formatSafeDate(sale.created_at, 'dd/MM/yyyy HH:mm', '-')}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                       {sale.clients?.name || '-'}
                     </td>
                     <td className="px-4 py-3">
@@ -354,10 +354,10 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
                         {sale.sale_type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                       {sale.store_id}
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-right text-gray-900">
+                    <td className="px-4 py-3 text-sm font-medium text-right text-gray-900 dark:text-gray-100">
                       {formatCurrency(sale.total)}
                     </td>
                     <td className="px-4 py-3 text-right">

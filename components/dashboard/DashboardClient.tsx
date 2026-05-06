@@ -199,14 +199,14 @@ function KPICard({
         </div>
 
         {/* Label */}
-        <p className="relative text-[10px] font-bold uppercase tracking-widest text-gray-500">{label}</p>
+        <p className="relative text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{label}</p>
 
         {/* Main value */}
-        <p className="relative text-[23px] font-black tracking-tight text-gray-900 leading-none">{value}</p>
+        <p className="relative text-[23px] font-black tracking-tight text-gray-900 dark:text-gray-100 leading-none">{value}</p>
 
         {/* Subtext */}
         {subtext && (
-          <p className={`relative text-[11px] ${subtextDanger ? 'text-rose-600 font-semibold' : 'text-gray-500'}`}>
+          <p className={`relative text-[11px] ${subtextDanger ? 'text-rose-600 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}>
             {subtext}
           </p>
         )}
@@ -218,7 +218,7 @@ function KPICard({
           </div>
         ) : (
           <div className="mt-auto flex justify-end">
-            <ChevronRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
+            <ChevronRight className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 transition-colors" />
           </div>
         )}
       </div>
@@ -240,8 +240,8 @@ interface StatItem {
 
 function StatStrip({ items }: { items: StatItem[] }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_rgba(0,0,0,0.05)] px-4 py-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.05)] px-4 py-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-slate-800">
         {items.map((item) => (
           <Link
             key={item.label}
@@ -255,11 +255,11 @@ function StatStrip({ items }: { items: StatItem[] }) {
               <span style={{ color: item.accent }}>{item.icon}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[18px] font-black text-gray-900 leading-tight tabular-nums">{item.value}</p>
-              <p className="text-[10px] text-gray-400 font-medium truncate">{item.label}</p>
+              <p className="text-[18px] font-black text-gray-900 dark:text-gray-100 leading-tight tabular-nums">{item.value}</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium truncate">{item.label}</p>
             </div>
             {item.badge && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${item.badgeClass ?? 'bg-gray-100 text-gray-500'}`}>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${item.badgeClass ?? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400'}`}>
                 {item.badge}
               </span>
             )}
@@ -275,15 +275,15 @@ function StatStrip({ items }: { items: StatItem[] }) {
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-xl p-3 text-xs min-w-[150px]">
-      <p className="font-semibold text-gray-700 mb-2 pb-1.5 border-b border-gray-50">{label}</p>
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-xl p-3 text-xs min-w-[150px]">
+      <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2 pb-1.5 border-b border-gray-50">{label}</p>
       {payload.map((e: any) => (
         <div key={e.name} className="flex items-center justify-between gap-4 py-[3px]">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: e.color }} />
-            <span className="text-gray-500">{e.name}</span>
+            <span className="text-gray-500 dark:text-gray-400">{e.name}</span>
           </div>
-          <span className="font-semibold tabular-nums text-gray-800">
+          <span className="font-semibold tabular-nums text-gray-800 dark:text-gray-200">
             S/{Number(e.value).toLocaleString('es-PE', { minimumFractionDigits: 0 })}
           </span>
         </div>
@@ -300,8 +300,8 @@ function SectionHead({
   return (
     <div className="flex items-start justify-between mb-4">
       <div>
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-        {subtitle && <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>}
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+        {subtitle && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -391,8 +391,8 @@ export default function DashboardClient({
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900">Dashboard</h1>
-          <p className="text-xs text-gray-400 mt-0.5 capitalize">
+          <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 capitalize">
             {new Date().toLocaleDateString('es-PE', {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
               timeZone: 'America/Lima',
@@ -401,7 +401,7 @@ export default function DashboardClient({
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {showStoreFilter && (
-            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 rounded-full p-1">
               {storeOptions.map(opt => {
                 const isActive = (activeStoreParam ?? 'ALL') === opt.value
                 return (
@@ -410,8 +410,8 @@ export default function DashboardClient({
                     onClick={() => handleStoreSelect(opt.value)}
                     className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                       isActive
-                        ? 'bg-white text-emerald-700 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-700 shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                     }`}
                   >
                     {opt.label}
@@ -425,8 +425,8 @@ export default function DashboardClient({
               {storeFilter}
             </span>
           )}
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full text-[11px] font-semibold text-emerald-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 rounded-full text-[11px] font-semibold text-emerald-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/300 animate-pulse" />
             En vivo
           </span>
         </div>
@@ -437,7 +437,7 @@ export default function DashboardClient({
         <div className="flex flex-wrap gap-2">
           {m.pendingCollectionActions > 0 && (
             <Link href="/collections/actions?tab=history"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-xs text-amber-700 font-medium hover:bg-amber-100 transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 rounded-full text-xs text-amber-700 font-medium hover:bg-amber-100 transition-colors">
               <AlertCircle className="h-3.5 w-3.5" />
               {fn(m.pendingCollectionActions)} acciones de cobranza pendientes
               <ChevronRight className="h-3 w-3 opacity-60" />
@@ -445,7 +445,7 @@ export default function DashboardClient({
           )}
           {m.lowStockProducts > 0 && (
             <Link href="/inventory/stock?status=low"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-full text-xs text-rose-700 font-medium hover:bg-rose-100 transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 rounded-full text-xs text-rose-700 font-medium hover:bg-rose-100 transition-colors">
               <Package className="h-3.5 w-3.5" />
               {fn(m.lowStockProducts)} productos con stock bajo
               <ChevronRight className="h-3 w-3 opacity-60" />
@@ -511,7 +511,7 @@ export default function DashboardClient({
           icon:       <Users />,
           accent:     C.violet,
           badge:      m.inactiveClients > 0 ? `${fn(m.inactiveClients)} inact.` : undefined,
-          badgeClass: 'bg-gray-100 text-gray-500',
+          badgeClass: 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400',
           href:       '/clients',
         },
         {
@@ -524,7 +524,7 @@ export default function DashboardClient({
             : 'sin mora',
           badgeClass: m.clientsWithOverdueDebt > 0
             ? 'bg-rose-100 text-rose-600'
-            : 'bg-emerald-50 text-emerald-600',
+            : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600',
           href:       '/debt/plans',
         },
         {
@@ -535,7 +535,7 @@ export default function DashboardClient({
           badge:      m.lowStockProducts > 0 ? 'revisar' : 'ok',
           badgeClass: m.lowStockProducts > 0
             ? 'bg-orange-100 text-orange-700'
-            : 'bg-emerald-50 text-emerald-600',
+            : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600',
           href:       '/inventory/stock?status=low',
         },
         {
@@ -545,18 +545,18 @@ export default function DashboardClient({
           accent:     C.indigo,
           badge:      `${efficiencyRate.toFixed(0)}% efectivo`,
           badgeClass: efficiencyRate >= 50
-            ? 'bg-indigo-50 text-indigo-700'
+            ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700'
             : 'bg-rose-100 text-rose-600',
           href:       '/collections/actions',
         },
       ]} />
 
       {/* ── Gráfico de área — datos reales ─────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Ventas · Contado · Crédito</h2>
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Ventas · Contado · Crédito</h2>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
               Rendimiento diario — últimos {chartRange === '7D' ? '7' : '30'} días
             </p>
           </div>
@@ -569,19 +569,19 @@ export default function DashboardClient({
               ].map(s => (
                 <div key={s.name} className="flex items-center gap-1.5">
                   <div className="w-5 h-0.5 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="text-[11px] text-gray-400">{s.name}</span>
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">{s.name}</span>
                 </div>
               ))}
             </div>
-            <div className="flex gap-0.5 bg-gray-100 rounded-lg p-1">
+            <div className="flex gap-0.5 bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
               {(['7D', '30D'] as const).map(r => (
                 <button
                   key={r}
                   onClick={() => setChartRange(r)}
                   className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
                     chartRange === r
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-400 hover:text-gray-600'
+                      ? 'bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'
                   }`}
                 >
                   {r}
@@ -629,7 +629,7 @@ export default function DashboardClient({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Ventas Recientes */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
           <SectionHead
             title="Ventas Recientes"
             subtitle="Últimas transacciones registradas"
@@ -640,7 +640,7 @@ export default function DashboardClient({
             }
           />
           {recentSales.length === 0 ? (
-            <p className="text-sm text-gray-400 py-8 text-center">No hay ventas registradas</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 py-8 text-center">No hay ventas registradas</p>
           ) : (
             <div className="divide-y divide-gray-50">
               {recentSales.map(sale => (
@@ -662,7 +662,7 @@ export default function DashboardClient({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold text-gray-900">{sale.sale_number}</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{sale.sale_number}</p>
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
                         style={{
@@ -673,16 +673,16 @@ export default function DashboardClient({
                         {sale.sale_type === 'CREDITO' ? 'Crédito' : 'Contado'}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
                       {sale.sale_type === 'CREDITO' && sale.clients ? sale.clients.name : 'Venta al contado'}
                     </p>
                   </div>
 
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-extrabold tabular-nums text-gray-900">
+                    <p className="text-sm font-extrabold tabular-nums text-gray-900 dark:text-gray-100">
                       S/ {fc(Number(sale.total))}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
                       {new Date(sale.created_at).toLocaleString('es-PE', {
                         day: '2-digit', month: '2-digit',
                         hour: '2-digit', minute: '2-digit',
@@ -697,7 +697,7 @@ export default function DashboardClient({
         </div>
 
         {/* Contado vs Crédito */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5 flex flex-col">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5 flex flex-col">
           <SectionHead title="Contado vs Crédito" subtitle="Últimos 30 días · datos reales" />
           {cvcTotal > 0 ? (
             <>
@@ -729,16 +729,16 @@ export default function DashboardClient({
                     <div className="flex justify-between text-xs mb-1.5">
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-gray-600">{item.name}</span>
+                        <span className="text-gray-600 dark:text-gray-400">{item.name}</span>
                       </div>
                       <div className="flex items-baseline gap-1.5">
-                        <span className="font-extrabold text-gray-900">
+                        <span className="font-extrabold text-gray-900 dark:text-gray-100">
                           {cvcTotal > 0 ? ((item.value / cvcTotal) * 100).toFixed(1) : '0'}%
                         </span>
-                        <span className="text-gray-400 text-[10px] tabular-nums">S/ {fc(item.value)}</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-[10px] tabular-nums">S/ {fc(item.value)}</span>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-700"
                         style={{
@@ -750,13 +750,13 @@ export default function DashboardClient({
                   </div>
                 ))}
                 <div className="pt-2.5 border-t border-gray-50 flex justify-between text-xs">
-                  <span className="text-gray-500">Total</span>
-                  <span className="font-extrabold text-gray-900">S/ {fc(cvcTotal)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Total</span>
+                  <span className="font-extrabold text-gray-900 dark:text-gray-100">S/ {fc(cvcTotal)}</span>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
+            <div className="flex-1 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500">
               Sin ventas registradas
             </div>
           )}
@@ -768,7 +768,7 @@ export default function DashboardClient({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Clientes por Distrito — datos reales */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
           <SectionHead
             title="Clientes por Distrito"
             subtitle={
@@ -792,13 +792,13 @@ export default function DashboardClient({
                         className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: ACCENT_PALETTE[i % ACCENT_PALETTE.length] }}
                       />
-                      <span className="text-gray-700 font-medium">{loc.district}</span>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">{loc.district}</span>
                     </div>
-                    <span className="font-bold text-gray-900 tabular-nums">
+                    <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">
                       {loc.clients} {loc.clients !== 1 ? 'clientes' : 'cliente'}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
@@ -812,8 +812,8 @@ export default function DashboardClient({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
-              <MapPin className="h-8 w-8 text-gray-200" />
-              <p className="text-sm text-gray-400">
+              <MapPin className="h-8 w-8 text-gray-200 dark:text-gray-700" />
+              <p className="text-sm text-gray-400 dark:text-gray-500">
                 Agrega direcciones a los clientes para ver la distribución geográfica
               </p>
               <Link href="/clients" className="text-xs text-indigo-600 hover:underline font-medium">
@@ -824,7 +824,7 @@ export default function DashboardClient({
         </div>
 
         {/* Embudo de Clientes — datos reales */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5">
           <SectionHead title="Embudo de Clientes" subtitle="Ciclo de vida · datos reales" />
           <div className="space-y-4">
             {funnelSteps.map((step, i) => {
@@ -835,13 +835,13 @@ export default function DashboardClient({
               return (
                 <div key={step.label}>
                   <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-gray-700 font-medium">{step.label}</span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">{step.label}</span>
                     <div className="flex gap-2 items-baseline">
-                      <span className="font-extrabold text-gray-900 tabular-nums">{fn(step.value)}</span>
-                      <span className="text-gray-400 text-[11px]">{pct.toFixed(0)}%</span>
+                      <span className="font-extrabold text-gray-900 dark:text-gray-100 tabular-nums">{fn(step.value)}</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-[11px]">{pct.toFixed(0)}%</span>
                     </div>
                   </div>
-                  <div className="relative w-full bg-gray-100 rounded-lg h-6 overflow-hidden">
+                  <div className="relative w-full bg-gray-100 dark:bg-slate-800 rounded-lg h-6 overflow-hidden">
                     <div
                       className="absolute left-0 top-0 h-full rounded-lg transition-all duration-700"
                       style={{
@@ -852,7 +852,7 @@ export default function DashboardClient({
                     />
                   </div>
                   {prevPct !== null && (
-                    <p className="text-[10px] text-gray-300 mt-0.5 text-right">
+                    <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-0.5 text-right">
                       {prevPct.toFixed(0)}% de etapa anterior
                     </p>
                   )}

@@ -191,7 +191,7 @@ function CuadreModal({ result, storeName, onClose }: {
             isOk
               ? 'bg-green-50 text-green-700 border border-green-200'
               : isSobrante
-              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+              ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 border border-blue-200'
               : 'bg-red-50 text-red-700 border border-red-200'
           }`}>
             {isOk

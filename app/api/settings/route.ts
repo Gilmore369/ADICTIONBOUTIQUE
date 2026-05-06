@@ -71,9 +71,37 @@ export async function POST(request: NextRequest) {
       { key: 'store_ruc',     value: ruc     || '' },
     ]
 
-    // Only save logo if provided and not too large (>500KB as base64 is ~375KB)
-    if (logo && logo.length < 600000) {
-      upserts.push({ key: 'store_logo', value: logo })
+    // Logo guardado como data-URL base64 en system_config.store_logo.
+    // Antes el límite era 600 000 chars (~375 KB de imagen real) y se
+    // descartaba SILENCIOSAMENTE — el admin subía un PNG de 500 KB y el
+    // logo nunca aparecía. Ahora:
+    //   - Límite 4.5 MB de base64 (~3.3 MB de imagen). El upload del
+    //     formulario ya rechaza > 2 MB en cliente, así que esto deja
+    //     margen para PNGs sin comprimir / formatos más grandes.
+    //   - Si llega algo más grande, devolvemos 413 con mensaje claro
+    //     en lugar de tirar a la basura.
+    //   - Si el cliente envía un string vacío, BORRAMOS la fila para
+    //     poder "quitar logo" desde el formulario.
+    const LOGO_LIMIT_CHARS = 4_500_000
+    if (typeof logo === 'string') {
+      if (logo === '') {
+        const { error: delErr } = await supabase
+          .from('system_config')
+          .delete()
+          .eq('key', 'store_logo')
+        if (delErr) console.warn('[settings] logo delete:', delErr.message)
+      } else if (logo.length <= LOGO_LIMIT_CHARS) {
+        upserts.push({ key: 'store_logo', value: logo })
+      } else {
+        return NextResponse.json(
+          {
+            error: `El logo es demasiado grande (${(logo.length / 1024 / 1024).toFixed(1)} MB en base64). ` +
+                   `Máximo permitido: ${(LOGO_LIMIT_CHARS / 1024 / 1024).toFixed(1)} MB. ` +
+                   `Sube una imagen más pequeña (recomendado: 200x200 PNG/JPG).`,
+          },
+          { status: 413 }
+        )
+      }
     }
 
     for (const item of upserts) {
@@ -82,6 +110,10 @@ export async function POST(request: NextRequest) {
         .upsert({ key: item.key, value: item.value }, { onConflict: 'key' })
       if (error) {
         console.error(`[settings] upsert ${item.key} error:`, error)
+        return NextResponse.json(
+          { error: `No se pudo guardar ${item.key}: ${error.message}` },
+          { status: 500 }
+        )
       }
     }
 

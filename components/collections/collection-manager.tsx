@@ -85,15 +85,15 @@ const RESULT_LABELS: Record<string, { label: string; icon: any; color: string }>
   PAGO_REALIZADO:         { label: 'Pagó', icon: CheckCircle2, color: 'text-green-600' },
   PROMETE_PAGAR_FECHA:    { label: 'Promete pagar', icon: Calendar, color: 'text-blue-600' },
   CLIENTE_COLABORADOR:    { label: 'Colabora', icon: CheckCircle2, color: 'text-teal-600' },
-  NO_CONTESTA:            { label: 'No contesta', icon: HelpCircle, color: 'text-gray-500' },
+  NO_CONTESTA:            { label: 'No contesta', icon: HelpCircle, color: 'text-gray-500 dark:text-gray-400' },
   SE_NIEGA_PAGAR:         { label: 'Se niega', icon: XCircle, color: 'text-red-600' },
   CLIENTE_MOLESTO:        { label: 'Molesto', icon: AlertTriangle, color: 'text-orange-600' },
   SOLICITA_REFINANCIAMIENTO: { label: 'Refinanciamiento', icon: RefreshCw, color: 'text-purple-600' },
   SOLICITA_DESCUENTO:     { label: 'Pide descuento', icon: DollarSign, color: 'text-yellow-600' },
-  TELEFONO_INVALIDO:      { label: 'Tel. inválido', icon: XCircle, color: 'text-gray-400' },
-  DOMICILIO_INCORRECTO:   { label: 'Dom. incorrecto', icon: MapPin, color: 'text-gray-400' },
-  CLIENTE_NO_UBICADO:     { label: 'No ubicado', icon: HelpCircle, color: 'text-gray-400' },
-  OTRO:                   { label: 'Otro', icon: HelpCircle, color: 'text-gray-500' },
+  TELEFONO_INVALIDO:      { label: 'Tel. inválido', icon: XCircle, color: 'text-gray-400 dark:text-gray-500' },
+  DOMICILIO_INCORRECTO:   { label: 'Dom. incorrecto', icon: MapPin, color: 'text-gray-400 dark:text-gray-500' },
+  CLIENTE_NO_UBICADO:     { label: 'No ubicado', icon: HelpCircle, color: 'text-gray-400 dark:text-gray-500' },
+  OTRO:                   { label: 'Otro', icon: HelpCircle, color: 'text-gray-500 dark:text-gray-400' },
 }
 
 // ─── Edit action modal ──────────────────────────────────────────────────────
@@ -142,14 +142,14 @@ function EditActionModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-            <Pencil className="h-4 w-4 text-gray-400" /> Editar Acción
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-800">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-gray-400 dark:text-gray-500" /> Editar Acción
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 dark:text-gray-500 transition-colors">
             <XCircle className="h-4 w-4" />
           </button>
         </div>
@@ -157,11 +157,11 @@ function EditActionModal({
         <div className="px-5 py-4 space-y-4">
           {/* Tipo */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Tipo de acción</label>
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Tipo de acción</label>
             <select
               value={actionType}
               onChange={e => setActionType(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
             >
               {Object.entries(ACTION_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
@@ -171,11 +171,11 @@ function EditActionModal({
 
           {/* Resultado */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Resultado *</label>
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Resultado *</label>
             <select
               value={result}
               onChange={e => setResult(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
             >
               {Object.entries(RESULT_LABELS).map(([v, r]) => (
                 <option key={v} value={v}>{r.label}</option>
@@ -185,32 +185,32 @@ function EditActionModal({
 
           {/* Fecha promesa */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Fecha de promesa de pago</label>
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Fecha de promesa de pago</label>
             <input
               type="date"
               value={promiseDate}
               onChange={e => setPromiseDate(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
             />
           </div>
 
           {/* Notas */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Notas</label>
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Notas</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}
               placeholder="Detalles de la gestión..."
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+        <div className="px-5 py-3 border-t border-gray-100 dark:border-slate-800 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 transition-colors"
+            className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
           >
             Cancelar
           </button>
@@ -238,21 +238,21 @@ function TimelineItem({
   onEdit?: (action: ActionRecord) => void
   onDelete?: (id: string) => void
 }) {
-  const res = RESULT_LABELS[action.result] || { label: action.result, icon: HelpCircle, color: 'text-gray-500' }
+  const res = RESULT_LABELS[action.result] || { label: action.result, icon: HelpCircle, color: 'text-gray-500 dark:text-gray-400' }
   const Icon = res.icon
   return (
     <div className="flex gap-3 group">
       <div className="flex flex-col items-center">
-        <div className={cn('w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0', res.color)}>
+        <div className={cn('w-7 h-7 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0', res.color)}>
           <Icon className="h-3.5 w-3.5" />
         </div>
-        <div className="w-px flex-1 bg-gray-100 mt-1" />
+        <div className="w-px flex-1 bg-gray-100 dark:bg-slate-800 mt-1" />
       </div>
       <div className="pb-4 min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <span className="text-xs font-semibold text-gray-700">{ACTION_LABELS[action.action_type] || action.action_type}</span>
-            <span className="text-xs text-gray-400 ml-2">{formatSafeDate(action.created_at, 'dd/MM/yy HH:mm')}</span>
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{ACTION_LABELS[action.action_type] || action.action_type}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{formatSafeDate(action.created_at, 'dd/MM/yy HH:mm')}</span>
           </div>
           {/* Edit / Delete buttons — visible on hover */}
           {(onEdit || onDelete) && (
@@ -260,7 +260,7 @@ function TimelineItem({
               {onEdit && (
                 <button
                   onClick={() => onEdit(action)}
-                  className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                  className="p-1 rounded hover:bg-blue-50 text-gray-400 dark:text-gray-500 hover:text-blue-600 transition-colors"
                   title="Editar acción"
                 >
                   <Pencil className="h-3 w-3" />
@@ -269,7 +269,7 @@ function TimelineItem({
               {onDelete && (
                 <button
                   onClick={() => onDelete(action.id)}
-                  className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                  className="p-1 rounded hover:bg-red-50 text-gray-400 dark:text-gray-500 hover:text-red-600 transition-colors"
                   title="Eliminar acción"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -285,10 +285,10 @@ function TimelineItem({
           </div>
         )}
         {action.notes && (
-          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{action.notes}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{action.notes}</p>
         )}
         {action.user?.name && (
-          <p className="text-xs text-gray-400 mt-0.5">por {action.user.name}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">por {action.user.name}</p>
         )}
       </div>
     </div>
@@ -308,7 +308,7 @@ function ActionDetailModal({
   onEdited?: (updated: HistoryRecord) => void
 }) {
   const router = useRouter()
-  const res = RESULT_LABELS[record.result] || { label: record.result, icon: HelpCircle, color: 'text-gray-500' }
+  const res = RESULT_LABELS[record.result] || { label: record.result, icon: HelpCircle, color: 'text-gray-500 dark:text-gray-400' }
   const ResIcon = res.icon
   const [showEdit, setShowEdit] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -355,15 +355,15 @@ function ActionDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">Detalle de Acción</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-800">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Detalle de Acción</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors"
           >
             <XCircle className="h-4 w-4" />
           </button>
@@ -373,7 +373,7 @@ function ActionDetailModal({
         <div className="px-5 py-4 space-y-4">
           {/* Cliente */}
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Cliente</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Cliente</p>
             <button
               onClick={() => { router.push(`/clients/${record.client_id}`); onClose() }}
               className="text-sm font-semibold text-blue-600 hover:underline text-left"
@@ -384,22 +384,22 @@ function ActionDetailModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Fecha y hora</p>
-              <p className="text-sm text-gray-900">{formatSafeDate(record.created_at, 'dd/MM/yyyy HH:mm')}</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Fecha y hora</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">{formatSafeDate(record.created_at, 'dd/MM/yyyy HH:mm')}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Cobrador</p>
-              <p className="text-sm text-gray-900">{record.users?.name || '—'}</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Cobrador</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">{record.users?.name || '—'}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipo de acción</p>
-              <p className="text-sm text-gray-900">{ACTION_LABELS[record.action_type] || record.action_type}</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tipo de acción</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">{ACTION_LABELS[record.action_type] || record.action_type}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Resultado</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Resultado</p>
               <span className={cn('flex items-center gap-1.5 text-sm font-medium', res.color)}>
                 <ResIcon className="h-4 w-4 flex-shrink-0" />
                 {res.label}
@@ -409,7 +409,7 @@ function ActionDetailModal({
 
           {record.payment_promise_date && (
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Promesa de pago</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Promesa de pago</p>
               <p className="text-sm text-blue-600 font-medium">
                 📅 {formatSafeDate(record.payment_promise_date, 'dd/MM/yyyy')}
               </p>
@@ -417,23 +417,23 @@ function ActionDetailModal({
           )}
 
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Notas</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Notas</p>
             {record.notes ? (
-              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2.5 leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-900/40 rounded-lg px-3 py-2.5 leading-relaxed whitespace-pre-wrap">
                 {record.notes}
               </p>
             ) : (
-              <p className="text-sm text-gray-400 italic">Sin notas</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 italic">Sin notas</p>
             )}
           </div>
         </div>
 
         {/* Footer with Edit / Delete */}
-        <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex gap-2">
             <button
               onClick={() => setShowEdit(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors"
             >
               <Pencil className="h-3.5 w-3.5" /> Editar
             </button>
@@ -448,7 +448,7 @@ function ActionDetailModal({
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 transition-colors"
+            className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
           >
             Cerrar
           </button>
@@ -505,45 +505,45 @@ function GlobalHistory() {
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input
             type="text"
             placeholder="Buscar cliente, cobrador, tipo..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 h-9 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 h-9 rounded-lg border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <button onClick={load} className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors" title="Actualizar">
+        <button onClick={load} className="p-2 rounded-lg border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 transition-colors" title="Actualizar">
           <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
         </button>
-        <span className="text-xs text-gray-400">{filtered.length} registros</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} registros</span>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-300" /></div>
+          <div className="py-16 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-300 dark:text-gray-600" /></div>
         ) : filtered.length === 0 ? (
-          <div className="py-16 text-center text-sm text-gray-400">
-            <History className="h-8 w-8 mx-auto mb-2 text-gray-200" />
+          <div className="py-16 text-center text-sm text-gray-400 dark:text-gray-500">
+            <History className="h-8 w-8 mx-auto mb-2 text-gray-200 dark:text-gray-700" />
             No hay acciones registradas
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Resultado</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Notas</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cobrador</th>
+                <tr className="border-b border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-900/40">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Fecha</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cliente</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tipo</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Resultado</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notas</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cobrador</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(r => {
-                  const res = RESULT_LABELS[r.result] || { label: r.result, icon: HelpCircle, color: 'text-gray-500' }
+                  const res = RESULT_LABELS[r.result] || { label: r.result, icon: HelpCircle, color: 'text-gray-500 dark:text-gray-400' }
                   const ResIcon = res.icon
                   return (
                     <tr
@@ -551,18 +551,18 @@ function GlobalHistory() {
                       onClick={() => setSelectedRecord(r)}
                       className="hover:bg-blue-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {formatSafeDate(r.created_at, 'dd/MM/yy HH:mm')}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-medium text-gray-900">{r.client_name}</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{r.client_name}</span>
                         {r.payment_promise_date && (
                           <div className="text-xs text-blue-600 mt-0.5">
                             📅 {formatSafeDate(r.payment_promise_date, 'dd/MM/yyyy')}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                         {ACTION_LABELS[r.action_type] || r.action_type}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -571,10 +571,10 @@ function GlobalHistory() {
                           {res.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate">
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs max-w-[200px] truncate">
                         {r.notes || '—'}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
                         {r.users?.name || '—'}
                       </td>
                     </tr>
@@ -694,14 +694,14 @@ export function CollectionManager() {
   return (
     <div className="space-y-5">
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 dark:border-slate-700">
         <button
           onClick={() => setActiveTab('actions')}
           className={cn(
             'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
             activeTab === 'actions'
               ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'
           )}
         >
           <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> Prioridad de Cobranza</span>
@@ -712,7 +712,7 @@ export function CollectionManager() {
             'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
             activeTab === 'history'
               ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'
           )}
         >
           <span className="flex items-center gap-1.5"><History className="h-4 w-4" /> Historial de Acciones</span>
@@ -725,25 +725,25 @@ export function CollectionManager() {
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
       {/* ── LEFT: Priority table (3/5) ──────────────────────────────────── */}
       <div className="lg:col-span-3">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm overflow-hidden">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Prioridad de Cobranza</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Ordenado por score de riesgo</p>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Prioridad de Cobranza</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Ordenado por score de riesgo</p>
             </div>
-            <button onClick={loadDebtors} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors">
+            <button onClick={loadDebtors} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors">
               <RefreshCw className={cn('h-4 w-4', loadingDebtors && 'animate-spin')} />
             </button>
           </div>
 
           {loadingDebtors ? (
             <div className="py-12 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+              <Loader2 className="h-6 w-6 animate-spin text-gray-300 dark:text-gray-600" />
             </div>
           ) : debtors.length === 0 ? (
-            <div className="py-12 text-center text-sm text-gray-400">
-              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-gray-200" />
+            <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-gray-200 dark:text-gray-700" />
               Sin deudas pendientes 🎉
             </div>
           ) : (
@@ -757,11 +757,11 @@ export function CollectionManager() {
                     onClick={() => loadClientDetail(d.id)}
                     className={cn(
                       'px-5 py-3.5 flex items-center gap-3 cursor-pointer transition-colors hover:bg-gray-50',
-                      isSelected && 'bg-blue-50 hover:bg-blue-50'
+                      isSelected && 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-50'
                     )}
                   >
                     {/* Rank */}
-                    <div className="w-6 text-center text-xs text-gray-400 flex-shrink-0">{i + 1}</div>
+                    <div className="w-6 text-center text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{i + 1}</div>
 
                     {/* Avatar */}
                     <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
@@ -771,9 +771,9 @@ export function CollectionManager() {
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm text-gray-900 truncate">{d.name}</div>
+                      <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{d.name}</div>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-gray-400">{d.dni}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{d.dni}</span>
                         {d.maxDaysOverdue > 0 && (
                           <span className="text-xs text-red-500 font-medium">{d.maxDaysOverdue}d atraso</span>
                         )}
@@ -782,7 +782,7 @@ export function CollectionManager() {
 
                     {/* Debt */}
                     <div className="text-right flex-shrink-0">
-                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(d.totalDebt)}</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(d.totalDebt)}</div>
                       {d.overdueDebt > 0 && (
                         <div className="text-xs text-red-500">{formatCurrency(d.overdueDebt)} venc.</div>
                       )}
@@ -797,7 +797,7 @@ export function CollectionManager() {
                     <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                       {d.phone && (
                         <a href={`tel:${d.phone}`}
-                          className="p-1.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors"
+                          className="p-1.5 rounded hover:bg-blue-100 text-gray-400 dark:text-gray-500 hover:text-blue-600 transition-colors"
                           title="Llamar">
                           <Phone className="h-3.5 w-3.5" />
                         </a>
@@ -805,7 +805,7 @@ export function CollectionManager() {
                       {d.phone && (
                         <a href={`https://wa.me/51${d.phone.replace(/\D/g, '')}`}
                           target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded hover:bg-green-100 text-gray-400 hover:text-green-600 transition-colors"
+                          className="p-1.5 rounded hover:bg-green-100 text-gray-400 dark:text-gray-500 hover:text-green-600 transition-colors"
                           title="WhatsApp">
                           <MessageCircle className="h-3.5 w-3.5" />
                         </a>
@@ -824,31 +824,31 @@ export function CollectionManager() {
       {/* ── RIGHT: Detail + Form + Timeline (2/5) ───────────────────────── */}
       <div className="lg:col-span-2 space-y-4">
         {!selectedId && !loadingDetail ? (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-center">
-            <Users className="h-10 w-10 mx-auto mb-3 text-gray-200" />
-            <p className="text-sm text-gray-500">Selecciona un cliente de la lista para ver su detalle y registrar una acción</p>
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm p-6 text-center">
+            <Users className="h-10 w-10 mx-auto mb-3 text-gray-200 dark:text-gray-700" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Selecciona un cliente de la lista para ver su detalle y registrar una acción</p>
           </div>
         ) : loadingDetail ? (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm py-12 flex justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm py-12 flex justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-300 dark:text-gray-600" />
           </div>
         ) : clientDetail && (
           <>
             {/* Client info card */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm p-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
                   style={{ background: avatarColor(clientDetail.name) }}>
                   {getInitials(clientDetail.name)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-900">{clientDetail.name}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{clientDetail.dni} {clientDetail.phone ? `· ${clientDetail.phone}` : ''}</div>
-                  {clientDetail.address && <div className="text-xs text-gray-400 mt-0.5 truncate">{clientDetail.address}</div>}
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">{clientDetail.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{clientDetail.dni} {clientDetail.phone ? `· ${clientDetail.phone}` : ''}</div>
+                  {clientDetail.address && <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">{clientDetail.address}</div>}
                 </div>
                 <button
                   onClick={() => router.push(`/clients/${clientDetail.id}`)}
-                  className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                  className="p-1.5 rounded hover:bg-gray-100 text-gray-400 dark:text-gray-500 hover:text-gray-600 transition-colors flex-shrink-0"
                   title="Ver perfil completo"
                 >
                   <Eye className="h-4 w-4" />
@@ -857,16 +857,16 @@ export function CollectionManager() {
 
               <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-50">
                 <div className="text-center">
-                  <div className="text-sm font-bold text-gray-900">{formatCurrency(clientDetail.totalDebt)}</div>
-                  <div className="text-xs text-gray-400">Deuda total</div>
+                  <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(clientDetail.totalDebt)}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500">Deuda total</div>
                 </div>
                 <div className="text-center">
                   <div className="text-sm font-bold text-red-600">{formatCurrency(clientDetail.overdueDebt)}</div>
-                  <div className="text-xs text-gray-400">Vencida</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500">Vencida</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-sm font-bold text-gray-900">{clientDetail.pendingCount}</div>
-                  <div className="text-xs text-gray-400">Cuotas</div>
+                  <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{clientDetail.pendingCount}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500">Cuotas</div>
                 </div>
               </div>
 
@@ -875,10 +875,10 @@ export function CollectionManager() {
                 <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">
                   {clientInstallments.slice(0, 4).map(inst => (
                     <div key={inst.id} className="flex items-center justify-between text-xs gap-2 py-1">
-                      <span className="text-gray-500">#{inst.installment_number} · {formatSafeDate(inst.due_date, 'dd/MM/yy')}</span>
+                      <span className="text-gray-500 dark:text-gray-400">#{inst.installment_number} · {formatSafeDate(inst.due_date, 'dd/MM/yy')}</span>
                       <span className={cn('font-medium',
                         inst.is_overdue ? 'text-red-600' :
-                        inst.status === 'PARTIAL' ? 'text-yellow-600' : 'text-gray-600'
+                        inst.status === 'PARTIAL' ? 'text-yellow-600' : 'text-gray-600 dark:text-gray-400'
                       )}>
                         {formatCurrency(Number(inst.amount) - Number(inst.paid_amount || 0))}
                         {inst.is_overdue && inst.days_overdue > 0 && <span className="text-red-400 ml-1">({inst.days_overdue}d)</span>}
@@ -892,7 +892,7 @@ export function CollectionManager() {
               <div className="flex gap-2 mt-3">
                 {clientDetail.phone && (
                   <a href={`tel:${clientDetail.phone}`}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors">
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors">
                     <Phone className="h-3.5 w-3.5" /> Llamar
                   </a>
                 )}
@@ -912,12 +912,12 @@ export function CollectionManager() {
             </div>
 
             {/* Action form */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Registrar Acción</h3>
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm p-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Registrar Acción</h3>
               <form onSubmit={handleSubmitAction} className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-gray-600">Tipo *</label>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Tipo *</label>
                     <Select value={formActionType} onValueChange={setFormActionType}>
                       <SelectTrigger className="h-9 text-sm">
                         <SelectValue placeholder="Seleccionar..." />
@@ -934,7 +934,7 @@ export function CollectionManager() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-gray-600">Resultado *</label>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Resultado *</label>
                     <Select value={formResult} onValueChange={setFormResult}>
                       <SelectTrigger className="h-9 text-sm">
                         <SelectValue placeholder="Seleccionar..." />
@@ -959,12 +959,12 @@ export function CollectionManager() {
 
                 {formResult === 'PROMETE_PAGAR_FECHA' && (
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-gray-600">Fecha de promesa *</label>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Fecha de promesa *</label>
                     <input
                       type="date"
                       value={formPromiseDate}
                       onChange={e => setFormPromiseDate(e.target.value)}
-                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full h-9 px-3 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min={new Date().toISOString().split('T')[0]}
                       required
                     />
@@ -972,7 +972,7 @@ export function CollectionManager() {
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Notas</label>
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Notas</label>
                   <Textarea
                     value={formNotes}
                     onChange={e => setFormNotes(e.target.value)}
@@ -990,8 +990,8 @@ export function CollectionManager() {
 
             {/* Timeline */}
             {clientActions.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Historial</h3>
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm p-4">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Historial</h3>
                 {/* Edit modal for timeline */}
                 {editingAction && (
                   <EditActionModal
