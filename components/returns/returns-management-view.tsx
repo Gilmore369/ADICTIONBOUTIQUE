@@ -45,6 +45,14 @@ export interface ReturnedItem {
   unit_price: number
   subtotal: number
   product_name?: string
+  product_barcode?: string | null
+  base_name?: string | null
+  base_code?: string | null
+  size?: string | null
+  color?: string | null
+  purchase_price?: number | null
+  catalog_price?: number | null
+  returned_at?: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

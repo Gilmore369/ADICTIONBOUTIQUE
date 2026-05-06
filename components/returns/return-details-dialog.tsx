@@ -98,6 +98,23 @@ function StatusTimeline({ status }: { status: string }) {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
+function getReturnedItemName(item: ReturnedItem, idx: number) {
+  return item.product_name
+    || item.base_name
+    || (item.product_barcode ? `Producto ${item.product_barcode}` : `Producto ${idx + 1}`)
+}
+
+function getReturnedItemMeta(item: ReturnedItem) {
+  const meta = [
+    item.base_code ? `Modelo: ${item.base_code}` : null,
+    item.product_barcode ? `Codigo: ${item.product_barcode}` : null,
+    item.size ? `Talla: ${item.size}` : null,
+    item.color ? `Color: ${item.color}` : null,
+  ].filter(Boolean) as string[]
+
+  return meta
+}
+
 export function ReturnDetailsDialog({
   returnData,
   onClose,
@@ -223,7 +240,7 @@ export function ReturnDetailsDialog({
                     <tr className="bg-gray-50 border-b">
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Producto</th>
                       <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-16">Cant.</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-24">P. Unit.</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-28">Precio / costo</th>
                       <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 w-24">Subtotal</th>
                     </tr>
                   </thead>
@@ -232,13 +249,18 @@ export function ReturnDetailsDialog({
                       <tr key={idx} className="hover:bg-gray-50/50">
                         <td className="px-3 py-2.5">
                           <p className="font-medium text-gray-900 text-sm">
-                            {item.product_name || `Producto ${idx + 1}`}
+                            {getReturnedItemName(item, idx)}
                           </p>
-                          {item.product_id && (
-                            <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                              ID: {item.product_id.slice(0, 8)}…
-                            </p>
-                          )}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {getReturnedItemMeta(item).map(value => (
+                              <span key={value} className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                {value}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="mt-1 text-[10px] text-muted-foreground">
+                            Fecha: {formatSafeDate(item.returned_at || returnData.return_date || returnData.created_at, 'dd/MM/yyyy HH:mm')}
+                          </p>
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-rose-50 text-rose-700 font-semibold text-xs">
@@ -246,7 +268,12 @@ export function ReturnDetailsDialog({
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-right text-gray-600">
-                          {formatCurrency(Number(item.unit_price))}
+                          <p>{formatCurrency(Number(item.unit_price))}</p>
+                          {Number(item.purchase_price || 0) > 0 && (
+                            <p className="text-[10px] text-muted-foreground">
+                              Costo: {formatCurrency(Number(item.purchase_price))}
+                            </p>
+                          )}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold text-gray-900">
                           {formatCurrency(Number(item.subtotal || item.unit_price * item.quantity))}

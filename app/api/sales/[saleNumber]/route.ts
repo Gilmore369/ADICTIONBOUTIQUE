@@ -53,7 +53,9 @@ export async function GET(
             size,
             color,
             base_name,
-            base_code
+            base_code,
+            purchase_price,
+            price
           )
         )
       `)

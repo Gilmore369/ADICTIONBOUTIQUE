@@ -34,6 +34,8 @@ interface SaleItem {
     color: string | null
     base_name: string | null
     base_code: string | null
+    purchase_price: number | null
+    price: number | null
   } | null
 }
 
@@ -55,6 +57,32 @@ interface SelectedItem {
   maxQty: number
   unitPrice: number
   productName: string
+  productBarcode?: string | null
+  baseName?: string | null
+  baseCode?: string | null
+  size?: string | null
+  color?: string | null
+  purchasePrice?: number | null
+  catalogPrice?: number | null
+}
+
+function buildSelectedItem(item: SaleItem): SelectedItem {
+  const product = item.products
+  return {
+    saleItemId:  item.id,
+    productId:   item.product_id,
+    returnQty:   item.quantity,
+    maxQty:      item.quantity,
+    unitPrice:   Number(item.unit_price),
+    productName: product?.base_name || product?.name || 'Producto',
+    productBarcode: product?.barcode || null,
+    baseName: product?.base_name || null,
+    baseCode: product?.base_code || null,
+    size: product?.size || null,
+    color: product?.color || null,
+    purchasePrice: product?.purchase_price ?? null,
+    catalogPrice: product?.price ?? null,
+  }
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -106,14 +134,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
       }
       return {
         ...prev,
-        [item.id]: {
-          saleItemId:  item.id,
-          productId:   item.product_id,
-          returnQty:   item.quantity,
-          maxQty:      item.quantity,
-          unitPrice:   Number(item.unit_price),
-          productName: item.products?.base_name || item.products?.name || 'Producto',
-        },
+        [item.id]: buildSelectedItem(item),
       }
     })
   }
@@ -134,14 +155,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
     } else {
       const next: Record<string, SelectedItem> = {}
       foundSale.sale_items.forEach(item => {
-        next[item.id] = {
-          saleItemId:  item.id,
-          productId:   item.product_id,
-          returnQty:   item.quantity,
-          maxQty:      item.quantity,
-          unitPrice:   Number(item.unit_price),
-          productName: item.products?.base_name || item.products?.name || 'Producto',
-        }
+        next[item.id] = buildSelectedItem(item)
       })
       setSelected(next)
     }
@@ -179,6 +193,15 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
       const returnedItems = Object.values(selected).map(i => ({
         sale_item_id: i.saleItemId,
         product_id:   i.productId,
+        product_name: i.productName,
+        product_barcode: i.productBarcode,
+        base_name: i.baseName,
+        base_code: i.baseCode,
+        size: i.size,
+        color: i.color,
+        purchase_price: i.purchasePrice,
+        catalog_price: i.catalogPrice,
+        returned_at: new Date().toISOString(),
         quantity:     i.returnQty,
         unit_price:   i.unitPrice,
         subtotal:     i.unitPrice * i.returnQty,

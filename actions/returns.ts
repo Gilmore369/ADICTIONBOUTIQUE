@@ -10,6 +10,56 @@ const STORE_DISPLAY: Record<string, string> = {
   HOMBRES: 'Tienda Hombres',
 }
 
+async function enrichReturnedItems(service: ReturnType<typeof createServiceClient>, returns: any[]) {
+  const productIds = Array.from(new Set(
+    returns.flatMap(ret => Array.isArray(ret.returned_items)
+      ? ret.returned_items.map((item: any) => item?.product_id).filter(Boolean)
+      : []
+    )
+  ))
+
+  if (productIds.length === 0) return returns
+
+  const { data: products, error } = await service
+    .from('products')
+    .select('id, name, barcode, base_name, base_code, size, color, purchase_price, price')
+    .in('id', productIds)
+
+  if (error) {
+    console.error('Error enriching returned products:', error)
+    return returns
+  }
+
+  const productsById = new Map((products || []).map((product: any) => [product.id, product]))
+
+  return returns.map((ret: any) => ({
+    ...ret,
+    returned_items: Array.isArray(ret.returned_items)
+      ? ret.returned_items.map((item: any) => {
+        const product = item?.product_id ? productsById.get(item.product_id) : null
+        const returnedAt = item?.returned_at || ret.return_date || ret.created_at || null
+
+        if (!product) {
+          return { ...item, returned_at: returnedAt }
+        }
+
+        return {
+          ...item,
+          product_name: item.product_name || product.base_name || product.name || null,
+          product_barcode: item.product_barcode || product.barcode || null,
+          base_name: item.base_name || product.base_name || null,
+          base_code: item.base_code || product.base_code || null,
+          size: item.size || product.size || null,
+          color: item.color || product.color || null,
+          purchase_price: item.purchase_price ?? product.purchase_price ?? null,
+          catalog_price: item.catalog_price ?? product.price ?? null,
+          returned_at: returnedAt,
+        }
+      })
+      : ret.returned_items,
+  }))
+}
+
 export async function getReturnsAction(userStores?: string[], selectedStore?: string) {
   const service = createServiceClient()
 
@@ -36,7 +86,8 @@ export async function getReturnsAction(userStores?: string[], selectedStore?: st
     console.error('Error fetching returns:', error)
     return { success: false, error: error.message, data: [] }
   }
-  return { success: true, data: data || [] }
+  const enriched = await enrichReturnedItems(service, data || [])
+  return { success: true, data: enriched }
 }
 
 export async function createReturnAction(formData: {
