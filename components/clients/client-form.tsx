@@ -65,8 +65,8 @@ import { MapPin, AlertTriangle } from 'lucide-react'
 // Configuración de ratings con rangos de crédito
 const RATING_CONFIG = {
   S: { label: 'S — Especial',    range: 'S/ 5,000 a más',   credit: 5000, color: 'bg-purple-100 border-purple-400 text-purple-800', dot: 'bg-purple-500', symbol: '⭐' },
-  A: { label: 'A — Excelente',   range: 'S/ 2,000 – 4,999', credit: 2500, color: 'bg-emerald-100 border-emerald-400 text-emerald-800', dot: 'bg-emerald-50 dark:bg-emerald-950/300', symbol: '🏆' },
-  B: { label: 'B — Bueno',       range: 'S/ 1,001 – 2,000', credit: 1500, color: 'bg-blue-100 border-blue-400 text-blue-800', dot: 'bg-blue-50 dark:bg-blue-950/300', symbol: '👍' },
+  A: { label: 'A — Excelente',   range: 'S/ 2,000 – 4,999', credit: 2500, color: 'bg-emerald-100 border-emerald-400 text-emerald-800', dot: 'bg-emerald-500', symbol: '🏆' },
+  B: { label: 'B — Bueno',       range: 'S/ 1,001 – 2,000', credit: 1500, color: 'bg-blue-100 border-blue-400 text-blue-800', dot: 'bg-blue-500', symbol: '👍' },
   C: { label: 'C — Regular',     range: 'S/ 751 – 1,000',   credit: 875,  color: 'bg-yellow-100 border-yellow-400 text-yellow-800', dot: 'bg-yellow-500', symbol: '🆗' },
   D: { label: 'D — Básico',      range: 'S/ 501 – 750',     credit: 625,  color: 'bg-orange-100 border-orange-400 text-orange-800', dot: 'bg-orange-500', symbol: '⚠️' },
   E: { label: 'E — Nuevo/Riesgo', range: 'S/ 100 – 500',    credit: 300,  color: 'bg-red-100 border-red-400 text-red-800', dot: 'bg-red-500', symbol: '🔴' },

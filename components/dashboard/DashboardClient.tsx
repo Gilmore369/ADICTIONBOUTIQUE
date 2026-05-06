@@ -426,7 +426,7 @@ export default function DashboardClient({
             </span>
           )}
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 rounded-full text-[11px] font-semibold text-emerald-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/300 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             En vivo
           </span>
         </div>

@@ -216,6 +216,59 @@
     background-color: color-mix(in oklab, var(--muted) 82%, transparent) !important;
   }
 
+  .dark .bg-emerald-50\/30,
+  .dark .bg-emerald-50\/40,
+  .dark .bg-emerald-50\/50,
+  .dark .bg-emerald-50\/60,
+  .dark .bg-emerald-50\/80,
+  .dark .bg-green-50\/30,
+  .dark .bg-green-50\/40,
+  .dark .bg-green-50\/50,
+  .dark .bg-green-50\/60,
+  .dark .bg-green-50\/80,
+  .dark .bg-blue-50\/30,
+  .dark .bg-blue-50\/40,
+  .dark .bg-blue-50\/50,
+  .dark .bg-blue-50\/60,
+  .dark .bg-blue-50\/80,
+  .dark .bg-indigo-50\/30,
+  .dark .bg-indigo-50\/40,
+  .dark .bg-indigo-50\/50,
+  .dark .bg-indigo-50\/60,
+  .dark .bg-indigo-50\/80,
+  .dark .bg-purple-50\/30,
+  .dark .bg-purple-50\/40,
+  .dark .bg-purple-50\/50,
+  .dark .bg-purple-50\/60,
+  .dark .bg-purple-50\/80,
+  .dark .bg-amber-50\/30,
+  .dark .bg-amber-50\/40,
+  .dark .bg-amber-50\/50,
+  .dark .bg-amber-50\/60,
+  .dark .bg-amber-50\/80,
+  .dark .bg-yellow-50\/30,
+  .dark .bg-yellow-50\/40,
+  .dark .bg-yellow-50\/50,
+  .dark .bg-yellow-50\/60,
+  .dark .bg-yellow-50\/80,
+  .dark .bg-orange-50\/30,
+  .dark .bg-orange-50\/40,
+  .dark .bg-orange-50\/50,
+  .dark .bg-orange-50\/60,
+  .dark .bg-orange-50\/80,
+  .dark .bg-red-50\/30,
+  .dark .bg-red-50\/40,
+  .dark .bg-red-50\/50,
+  .dark .bg-red-50\/60,
+  .dark .bg-red-50\/80,
+  .dark .bg-rose-50\/30,
+  .dark .bg-rose-50\/40,
+  .dark .bg-rose-50\/50,
+  .dark .bg-rose-50\/60,
+  .dark .bg-rose-50\/80 {
+    background-color: color-mix(in oklab, var(--muted) 82%, transparent) !important;
+  }
+
   .dark .hover\:bg-emerald-50:hover,
   .dark .hover\:bg-emerald-100:hover,
   .dark .hover\:bg-blue-50:hover,
@@ -261,6 +314,15 @@
   .dark .to-orange-50,
   .dark .to-red-50,
   .dark .to-rose-50 {
+    --tw-gradient-to: color-mix(in oklab, var(--card) 90%, var(--muted)) var(--tw-gradient-to-position) !important;
+  }
+
+  .dark .from-white {
+    --tw-gradient-from: var(--card) !important;
+    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position)) !important;
+  }
+
+  .dark .to-white {
     --tw-gradient-to: color-mix(in oklab, var(--card) 90%, var(--muted)) var(--tw-gradient-to-position) !important;
   }
 

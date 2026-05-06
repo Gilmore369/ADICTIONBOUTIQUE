@@ -403,7 +403,7 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
   const isOverdue = client.overdue_count > 0
 
   return (
-    <div className={`rounded-xl border transition-colors ${isOverdue ? 'border-rose-200 bg-rose-50 dark:bg-rose-950/30/30' : 'border-border bg-card'}`}>
+    <div className={`rounded-xl border transition-colors ${isOverdue ? 'border-rose-200 bg-rose-50 dark:bg-rose-950/20' : 'border-border bg-card'}`}>
 
       {/* Client header row */}
       <div
@@ -499,7 +499,7 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
   const pct = plan.total_amount > 0 ? Math.min((plan.paid_amount / plan.total_amount) * 100, 100) : 0
 
   return (
-    <div className={`border-b last:border-b-0 ${plan.overdue_count > 0 ? 'bg-rose-50 dark:bg-rose-950/30/40' : 'bg-card'}`}>
+    <div className={`border-b last:border-b-0 ${plan.overdue_count > 0 ? 'bg-rose-50 dark:bg-rose-950/20' : 'bg-card'}`}>
 
       {/* Plan row */}
       <button
@@ -566,7 +566,7 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-emerald-50 dark:bg-emerald-950/300' : pct >= 60 ? 'bg-blue-400' : pct >= 30 ? 'bg-amber-400' : 'bg-rose-400'}`}
+              className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-blue-400' : pct >= 30 ? 'bg-amber-400' : 'bg-rose-400'}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -599,7 +599,7 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
                   return (
                     <tr
                       key={inst.id}
-                      className={`transition-colors ${isOverdue ? 'bg-rose-50 dark:bg-rose-950/30' : isPaid ? 'bg-emerald-50 dark:bg-emerald-950/30/40' : 'hover:bg-gray-50'}`}
+                      className={`transition-colors ${isOverdue ? 'bg-rose-50 dark:bg-rose-950/20' : isPaid ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'hover:bg-gray-50'}`}
                     >
                       <td className="px-3 py-2 font-semibold text-foreground/85">
                         #{inst.installment_number}

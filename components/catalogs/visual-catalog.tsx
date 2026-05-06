@@ -506,7 +506,7 @@ function ModelCardItem({
             className={[
               'h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-200',
               justAdded
-                ? 'bg-emerald-50 dark:bg-emerald-950/300 text-white scale-110'
+                ? 'bg-emerald-600 text-white scale-110'
                 : model.total_stock === 0
                   ? 'bg-muted text-muted-foreground/30 cursor-not-allowed'
                   : 'bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-110 active:scale-95',
@@ -1166,7 +1166,7 @@ function ModelDetailModal({
 
               {/* ── Add Variant Form ── */}
               {showAddVariant && (
-                <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/30/60 p-3 space-y-3">
+                <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-3">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-600">
                     Nueva variante para <strong>{model.base_name}</strong>
                   </p>

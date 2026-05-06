@@ -107,11 +107,11 @@ export function BlacklistManagementView({
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <AlertTriangle className="h-6 w-6 text-red-600" />
             Lista Negra
           </h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Gestiona clientes bloqueados para ventas a crédito
           </p>
         </div>
@@ -126,36 +126,36 @@ export function BlacklistManagementView({
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-red-50 to-orange-50 border-red-200/60">
+        <Card className="p-4 bg-card border-border">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-red-100 rounded-lg">
+            <div className="p-2 bg-red-50 dark:bg-red-950/30 rounded-lg">
               <UserX className="h-5 w-5 text-red-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{blacklistedClients.length}</p>
-          <p className="text-xs text-gray-600 mt-1">Clientes bloqueados</p>
+          <p className="text-2xl font-bold text-foreground">{blacklistedClients.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Clientes bloqueados</p>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200/60">
+        <Card className="p-4 bg-card border-border">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-amber-100 rounded-lg">
+            <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-foreground">
             {formatCurrency(blacklistedClients.reduce((sum, c) => sum + c.credit_used, 0))}
           </p>
-          <p className="text-xs text-gray-600 mt-1">Deuda total bloqueados</p>
+          <p className="text-xs text-muted-foreground mt-1">Deuda total bloqueados</p>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200/60">
+        <Card className="p-4 bg-card border-border">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-green-100 rounded-lg">
+            <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg">
               <UserCheck className="h-5 w-5 text-green-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{availableClients.length}</p>
-          <p className="text-xs text-gray-600 mt-1">Clientes activos</p>
+          <p className="text-2xl font-bold text-foreground">{availableClients.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Clientes activos</p>
         </Card>
       </div>
 
@@ -176,7 +176,7 @@ export function BlacklistManagementView({
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-muted/60 border-b">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">DNI</th>
@@ -200,7 +200,7 @@ export function BlacklistManagementView({
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-900">{client.name}</span>
+                        <span className="text-sm font-medium text-foreground">{client.name}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-600">
@@ -212,7 +212,7 @@ export function BlacklistManagementView({
                     <td className="px-4 py-3">
                       {getReasonBadge(client.blacklisted_reason)}
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-right text-gray-900">
+                    <td className="px-4 py-3 text-sm font-medium text-right text-foreground">
                       {formatCurrency(client.credit_used)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">

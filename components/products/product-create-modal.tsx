@@ -861,7 +861,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
               <div className="overflow-x-auto rounded-xl border border-border">
                 {/* Header */}
                 <div
-                  className="grid bg-muted/30/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  className="grid bg-muted/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
                   style={{ gridTemplateColumns: '2fr 160px 200px 130px 130px 120px 36px' }}
                 >
                   <span>Código de barras</span>
