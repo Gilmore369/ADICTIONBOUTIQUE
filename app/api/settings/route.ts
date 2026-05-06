@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
 
@@ -17,7 +18,8 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-    const { data, error } = await supabase
+    const service = createServiceClient()
+    const { data, error } = await service
       .from('system_config')
       .select('key, value')
       .in('key', CONFIG_KEYS)
@@ -37,7 +39,7 @@ export async function GET() {
       address: config['store_address'] || '',
       phone:   config['store_phone']   || '',
       ruc:     config['store_ruc']     || '',
-      logo:    config['store_logo']    || '',
+      logo:    config['store_logo']    || '/images/logo.png',
     })
   } catch (error) {
     console.error('[settings] GET exception:', error)
@@ -85,7 +87,8 @@ export async function POST(request: NextRequest) {
     const LOGO_LIMIT_CHARS = 4_500_000
     if (typeof logo === 'string') {
       if (logo === '') {
-        const { error: delErr } = await supabase
+        const service = createServiceClient()
+        const { error: delErr } = await service
           .from('system_config')
           .delete()
           .eq('key', 'store_logo')
@@ -104,8 +107,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const service = createServiceClient()
     for (const item of upserts) {
-      const { error } = await supabase
+      const { error } = await service
         .from('system_config')
         .upsert({ key: item.key, value: item.value }, { onConflict: 'key' })
       if (error) {

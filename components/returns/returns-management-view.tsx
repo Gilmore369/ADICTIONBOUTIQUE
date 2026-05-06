@@ -58,10 +58,10 @@ export interface ReturnedItem {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  PENDIENTE:  { label: 'Pendiente',  color: 'bg-amber-100 text-amber-700 border-amber-200',   icon: <Clock className="h-3 w-3" /> },
-  APROBADA:   { label: 'Aprobada',   color: 'bg-blue-100 text-blue-700 border-blue-200',       icon: <CheckCircle className="h-3 w-3" /> },
-  RECHAZADA:  { label: 'Rechazada',  color: 'bg-red-100 text-red-700 border-red-200',          icon: <XCircle className="h-3 w-3" /> },
-  COMPLETADA: { label: 'Completada', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: <CheckCircle className="h-3 w-3" /> },
+  PENDIENTE:  { label: 'Pendiente',  color: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900',   icon: <Clock className="h-3 w-3" /> },
+  APROBADA:   { label: 'Aprobada',   color: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-900',       icon: <CheckCircle className="h-3 w-3" /> },
+  RECHAZADA:  { label: 'Rechazada',  color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900',          icon: <XCircle className="h-3 w-3" /> },
+  COMPLETADA: { label: 'Completada', color: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900', icon: <CheckCircle className="h-3 w-3" /> },
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -74,7 +74,7 @@ const REASON_LABELS: Record<string, string> = {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] || { label: status, color: 'bg-gray-100 text-gray-600 border-gray-200', icon: null }
+  const cfg = STATUS_CONFIG[status] || { label: status, color: 'bg-muted text-muted-foreground border-border', icon: null }
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.color}`}>
       {cfg.icon}
@@ -177,11 +177,11 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
             <RotateCcw className="h-5 w-5 text-rose-500" />
             Devoluciones
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             Gestiona reembolsos de productos
           </p>
         </div>
@@ -196,8 +196,8 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
         <Card className="p-4 border-l-4 border-l-amber-400">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Pendientes</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{metrics.pending}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Pendientes</p>
+              <p className="text-2xl font-bold text-foreground mt-0.5">{metrics.pending}</p>
             </div>
             <div className="p-2 bg-amber-50 rounded-lg">
               <Clock className="h-5 w-5 text-amber-500" />
@@ -209,8 +209,8 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
         <Card className="p-4 border-l-4 border-l-blue-400">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Aprobadas</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{metrics.approved}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Aprobadas</p>
+              <p className="text-2xl font-bold text-foreground mt-0.5">{metrics.approved}</p>
             </div>
             <div className="p-2 bg-blue-50 rounded-lg">
               <CheckCircle className="h-5 w-5 text-blue-500" />
@@ -222,27 +222,27 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
         <Card className="p-4 border-l-4 border-l-emerald-400">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Total devuelto</p>
-              <p className="text-xl font-bold text-gray-900 mt-0.5">{formatCurrency(metrics.totalAmount)}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Total devuelto</p>
+              <p className="text-xl font-bold text-foreground mt-0.5">{formatCurrency(metrics.totalAmount)}</p>
             </div>
             <div className="p-2 bg-emerald-50 rounded-lg">
               <TrendingDown className="h-5 w-5 text-emerald-500" />
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">{metrics.total} devoluciones totales</p>
+          <p className="text-xs text-muted-foreground mt-1.5">{metrics.total} devoluciones totales</p>
         </Card>
 
         <Card className="p-4 border-l-4 border-l-purple-400">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Tipos</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{metrics.reembolsos}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Tipos</p>
+              <p className="text-2xl font-bold text-foreground mt-0.5">{metrics.reembolsos}</p>
             </div>
             <div className="p-2 bg-purple-50 rounded-lg">
               <ArrowLeftRight className="h-5 w-5 text-purple-500" />
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             reembolsos totales
           </p>
         </Card>
@@ -252,7 +252,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
       <Card className="p-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Buscar por número, venta o cliente..."
               value={searchTerm}
@@ -261,7 +261,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="h-3.5 w-3.5 text-gray-400" />
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
@@ -283,7 +283,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
               Limpiar
             </button>
           )}
-          <span className="text-xs text-gray-400 ml-auto">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-muted-foreground ml-auto">{filtered.length} resultado{filtered.length !== 1 ? 's' : ''}</span>
         </div>
       </Card>
 
@@ -292,25 +292,25 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Número</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Venta</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Motivo</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Productos</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Monto</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</th>
+              <tr className="bg-muted/70 border-b border-border">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Número</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Venta</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fecha</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Cliente</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Motivo</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Productos</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Monto</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estado</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-12 text-center">
-                    <RotateCcw className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">No se encontraron devoluciones</p>
+                    <RotateCcw className="h-8 w-8 text-muted-foreground/35 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No se encontraron devoluciones</p>
                   </td>
                 </tr>
               ) : (
@@ -323,31 +323,31 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
                   const isCompleting = completingId === ret.id
 
                   return (
-                    <tr key={ret.id} className="hover:bg-gray-50/60 transition-colors">
+                    <tr key={ret.id} className="hover:bg-muted/50 transition-colors">
                       {/* Number */}
                       <td className="px-4 py-3">
-                        <span className="font-mono font-semibold text-gray-900 text-xs">
+                        <span className="font-mono font-semibold text-foreground text-xs">
                           {ret.return_number}
                         </span>
                       </td>
 
                       {/* Sale */}
                       <td className="px-4 py-3">
-                        <span className="font-mono text-xs text-gray-600">{ret.sale_number}</span>
+                        <span className="font-mono text-xs text-muted-foreground">{ret.sale_number}</span>
                       </td>
 
                       {/* Date */}
-                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                         {formatSafeDate(ret.return_date || ret.created_at, 'dd/MM/yyyy')}
                       </td>
 
                       {/* Client */}
                       <td className="px-4 py-3">
-                        <span className="text-gray-900 font-medium">{ret.client_name || '-'}</span>
+                        <span className="text-foreground font-medium">{ret.client_name || '-'}</span>
                       </td>
 
                       {/* Reason */}
-                      <td className="px-4 py-3 text-xs text-gray-600">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {REASON_LABELS[ret.reason_type] || ret.reason_type}
                       </td>
 
@@ -366,18 +366,18 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
                       {/* Items count */}
                       <td className="px-4 py-3">
                         {items.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <Package className="h-3 w-3" />
                             {items.length} prod.
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-300">—</span>
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </td>
 
                       {/* Amount */}
                       <td className="px-4 py-3 text-right">
-                        <span className="font-semibold text-gray-900">
+                        <span className="font-semibold text-foreground">
                           {formatCurrency(Number(ret.total_amount))}
                         </span>
                       </td>

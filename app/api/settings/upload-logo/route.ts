@@ -10,6 +10,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { existsSync } from 'fs'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
 
@@ -75,11 +76,26 @@ export async function POST(request: NextRequest) {
     const filePath = path.join(imagesDir, 'logo.png')
     await writeFile(filePath, buffer)
 
+    const logoDataUrl = `data:${file.type};base64,${buffer.toString('base64')}`
+    const service = createServiceClient()
+    const { error: configError } = await service
+      .from('system_config')
+      .upsert({ key: 'store_logo', value: logoDataUrl }, { onConflict: 'key' })
+
+    if (configError) {
+      console.error('[upload-logo] system_config upsert error:', configError)
+      return NextResponse.json(
+        { error: `Logo guardado como archivo, pero no se pudo persistir globalmente: ${configError.message}` },
+        { status: 500 }
+      )
+    }
+
     console.log('[upload-logo] Logo saved successfully to:', filePath)
 
     return NextResponse.json({
       success: true,
       message: 'Logo guardado exitosamente',
+      logo: logoDataUrl,
       path: '/images/logo.png'
     })
   } catch (error) {

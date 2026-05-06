@@ -137,6 +137,55 @@
   }
 }
 
+@layer components {
+  .dark .bg-white {
+    background-color: var(--card) !important;
+    color: var(--card-foreground) !important;
+  }
+
+  .dark .bg-gray-50,
+  .dark .bg-gray-50\/30,
+  .dark .bg-gray-50\/50,
+  .dark .bg-gray-50\/60,
+  .dark .bg-gray-50\/80,
+  .dark .bg-gray-100,
+  .dark .bg-gray-200 {
+    background-color: color-mix(in oklab, var(--muted) 78%, transparent) !important;
+  }
+
+  .dark .text-gray-900,
+  .dark .text-gray-800,
+  .dark .text-gray-700 {
+    color: var(--foreground) !important;
+  }
+
+  .dark .text-gray-600,
+  .dark .text-gray-500,
+  .dark .text-gray-400,
+  .dark .text-gray-300 {
+    color: var(--muted-foreground) !important;
+  }
+
+  .dark .border-gray-50,
+  .dark .border-gray-100,
+  .dark .border-gray-200,
+  .dark .border-gray-300,
+  .dark .divide-gray-50 > :not(:last-child),
+  .dark .divide-gray-100 > :not(:last-child),
+  .dark .divide-gray-200 > :not(:last-child) {
+    border-color: var(--border) !important;
+  }
+
+  .dark .hover\:bg-gray-50:hover,
+  .dark .hover\:bg-gray-50\/30:hover,
+  .dark .hover\:bg-gray-50\/50:hover,
+  .dark .hover\:bg-gray-50\/60:hover,
+  .dark .hover\:bg-gray-50\/80:hover,
+  .dark .hover\:bg-gray-100:hover {
+    background-color: var(--muted) !important;
+  }
+}
+
 /* ============================================================================
    HSL SLIDER — theme-settings.tsx
    ============================================================================ */

@@ -240,7 +240,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl">
+      <div className="bg-card text-card-foreground rounded-xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-border">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
@@ -333,7 +333,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label className="text-sm font-medium flex items-center gap-1.5">
-                    <ShoppingBag className="h-4 w-4 text-gray-500" />
+                    <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                     Productos del ticket
                     {selectedCount > 0 && (
                       <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
@@ -358,11 +358,11 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                     return (
                       <div key={item.id}
                         className={['flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors',
-                          isChecked ? 'bg-blue-50' : 'hover:bg-gray-50'].join(' ')}
+                          isChecked ? 'bg-primary/10' : 'hover:bg-muted/50'].join(' ')}
                         onClick={() => toggleItem(item)}
                       >
                         <div className={['w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors',
-                          isChecked ? 'bg-primary border-primary' : 'border-gray-300'].join(' ')}>
+                          isChecked ? 'bg-primary border-primary' : 'border-border'].join(' ')}>
                           {isChecked && (
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -371,14 +371,14 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
-                          <p className="text-xs text-gray-500 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
                             {details && <span className="mr-2">{details}</span>}
                             <span className="font-mono text-[10px]">{product?.barcode}</span>
                           </p>
                         </div>
 
-                        <div className="text-xs text-gray-500 flex-shrink-0 text-right">
+                        <div className="text-xs text-muted-foreground flex-shrink-0 text-right">
                           <div>{formatCurrency(Number(item.unit_price))} c/u</div>
                           <div>Stock: ×{item.quantity}</div>
                         </div>
@@ -387,19 +387,19 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                           <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                             <button type="button" onClick={() => setQty(item.id, sel.returnQty - 1)}
                               disabled={sel.returnQty <= 1}
-                              className="w-6 h-6 rounded border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30">
+                              className="w-6 h-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30">
                               <Minus className="h-3 w-3" />
                             </button>
                             <span className="w-6 text-center text-sm font-medium">{sel.returnQty}</span>
                             <button type="button" onClick={() => setQty(item.id, sel.returnQty + 1)}
                               disabled={sel.returnQty >= sel.maxQty}
-                              className="w-6 h-6 rounded border flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30">
+                              className="w-6 h-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30">
                               <Plus className="h-3 w-3" />
                             </button>
                           </div>
                         )}
 
-                        <div className="text-sm font-semibold text-gray-900 flex-shrink-0 w-20 text-right">
+                        <div className="text-sm font-semibold text-foreground flex-shrink-0 w-20 text-right">
                           {isChecked ? formatCurrency(sel.unitPrice * sel.returnQty) : formatCurrency(Number(item.subtotal))}
                         </div>
                       </div>
@@ -423,7 +423,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                       <span className="text-base font-bold text-rose-700">{formatCurrency(finalAmount)}</span>
                     </div>
                     <div className="flex items-center gap-2 px-1">
-                      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
                         <input type="checkbox" checked={useManualAmount}
                           onChange={e => setUseManualAmount(e.target.checked)} className="h-3.5 w-3.5" />
                         Monto personalizado
@@ -479,7 +479,7 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Notas adicionales (opcional)</Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Notas adicionales (opcional)</Label>
                   <textarea value={notes} onChange={e => setNotes(e.target.value)}
                     className="w-full mt-1.5 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                     rows={2} placeholder="Información adicional..." />
@@ -489,10 +489,10 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t bg-gray-50/50 flex-shrink-0">
-            <div className="text-sm text-gray-500">
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t bg-muted/40 flex-shrink-0">
+            <div className="text-sm text-muted-foreground">
               {selectedCount > 0
-                ? <span className="font-medium text-gray-700">Reembolso: {formatCurrency(finalAmount)}</span>
+                ? <span className="font-medium text-foreground">Reembolso: {formatCurrency(finalAmount)}</span>
                 : foundSale ? 'Selecciona los productos a devolver' : ''
               }
             </div>

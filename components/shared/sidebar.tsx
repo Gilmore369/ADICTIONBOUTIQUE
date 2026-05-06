@@ -342,7 +342,12 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
         )}>
           {storeLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={storeLogo} alt="Logo" className="h-8 w-8 shrink-0 object-contain" />
+            <img
+              src={storeLogo}
+              alt="Logo"
+              className="h-8 w-8 shrink-0 object-contain"
+              onError={() => setStoreLogo(null)}
+            />
           ) : (
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary">
               <span className="select-none text-xs font-semibold text-sidebar-primary-foreground">AB</span>

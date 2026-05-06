@@ -45,13 +45,13 @@ export function AppShell({ children, user, userStores, userRoles }: AppShellProp
 
   return (
     <StoreProvider userStores={userStores}>
-      <div className="min-h-screen bg-muted/30 dark:bg-gray-950">
+      <div className="min-h-screen bg-background text-foreground">
         <Sidebar collapsed={collapsed} onToggleCollapse={handleToggle} />
 
         {/* Main area shifts left/right with sidebar */}
         <div
           className={`transition-[padding-left] duration-300 ease-in-out ${
-            collapsed ? 'md:pl-16' : 'md:pl-64'
+            collapsed ? 'md:pl-16' : 'md:pl-72'
           }`}
         >
           <Header user={user} />

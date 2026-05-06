@@ -142,8 +142,13 @@ export function SettingsForm() {
           }
 
           const data = await response.json()
+          const uploadedLogo = data.logo || result
+          setLogoPreview(uploadedLogo)
+          setConfig(prev => ({ ...prev, logo: uploadedLogo }))
+          localStorage.setItem('store_logo', uploadedLogo)
+          localStorage.setItem('store_config', JSON.stringify({ ...config, logo: uploadedLogo }))
           console.log('[Settings] Logo uploaded to server:', data)
-          toast.success('Logo guardado exitosamente')
+          toast.success('Logo guardado globalmente')
           window.dispatchEvent(new Event('storage'))
         } catch (error) {
           console.error('[Settings] Error uploading to server:', error)
@@ -199,11 +204,22 @@ export function SettingsForm() {
     }
   }
 
-  const handleRemoveLogo = () => {
+  const handleRemoveLogo = async () => {
     setLogoPreview(null)
-    setConfig(prev => ({ ...prev, logo: '' }))
+    const nextConfig = { ...config, logo: '' }
+    setConfig(nextConfig)
     localStorage.removeItem('store_logo')
-    toast.success('Logo eliminado')
+    localStorage.setItem('store_config', JSON.stringify(nextConfig))
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextConfig)
+      })
+      toast.success('Logo eliminado globalmente')
+    } catch {
+      toast.warning('Logo eliminado localmente; no se pudo actualizar el servidor')
+    }
     window.dispatchEvent(new Event('storage'))
   }
 
@@ -219,9 +235,14 @@ export function SettingsForm() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(configToSave)
         })
-        if (!res.ok) console.warn('[Settings] API save failed:', await res.text())
+        if (!res.ok) {
+          const errorText = await res.text()
+          throw new Error(errorText || 'No se pudo guardar la configuración global')
+        }
       } catch (apiErr) {
-        console.warn('[Settings] API save error:', apiErr)
+        console.error('[Settings] API save error:', apiErr)
+        toast.error('No se pudo guardar la configuración global')
+        return
       }
 
       // 2. Guardar en localStorage como cache local
@@ -318,7 +339,7 @@ export function SettingsForm() {
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Logo de la Tienda</h2>
         <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Sube el logo que aparecerá en los tickets de venta y en el sidebar. Tamaño recomendado: 200x200px (máx. 2MB)
           </p>
 
@@ -329,7 +350,7 @@ export function SettingsForm() {
               className={`relative w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${
                 isDragging 
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
-                  : 'border-gray-300 bg-gray-50 dark:bg-gray-800 dark:border-gray-700'
+                  : 'border-border bg-muted/50'
               } ${uploading ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/20'}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -343,6 +364,7 @@ export function SettingsForm() {
                     src={logoPreview}
                     alt="Logo preview"
                     className="max-w-full max-h-full object-contain p-2"
+                    onError={() => setLogoPreview(null)}
                   />
                   <button
                     onClick={(e) => {
@@ -358,8 +380,8 @@ export function SettingsForm() {
                 </>
               ) : (
                 <div className="text-center pointer-events-none">
-                  <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-xs text-gray-500">
+                  <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">
                     {uploading ? 'Subiendo...' : isDragging ? 'Suelta aquí' : 'Click o arrastra'}
                   </p>
                 </div>
@@ -390,13 +412,13 @@ export function SettingsForm() {
                 </label>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Formatos: JPG, PNG, GIF, SVG (máx. 2MB)
                 </p>
                 <p className="text-xs text-blue-600 dark:text-blue-400">
                   💡 Tres formas de subir:
                 </p>
-                <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 ml-4">
+                <ul className="text-xs text-muted-foreground space-y-0.5 ml-4">
                   <li>• Click en el cuadro de arriba</li>
                   <li>• Click en "Seleccionar Imagen"</li>
                   <li>• Arrastra y suelta la imagen</li>
