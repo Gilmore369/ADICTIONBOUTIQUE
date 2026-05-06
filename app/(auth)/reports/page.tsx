@@ -5,7 +5,7 @@ const TAB_MAP: Record<string, { category?: string; report?: ReportTypeId }> = {
   sales: { category: 'sales' },
   inventory: { category: 'inventory' },
   clients: { category: 'clients' },
-  collections: { category: 'financial' },
+  collections: { category: 'clients', report: 'collection-effectiveness' },
   'top-products': { category: 'sales', report: 'sales-by-product' },
   'low-stock': { category: 'inventory', report: 'low-stock' },
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ComponentType } from 'react'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -15,9 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -46,6 +44,17 @@ import {
   Wallet,
   ArrowLeft,
   ChevronRight,
+  Banknote,
+  CalendarDays,
+  Clock,
+  CreditCard,
+  DollarSign,
+  Layers,
+  RefreshCw,
+  ScrollText,
+  Target,
+  TrendingUp,
+  Trophy,
 } from 'lucide-react'
 import { ReportCharts } from './report-charts'
 import {
@@ -149,6 +158,62 @@ function getDefaultDates(reportId: string) {
   return { startDate: firstOfMonth, endDate: today }
 }
 
+type ReportDefinition = typeof REPORT_TYPES[keyof typeof REPORT_TYPES]
+type IconComponent = ComponentType<{ className?: string }>
+
+const CATEGORY_META: Record<string, { name: string; description: string; icon: IconComponent }> = {
+  inventory: {
+    name: 'Inventario',
+    description: 'Stock, kardex, valorizacion y rotacion',
+    icon: Package,
+  },
+  sales: {
+    name: 'Ventas',
+    description: 'Rendimiento comercial, productos y tiendas',
+    icon: ShoppingCart,
+  },
+  purchases: {
+    name: 'Compras',
+    description: 'Compras por proveedor y periodo',
+    icon: Truck,
+  },
+  clients: {
+    name: 'Clientes y cobranzas',
+    description: 'Cartera, deuda, mora y efectividad',
+    icon: Users,
+  },
+  financial: {
+    name: 'Financiero',
+    description: 'Margen, flujo de caja e ingresos',
+    icon: Wallet,
+  },
+}
+
+const REPORT_ICONS: Record<string, IconComponent> = {
+  'inventory-rotation': RefreshCw,
+  'inventory-valuation': DollarSign,
+  'stock-rotation': RefreshCw,
+  'stock-valuation': DollarSign,
+  'low-stock': AlertTriangle,
+  kardex: ScrollText,
+  'sales-timeline': TrendingUp,
+  'sales-by-product': Trophy,
+  'sales-by-category': Layers,
+  'sales-by-period': CalendarDays,
+  'sales-by-month': CalendarDays,
+  'credit-vs-cash': CreditCard,
+  'sales-summary': BarChart3,
+  'sales-by-store': Store,
+  'purchases-by-supplier': Truck,
+  'purchases-by-period': CalendarDays,
+  'clients-debt': Users,
+  'clients-with-debt': Users,
+  'overdue-installments': Clock,
+  'collection-effectiveness': Target,
+  'profit-margin': TrendingUp,
+  'cash-flow': Banknote,
+}
+
 interface ReportsGeneratorProps {
   initialCategory?: string
   initialReport?: ReportTypeId
@@ -156,6 +221,7 @@ interface ReportsGeneratorProps {
 
 export function ReportsGenerator({ initialCategory, initialReport }: ReportsGeneratorProps) {
   const [selectedReport, setSelectedReport] = useState<ReportTypeId | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory || null)
   const [reportData, setReportData] = useState<any[]>([])
   const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(false)
@@ -182,17 +248,18 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
 
   useEffect(() => {
     if (initialReport) {
+      const report = Object.values(REPORT_TYPES).find(r => r.id === initialReport)
       setSelectedReport(initialReport)
+      setSelectedCategory(report?.category || initialCategory || null)
+      setShowFilters(true)
       setFilters(f => ({ ...f, ...getDefaultDates(initialReport) }))
       return
     }
 
     if (initialCategory) {
-      const first = Object.values(REPORT_TYPES).find(r => r.category === initialCategory)
-      if (first) {
-        setSelectedReport(first.id)
-        setFilters(f => ({ ...f, ...getDefaultDates(first.id) }))
-      }
+      setSelectedCategory(initialCategory)
+      setSelectedReport(null)
+      setReportData([])
     }
   }, [initialCategory, initialReport])
 
@@ -209,10 +276,22 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
 
   // Cambio de reporte con fechas inteligentes
   const handleReportChange = (value: string) => {
+    const report = Object.values(REPORT_TYPES).find(r => r.id === value)
     setSelectedReport(value as ReportTypeId)
+    setSelectedCategory(report?.category || selectedCategory)
     setReportData([])
+    setInsights([])
+    setActiveTab('stats')
+    setShowFilters(true)
     const defaults = getDefaultDates(value)
     setFilters(f => ({ ...f, ...defaults }))
+  }
+
+  const handleChangeReport = () => {
+    setSelectedReport(null)
+    setReportData([])
+    setInsights([])
+    setActiveTab('stats')
   }
 
   // Generar reporte
@@ -574,15 +653,16 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     if (!acc[report.category]) acc[report.category] = []
     acc[report.category].push(report)
     return acc
-  }, {} as Record<string, typeof REPORT_TYPES[keyof typeof REPORT_TYPES][]>)
+  }, {} as Record<string, ReportDefinition[]>)
 
-  const categoryInfo: Record<string, { name: string }> = {
-    inventory: { name: '📦 Inventario' },
-    sales: { name: '💰 Ventas' },
-    purchases: { name: '🛒 Compras' },
-    clients: { name: '👥 Clientes' },
-    financial: { name: '💵 Financiero' }
-  }
+  const categoryOrder = Object.keys(CATEGORY_META)
+    .filter(category => reportsByCategory[category]?.length)
+  const orderedCategories = selectedCategory
+    ? [
+      selectedCategory,
+      ...categoryOrder.filter(category => category !== selectedCategory),
+    ].filter(category => reportsByCategory[category]?.length)
+    : categoryOrder
 
   return (
     <div className="space-y-4">
@@ -596,41 +676,120 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
 
       {/* Selector */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label className="text-sm font-medium mb-2 block">Seleccionar Reporte</Label>
-            <Select
-              value={selectedReport || ''}
-              onValueChange={handleReportChange}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un reporte..." />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(reportsByCategory).map(([category, reports]) => {
-                  const info = categoryInfo[category]
+        {!selectedReport ? (
+          <div className="space-y-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Seleccionar reporte</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Elige una tarjeta para ver filtros, graficos y exportaciones.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {categoryOrder.map(category => {
+                  const meta = CATEGORY_META[category]
+                  const Icon = meta?.icon || BarChart3
+                  const active = selectedCategory === category
                   return (
-                    <SelectGroup key={category}>
-                      <SelectLabel>{info?.name || category}</SelectLabel>
-                      {reports.map((report) => (
-                        <SelectItem key={report.id} value={report.id}>
-                          {report.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setSelectedCategory(active ? null : category)}
+                      className={[
+                        'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
+                        active
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-card text-muted-foreground hover:border-primary/60 hover:text-foreground',
+                      ].join(' ')}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {meta?.name || category}
+                    </button>
                   )
                 })}
-              </SelectContent>
-            </Select>
-            {currentReport && (
-            <p className="text-xs text-muted-foreground mt-2">{currentReport.description}</p>
-            )}
-          </div>
+              </div>
+            </div>
 
-          {selectedReport && (
-            <div className="flex flex-col gap-2">
+            <div className="space-y-5">
+              {orderedCategories.map(category => {
+                const meta = CATEGORY_META[category]
+                const CatIcon = meta?.icon || BarChart3
+                const reports = reportsByCategory[category] || []
+                const highlighted = selectedCategory === category
+
+                return (
+                  <section
+                    key={category}
+                    className={[
+                      'rounded-lg border p-3 transition-colors',
+                      highlighted
+                        ? 'border-primary/50 bg-primary/5'
+                        : 'border-border bg-card',
+                    ].join(' ')}
+                  >
+                    <div className="mb-3 flex items-start gap-2">
+                      <div className="mt-0.5 rounded-md border border-border bg-background p-1.5">
+                        <CatIcon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+                          {meta?.name || category}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">{meta?.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {reports.map(report => {
+                        const ReportIcon = REPORT_ICONS[report.id] || FileText
+                        return (
+                          <button
+                            key={report.id}
+                            type="button"
+                            onClick={() => handleReportChange(report.id)}
+                            className="group flex min-h-[104px] flex-col items-start gap-2 rounded-lg border border-border bg-background p-3 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-sm"
+                          >
+                            <div className="flex w-full items-start justify-between gap-2">
+                              <ReportIcon className="h-4 w-4 text-primary" />
+                              <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                            </div>
+                            <span className="text-sm font-medium leading-tight text-foreground">{report.name}</span>
+                            <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                              {report.description}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0">
+              <Button variant="ghost" size="sm" onClick={handleChangeReport} className="-ml-2 mb-2 gap-1.5">
+                <ArrowLeft className="h-4 w-4" />
+                Cambiar reporte
+              </Button>
+              <div className="flex items-start gap-3">
+                <div className="rounded-md border border-border bg-primary/10 p-2">
+                  {(() => {
+                    const ReportIcon = selectedReport ? REPORT_ICONS[selectedReport] || FileText : FileText
+                    return <ReportIcon className="h-4 w-4 text-primary" />
+                  })()}
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">{currentReport?.name}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{currentReport?.description}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-w-[240px] flex-col gap-2">
               {isLocked && lockedStoreName && lockedStoreName !== 'ALL' && (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-700 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-300">
+                <div className="flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
                   <Store className="h-3.5 w-3.5 flex-shrink-0" />
                   <span>Mostrando datos de: <strong>{filters.warehouse || lockedStoreName}</strong></span>
                 </div>
@@ -649,8 +808,8 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
                 </Button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Filtros */}
         {showFilters && selectedReport && (
