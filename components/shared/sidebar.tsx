@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   AlertTriangle,
@@ -148,6 +148,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [storeLogo, setStoreLogo] = useState<string | null>(null)
   const [storeName, setStoreName] = useState('Adiction Boutique')
@@ -217,8 +218,18 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   }, [isAdmin])
 
   const isItemActive = (href: string) => {
-    const pathOnly = href.split('?')[0]
-    return pathname === pathOnly || pathname.startsWith(pathOnly + '/')
+    const [pathOnly, queryStr] = href.split('?')
+    if (!pathname.startsWith(pathOnly)) return false
+    // Exact path match or sub-route
+    if (pathname !== pathOnly && !pathname.startsWith(pathOnly + '/')) return false
+    // If the href has query params, match the relevant ones too
+    if (queryStr) {
+      const hrefParams = new URLSearchParams(queryStr)
+      for (const [k, v] of hrefParams.entries()) {
+        if (searchParams.get(k) !== v) return false
+      }
+    }
+    return true
   }
 
   const isGroupActive = (group: NavGroup) => group.items.some(item => isItemActive(item.href))
