@@ -15,7 +15,7 @@ import { formatSafeDate } from '@/lib/utils/date'
 import { CreateReturnDialog } from './create-return-dialog'
 import { ReturnDetailsDialog } from './return-details-dialog'
 import { toast } from 'sonner'
-import { approveReturnAction, rejectReturnAction } from '@/actions/returns'
+import { approveReturnAction, rejectReturnAction, completeReturnAction } from '@/actions/returns'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -90,6 +90,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
   const [selected, setSelected]             = useState<ReturnRecord | null>(null)
   const [approvingId, setApprovingId]       = useState<string | null>(null)
   const [rejectingId, setRejectingId]       = useState<string | null>(null)
+  const [completingId, setCompletingId]     = useState<string | null>(null)
 
   // ── Metrics ─────────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -144,6 +145,21 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
       if (selected?.id === ret.id) setSelected(s => s ? { ...s, status: 'RECHAZADA' } : s)
     } else {
       toast.error(result.error || 'Error al rechazar')
+    }
+  }
+
+  const handleComplete = async (ret: ReturnRecord) => {
+    setCompletingId(ret.id)
+    const result = await completeReturnAction(ret.id)
+    setCompletingId(null)
+    if (result.success) {
+      toast.success(`Devolución ${ret.return_number} completada`, {
+        description: 'Stock restaurado exitosamente.',
+      })
+      setReturns(prev => prev.map(r => r.id === ret.id ? { ...r, status: 'COMPLETADA' } : r))
+      if (selected?.id === ret.id) setSelected(s => s ? { ...s, status: 'COMPLETADA' } : s)
+    } else {
+      toast.error('No se pudo completar', { description: result.error })
     }
   }
 
@@ -293,8 +309,10 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
                 filtered.map(ret => {
                   const items = Array.isArray(ret.returned_items) ? ret.returned_items : []
                   const isPending = ret.status === 'PENDIENTE'
+                  const isApproved = ret.status === 'APROBADA'
                   const isApproving = approvingId === ret.id
                   const isRejecting = rejectingId === ret.id
+                  const isCompleting = completingId === ret.id
 
                   return (
                     <tr key={ret.id} className="hover:bg-gray-50/60 transition-colors">
@@ -406,6 +424,23 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
                               </Button>
                             </>
                           )}
+
+                          {isApproved && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isCompleting}
+                              onClick={() => handleComplete(ret)}
+                              className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-1"
+                              title="Completar devolución"
+                            >
+                              {isCompleting
+                                ? <span className="h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                : <CheckCircle className="h-3.5 w-3.5" />
+                              }
+                              <span className="hidden sm:inline">Completar</span>
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -435,8 +470,10 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
           onClose={() => setSelected(null)}
           onApprove={() => handleApprove(selected)}
           onReject={() => handleReject(selected)}
+          onComplete={() => handleComplete(selected)}
           approving={approvingId === selected.id}
           rejecting={rejectingId === selected.id}
+          completing={completingId === selected.id}
         />
       )}
     </div>

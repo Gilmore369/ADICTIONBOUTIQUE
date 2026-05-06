@@ -17,8 +17,10 @@ interface ReturnDetailsDialogProps {
   onClose: () => void
   onApprove?: () => void
   onReject?: () => void
+  onComplete?: () => void
   approving?: boolean
   rejecting?: boolean
+  completing?: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -101,13 +103,16 @@ export function ReturnDetailsDialog({
   onClose,
   onApprove,
   onReject,
+  onComplete,
   approving,
   rejecting,
+  completing,
 }: ReturnDetailsDialogProps) {
   const items: ReturnedItem[] = Array.isArray(returnData.returned_items)
     ? returnData.returned_items
     : []
   const isPending = returnData.status === 'PENDIENTE'
+  const isApproved = returnData.status === 'APROBADA'
   const saleType = returnData.sales?.sale_type as 'CONTADO' | 'CREDITO' | undefined
 
   return (
@@ -266,33 +271,49 @@ export function ReturnDetailsDialog({
 
           {/* ── Effects note ────────────────────────────────────────────────── */}
           {returnData.status === 'APROBADA' && (
-            <div className="flex flex-col gap-1.5 px-3 py-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-              <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
+            <div className="flex flex-col gap-1.5 px-3 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
                 <CheckCircle className="h-3.5 w-3.5" />
-                Efectos registrados al aprobar
+                Devolución aprobada - Lista para completar
               </p>
               {saleType === 'CONTADO' && (
-                <p className="text-xs text-emerald-600">
+                <p className="text-xs text-blue-600">
                   💵 Egreso de {formatCurrency(Number(returnData.total_amount))} registrado en caja
                 </p>
               )}
               {saleType === 'CREDITO' && (
                 <>
-                  <p className="text-xs text-emerald-600">
+                  <p className="text-xs text-blue-600">
                     🏦 Plan de crédito cancelado y cuotas pendientes eliminadas
                   </p>
-                  <p className="text-xs text-emerald-600">
+                  <p className="text-xs text-blue-600">
                     ✅ Crédito del cliente restaurado por {formatCurrency(Number(returnData.total_amount))}
                   </p>
                 </>
               )}
               {!saleType && (
-                <p className="text-xs text-emerald-600">
+                <p className="text-xs text-blue-600">
                   💵 Efectos financieros registrados según tipo de venta
                 </p>
               )}
+              <p className="text-xs text-blue-600 font-semibold">
+                📦 Haz clic en "Completar devolución" para restaurar el stock
+              </p>
+            </div>
+          )}
+
+          {/* ── Completed note ──────────────────────────────────────────────── */}
+          {returnData.status === 'COMPLETADA' && (
+            <div className="flex flex-col gap-1.5 px-3 py-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
+                <CheckCircle className="h-3.5 w-3.5" />
+                Devolución completada exitosamente
+              </p>
               <p className="text-xs text-emerald-600">
-                📦 Stock se restituirá al completar
+                ✅ Stock restaurado al inventario
+              </p>
+              <p className="text-xs text-emerald-600">
+                💰 Reembolso procesado por {formatCurrency(Number(returnData.total_amount))}
               </p>
             </div>
           )}
@@ -344,6 +365,21 @@ export function ReturnDetailsDialog({
                   Aprobar devolución
                 </Button>
               </div>
+            )}
+
+            {isApproved && onComplete && (
+              <Button
+                size="sm"
+                disabled={completing}
+                onClick={onComplete}
+                className="gap-1.5 bg-blue-600 hover:bg-blue-700"
+              >
+                {completing
+                  ? <span className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <CheckCircle className="h-3.5 w-3.5" />
+                }
+                Completar devolución
+              </Button>
             )}
           </div>
           <Button variant="outline" size="sm" onClick={onClose}>Cerrar</Button>
