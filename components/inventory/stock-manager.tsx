@@ -234,17 +234,17 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
           const active = statusFilter === key
           const base = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer'
           const styles =
-            active && key === 'all'   ? 'bg-gray-900 text-white border-gray-900' :
+            active && key === 'all'   ? 'bg-primary text-primary-foreground border-primary' :
             active && color === 'amber' ? 'bg-amber-500 text-white border-amber-500' :
             active && color === 'red'  ? 'bg-red-500 text-white border-red-500' :
-            !active && color === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' :
-            !active && color === 'red'  ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
-            'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            !active && color === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900' :
+            !active && color === 'red'  ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900' :
+            'bg-card text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground'
           return (
             <button key={key} onClick={() => setStatusFilter(key)} className={`${base} ${styles}`}>
               {label}
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                active ? 'bg-white/30' : 'bg-gray-100 text-gray-500'
+                active ? 'bg-white/30' : 'bg-muted text-muted-foreground'
               }`}>{count}</span>
             </button>
           )
@@ -253,7 +253,7 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Buscar por producto, código o tienda..."
           value={search}
@@ -297,7 +297,7 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
                       <TableCell className="text-right font-semibold">
                         {item.quantity}
                       </TableCell>
-                      <TableCell className="text-right text-gray-500">
+                      <TableCell className="text-right text-muted-foreground">
                         {minStock}
                       </TableCell>
                       <TableCell>
@@ -308,7 +308,7 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
                           </Badge>
                         )}
                         {status === 'bajo' && (
-                          <Badge className="gap-1 bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100">
+                          <Badge className="gap-1 bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900">
                             <AlertTriangle className="h-3 w-3" />
                             Bajo
                           </Badge>
@@ -338,7 +338,7 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
       ))}
 
       {filteredStock.length === 0 && (
-        <Card className="p-8 text-center text-gray-500">
+        <Card className="p-8 text-center text-muted-foreground">
           No se encontraron productos
         </Card>
       )}

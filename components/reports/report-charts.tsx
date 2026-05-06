@@ -31,10 +31,10 @@ const truncate = (s: string, n = 18) => s?.length > n ? s.slice(0, n) + '…' : 
 // ─── Sub-componentes comunes ──────────────────────────────────────────────────
 function StatCard({ label, value, sub, color = C.emerald }: { label: string; value: string; sub?: string; color?: string }) {
   return (
-    <div className="bg-white border rounded-xl p-3 flex flex-col gap-0.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
-      <span className="text-lg font-bold tabular-nums text-gray-900" style={{ color }}>{value}</span>
-      {sub && <span className="text-[10px] text-gray-400">{sub}</span>}
+    <div className="bg-card border border-border rounded-lg p-3 flex flex-col gap-0.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-lg font-bold tabular-nums text-foreground" style={{ color }}>{value}</span>
+      {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
     </div>
   )
 }
@@ -42,7 +42,7 @@ function StatCard({ label, value, sub, color = C.emerald }: { label: string; val
 function ChartCard({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <Card className={`p-5 ${className}`}>
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">{title}</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-4">{title}</h3>
       {children}
     </Card>
   )
@@ -52,8 +52,8 @@ function ChartCard({ title, children, className = '' }: { title: string; childre
 const CustomTooltipCur = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
-      <p className="font-semibold text-gray-700 mb-1">{label}</p>
+    <div className="bg-popover text-popover-foreground border border-border rounded-lg shadow-lg p-3 text-xs">
+      <p className="font-semibold mb-1">{label}</p>
       {payload.map((p: any, i: number) => (
         <p key={i} style={{ color: p.color }}>{p.name}: {fCur(p.value)}</p>
       ))}
@@ -71,7 +71,7 @@ export const ReportCharts = forwardRef<HTMLDivElement, ReportChartsProps>(
   function ReportCharts({ data, reportType }, ref) {
     if (!data || data.length === 0) {
       return (
-        <Card className="p-8 text-center text-gray-400 text-sm">
+        <Card className="p-8 text-center text-muted-foreground text-sm">
           No hay datos suficientes para mostrar graficos
         </Card>
       )
@@ -122,7 +122,7 @@ export const ReportCharts = forwardRef<HTMLDivElement, ReportChartsProps>(
         default:
           return (
             <Card className="p-5 text-center text-gray-400 text-sm">
-              Grafico no disponible para este tipo de reporte
+              Gráfico no disponible para este tipo de reporte
             </Card>
           )
       }

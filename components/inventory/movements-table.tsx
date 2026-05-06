@@ -21,7 +21,9 @@ interface Movement {
   warehouse_id: string
   type: string
   quantity: number
-  reason: string
+  reason?: string
+  reference?: string
+  notes?: string
   created_at: string
   products?: {
     name: string
@@ -83,8 +85,8 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
         bValue = Math.abs(b.quantity)
         break
       case 'motivo':
-        aValue = a.reason || ''
-        bValue = b.reason || ''
+        aValue = a.reason || a.reference || a.notes || ''
+        bValue = b.reason || b.reference || b.notes || ''
         break
     }
 
@@ -110,7 +112,7 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
 
   if (data.length === 0) {
     return (
-      <Card className="p-8 text-center text-gray-500">
+      <Card className="p-8 text-center text-muted-foreground">
         No hay movimientos registrados
       </Card>
     )
@@ -127,7 +129,7 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
       {/* Store filter — hidden for single-store users */}
       {!singleStore && (
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm text-gray-500 font-medium">Tienda:</span>
+          <span className="text-sm text-muted-foreground font-medium">Tienda:</span>
           <div className="flex gap-1">
             {storeOptions.map(opt => (
               <button
@@ -135,8 +137,8 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
                 onClick={() => setStoreFilter(opt.value)}
                 className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
                   storeFilter === opt.value
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground'
                 }`}
               >
                 {opt.label}
@@ -144,7 +146,7 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
             ))}
           </div>
           {storeFilter !== 'all' && (
-            <span className="text-xs text-gray-400 ml-1">
+            <span className="text-xs text-muted-foreground ml-1">
               {filteredData.length} movimiento{filteredData.length !== 1 ? 's' : ''}
             </span>
           )}
@@ -228,7 +230,7 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
           <TableBody>
             {sortedData.length === 0 && (
               <TableRow>
-                <TableCell colSpan={singleStore ? 5 : 6} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={singleStore ? 5 : 6} className="text-center text-muted-foreground py-8">
                   No hay movimientos para la tienda seleccionada
                 </TableCell>
               </TableRow>
@@ -254,15 +256,15 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
                 <TableCell>
                   <div>
                     <div className="font-medium">{movement.products?.name}</div>
-                    <div className="text-xs text-gray-500">{movement.products?.barcode}</div>
+                    <div className="text-xs text-muted-foreground">{movement.products?.barcode}</div>
                   </div>
                 </TableCell>
                 {!singleStore && <TableCell>{movement.warehouse_id}</TableCell>}
                 <TableCell className="text-right font-semibold">
                   {movement.type === 'IN' || movement.type === 'ENTRADA' ? '+' : ''}{Math.abs(movement.quantity)}
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">
-                  {movement.reason || '-'}
+                <TableCell className="text-sm text-muted-foreground">
+                  {movement.reason || movement.reference || movement.notes || '-'}
                 </TableCell>
               </TableRow>
             ))}

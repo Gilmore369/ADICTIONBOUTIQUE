@@ -15,7 +15,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -147,7 +149,12 @@ function getDefaultDates(reportId: string) {
   return { startDate: firstOfMonth, endDate: today }
 }
 
-export function ReportsGenerator() {
+interface ReportsGeneratorProps {
+  initialCategory?: string
+  initialReport?: ReportTypeId
+}
+
+export function ReportsGenerator({ initialCategory, initialReport }: ReportsGeneratorProps) {
   const [selectedReport, setSelectedReport] = useState<ReportTypeId | null>(null)
   const [reportData, setReportData] = useState<any[]>([])
   const [insights, setInsights] = useState<Insight[]>([])
@@ -172,6 +179,22 @@ export function ReportsGenerator() {
     'MUJERES': 'Tienda Mujeres',
     'HOMBRES': 'Tienda Hombres',
   }
+
+  useEffect(() => {
+    if (initialReport) {
+      setSelectedReport(initialReport)
+      setFilters(f => ({ ...f, ...getDefaultDates(initialReport) }))
+      return
+    }
+
+    if (initialCategory) {
+      const first = Object.values(REPORT_TYPES).find(r => r.category === initialCategory)
+      if (first) {
+        setSelectedReport(first.id)
+        setFilters(f => ({ ...f, ...getDefaultDates(first.id) }))
+      }
+    }
+  }, [initialCategory, initialReport])
 
   // Sincronizar warehouse filter con el selector global de tienda del header
   useEffect(() => {
@@ -600,14 +623,14 @@ export function ReportsGenerator() {
               </SelectContent>
             </Select>
             {currentReport && (
-              <p className="text-xs text-gray-500 mt-2">{currentReport.description}</p>
+            <p className="text-xs text-muted-foreground mt-2">{currentReport.description}</p>
             )}
           </div>
 
           {selectedReport && (
             <div className="flex flex-col gap-2">
               {isLocked && lockedStoreName && lockedStoreName !== 'ALL' && (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-700">
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-700 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-300">
                   <Store className="h-3.5 w-3.5 flex-shrink-0" />
                   <span>Mostrando datos de: <strong>{filters.warehouse || lockedStoreName}</strong></span>
                 </div>
@@ -661,7 +684,7 @@ export function ReportsGenerator() {
                 )}
               </Label>
               {isLocked ? (
-                <div className="h-9 px-3 flex items-center border rounded-md bg-gray-50 text-sm text-gray-700">
+                <div className="h-9 px-3 flex items-center border rounded-md bg-muted text-sm text-muted-foreground">
                   {filters.warehouse || 'Tu tienda'}
                 </div>
               ) : (
@@ -701,7 +724,7 @@ export function ReportsGenerator() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">{currentReport?.name}</h2>
-                <p className="text-sm text-gray-500">{reportData.length} registros</p>
+                <p className="text-sm text-muted-foreground">{reportData.length} registros</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={exportCSV} disabled={loading}>
@@ -744,10 +767,10 @@ export function ReportsGenerator() {
                   <div className="space-y-2">
                     {insights.map((insight, idx) => (
                       <div key={idx} className={`p-3 rounded-lg border ${
-                        insight.type === 'error' ? 'bg-red-50 border-red-200' :
-                        insight.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
-                        insight.type === 'success' ? 'bg-green-50 border-green-200' :
-                        'bg-blue-50 border-blue-200'
+                        insight.type === 'error' ? 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900' :
+                        insight.type === 'warning' ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-900' :
+                        insight.type === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900' :
+                        'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900'
                       }`}>
                         <div className="flex items-start gap-2">
                           {insight.type === 'error' && <XCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />}
@@ -756,7 +779,7 @@ export function ReportsGenerator() {
                           {insight.type === 'info' && <Info className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />}
                           <div>
                             <p className="font-medium text-sm">{insight.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{insight.message}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{insight.message}</p>
                           </div>
                         </div>
                       </div>
@@ -765,7 +788,7 @@ export function ReportsGenerator() {
                 </Card>
               )}
 
-              <div className="text-xs text-gray-400 flex items-center gap-1 px-1">
+              <div className="text-xs text-muted-foreground flex items-center gap-1 px-1">
                 <ImageIcon className="h-3 w-3" />
                 Los graficos se incluyen automaticamente al exportar en PDF
               </div>
@@ -784,9 +807,9 @@ export function ReportsGenerator() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-gray-50">
+                    <tr className="border-b bg-muted/60">
                       {Object.keys(reportData[0]).map((h) => (
-                        <th key={h} className="px-3 py-2 text-left font-semibold text-xs text-gray-600 uppercase tracking-wide">
+                        <th key={h} className="px-3 py-2 text-left font-semibold text-xs text-muted-foreground uppercase tracking-wide">
                           {h.charAt(0).toUpperCase() + h.slice(1).replace(/([A-Z])/g, ' $1')}
                         </th>
                       ))}
@@ -794,7 +817,7 @@ export function ReportsGenerator() {
                   </thead>
                   <tbody>
                     {reportData.map((row: any, idx: number) => (
-                      <tr key={idx} className="border-b hover:bg-gray-50 transition-colors">
+                      <tr key={idx} className="border-b hover:bg-muted/50 transition-colors">
                         {Object.values(row).map((v: any, ci) => (
                           <td key={ci} className="px-3 py-2 text-xs tabular-nums">
                             {typeof v === 'number' && !Number.isInteger(v)

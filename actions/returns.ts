@@ -3,6 +3,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
+import { logAudit } from '@/lib/audit'
 
 const STORE_DISPLAY: Record<string, string> = {
   MUJERES: 'Tienda Mujeres',
@@ -304,11 +305,15 @@ export async function rejectReturnAction(returnId: string, adminNotes: string) {
 }
 
 export async function completeReturnAction(returnId: string, refundAmount?: number) {
+  const authClient = await createServerClient()
   const service = createServiceClient()
+
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { success: false, error: 'No autorizado' }
 
   const { data: returnRecord, error: fetchError } = await service
     .from('returns')
-    .select('returned_items, store_id, return_type, total_amount, client_id, sale_id, return_number, sale_number, status')
+    .select('id, returned_items, store_id, return_type, total_amount, client_id, sale_id, return_number, sale_number, status')
     .eq('id', returnId)
     .single()
 
@@ -317,6 +322,64 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
   }
   if (returnRecord.status !== 'APROBADA') {
     return { success: false, error: `Solo se pueden completar devoluciones en estado APROBADA (actual: ${returnRecord.status})` }
+  }
+
+  // ── Restaurar stock ───────────────────────────────────────────────────────
+  const returnedItems: Array<{ product_id?: string; quantity?: number }> =
+    Array.isArray(returnRecord?.returned_items) ? returnRecord.returned_items : []
+  const warehouseId = returnRecord.store_id
+
+  for (const item of returnedItems) {
+    if (!item.product_id || !item.quantity || item.quantity <= 0) continue
+    const { error: stockError } = await service.rpc('increment_stock', {
+      p_warehouse_id: warehouseId,
+      p_product_id: item.product_id,
+      p_quantity: item.quantity,
+    })
+    if (stockError) {
+      // Fallback: direct UPDATE
+      const { data: existing } = await service
+        .from('stock')
+        .select('quantity')
+        .eq('warehouse_id', warehouseId)
+        .eq('product_id', item.product_id)
+        .maybeSingle()
+      if (existing) {
+        const { error: updateStockError } = await service
+          .from('stock')
+          .update({ quantity: (existing.quantity ?? 0) + item.quantity })
+          .eq('warehouse_id', warehouseId)
+          .eq('product_id', item.product_id)
+        if (updateStockError) {
+          return { success: false, error: `No se pudo restaurar stock: ${updateStockError.message}` }
+        }
+      } else {
+        const { error: insertStockError } = await service
+          .from('stock')
+          .insert({
+            warehouse_id: warehouseId,
+            product_id: item.product_id,
+            quantity: item.quantity,
+          })
+        if (insertStockError) {
+          return { success: false, error: `No se pudo crear stock restaurado: ${insertStockError.message}` }
+        }
+      }
+    }
+
+    const { error: movementError } = await service.from('movements').insert({
+      warehouse_id: warehouseId,
+      product_id: item.product_id,
+      type: 'ENTRADA',
+      quantity: item.quantity,
+      reference: `Devolución ${returnRecord.return_number}`,
+      notes: `Stock restaurado al completar devolución de venta ${returnRecord.sale_number}`,
+      user_id: user.id,
+    })
+
+    if (movementError) {
+      return { success: false, error: `Stock restaurado, pero falló el movimiento: ${movementError.message}` }
+    }
   }
 
   const { data, error } = await service
@@ -331,34 +394,23 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     return { success: false, error: error.message }
   }
 
-  // ── Restaurar stock ───────────────────────────────────────────────────────
-  const returnedItems: Array<{ product_id?: string; quantity?: number }> =
-    Array.isArray(returnRecord?.returned_items) ? returnRecord.returned_items : []
-
-  for (const item of returnedItems) {
-    if (!item.product_id || !item.quantity || item.quantity <= 0) continue
-    const { error: stockError } = await service.rpc('increment_stock', {
-      p_product_id: item.product_id,
-      p_quantity:   item.quantity,
-    })
-    if (stockError) {
-      // Fallback: direct UPDATE
-      const { data: existing } = await service
-        .from('stock')
-        .select('quantity')
-        .eq('product_id', item.product_id)
-        .maybeSingle()
-      if (existing) {
-        await service
-          .from('stock')
-          .update({ quantity: (existing.quantity ?? 0) + item.quantity })
-          .eq('product_id', item.product_id)
-      }
-    }
-  }
+  await logAudit({
+    userId: user.id,
+    action: 'UPDATE',
+    entityType: 'return',
+    entityId: returnId,
+    entityName: returnRecord.return_number,
+    detail: `Devolución completada. Stock restaurado para ${returnedItems.length} producto(s).`,
+    store: warehouseId,
+    oldValues: { status: returnRecord.status },
+    newValues: { status: 'COMPLETADA', refund_amount: refundAmount ?? Number(returnRecord.total_amount) },
+  })
 
   revalidatePath('/returns')
   revalidatePath('/inventory/stock')
+  revalidatePath('/inventory/movements')
+  revalidatePath('/admin/logs')
+  revalidatePath('/reports')
   revalidatePath('/cash')
   return { success: true, data }
 }

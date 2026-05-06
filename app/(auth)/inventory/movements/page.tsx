@@ -56,7 +56,7 @@ async function MovementsData() {
 
   if (error) {
     console.error('Error loading movements:', error)
-    return <div className="text-center text-gray-500 py-8">Error al cargar movimientos</div>
+    return <div className="text-center text-muted-foreground py-8">Error al cargar movimientos</div>
   }
 
   const normalizedMovements = (movements || []).map(m => ({
@@ -76,8 +76,8 @@ export default function MovementsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Movimientos de Inventario</h1>
-        <p className="text-sm text-gray-600 mt-1">
+        <h1 className="text-2xl font-semibold text-foreground">Movimientos de Inventario</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Historial de entradas y salidas de productos
         </p>
       </div>
