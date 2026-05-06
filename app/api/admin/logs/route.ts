@@ -4,7 +4,7 @@
  *   sales, payments, movements, collection_actions, audit_logs
  * Query params:
  *   limit    (default 200, max 500)
- *   category (all | ventas | cobros | inventario | cobranzas | ediciones)
+ *   category (all | ventas | cobros | inventario | cobranzas | devoluciones | ediciones)
  *   user_id  (filter by specific user)
  */
 
@@ -140,13 +140,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Ediciones / Borrados (audit_logs) ────────────────────────────────────
-  if (category === 'all' || category === 'ediciones') {
+  // ── Devoluciones y ediciones / borrados (audit_logs) ─────────────────────
+  if (category === 'all' || category === 'ediciones' || category === 'devoluciones') {
     let q = supabase
       .from('audit_logs')
       .select('id, created_at, user_id, action, entity_type, entity_id, entity_name, detail, store, users:user_id(name)')
       .order('created_at', { ascending: false })
       .limit(limit)
+    if (category === 'ediciones') q = q.neq('entity_type', 'return') as typeof q
+    if (category === 'devoluciones') q = q.eq('entity_type', 'return') as typeof q
     if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
     if (dateFrom) q = q.gte('created_at', dateFrom) as typeof q
     if (dateTo) q = q.lte('created_at', dateTo) as typeof q
@@ -158,18 +160,32 @@ export async function GET(request: NextRequest) {
         catalog_line: 'Línea', catalog_category: 'Categoría',
         catalog_brand: 'Marca', catalog_size: 'Talla',
         catalog_supplier: 'Proveedor', product_image: 'Imagen',
-        stock: 'Stock',
+        stock: 'Stock', 'return': 'Devolucion',
       }
+      const isReturn = r.entity_type === 'return'
+      const detail = r.detail || (r.entity_name ? `"${r.entity_name}"` : r.entity_id || '—')
+      const detailLower = String(detail).toLowerCase()
+      const returnAction = detailLower.includes('complet')
+        ? 'Devolucion completada'
+        : detailLower.includes('aprob')
+          ? 'Devolucion aprobada'
+          : detailLower.includes('rechaz')
+            ? 'Devolucion rechazada'
+            : detailLower.includes('cread')
+              ? 'Devolucion creada'
+              : `${actionLabel}: Devolucion`
       entries.push({
         id: `aud-${r.id}`,
-        category: 'edicion',
-        action: `${actionLabel}: ${entityLabel[r.entity_type] || r.entity_type}`,
-        detail: r.detail || (r.entity_name ? `"${r.entity_name}"` : r.entity_id || '—'),
+        category: isReturn ? 'devolucion' : 'edicion',
+        action: isReturn ? returnAction : `${actionLabel}: ${entityLabel[r.entity_type] || r.entity_type}`,
+        detail,
         store: r.store || null,
         user_id: r.user_id,
         user_name: (r.users as any)?.name || '—',
         created_at: r.created_at,
-        severity: r.action === 'DELETE' ? 'warning' : 'info',
+        severity: isReturn
+          ? (detailLower.includes('rechaz') ? 'warning' : detailLower.includes('complet') ? 'success' : 'info')
+          : (r.action === 'DELETE' ? 'warning' : 'info'),
       })
     }
   }

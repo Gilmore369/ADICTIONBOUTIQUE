@@ -60,6 +60,22 @@ async function enrichReturnedItems(service: ReturnType<typeof createServiceClien
   }))
 }
 
+function summarizeReturnedItemsForAudit(items: any[]) {
+  const safeItems = Array.isArray(items) ? items : []
+  const parts = safeItems
+    .filter((item) => item?.product_id && Number(item?.quantity) > 0)
+    .map((item) => {
+      const label =
+        item.product_name ||
+        item.base_name ||
+        item.product_barcode ||
+        (item.product_id ? `ID ${String(item.product_id).slice(0, 8)}` : 'Producto')
+      return `${Number(item.quantity)} x ${label}`
+    })
+
+  return parts.length > 0 ? parts.join(', ') : 'sin productos'
+}
+
 export async function getReturnsAction(userStores?: string[], selectedStore?: string) {
   const service = createServiceClient()
 
@@ -104,6 +120,8 @@ export async function createReturnAction(formData: {
   notes?: string
 }) {
   const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autorizado' }
 
   const { data: returnNumber } = await supabase.rpc('generate_return_number')
 
@@ -133,7 +151,25 @@ export async function createReturnAction(formData: {
     return { success: false, error: error.message }
   }
 
+  await logAudit({
+    userId: user.id,
+    action: 'CREATE',
+    entityType: 'return',
+    entityId: data.id,
+    entityName: data.return_number,
+    detail: `Devolucion creada para venta ${formData.saleNumber}. Productos: ${summarizeReturnedItemsForAudit(formData.returnedItems)}.`,
+    store: formData.storeId,
+    oldValues: null,
+    newValues: {
+      status: 'PENDIENTE',
+      sale_number: formData.saleNumber,
+      total_amount: formData.totalAmount,
+      returned_items: formData.returnedItems,
+    },
+  })
+
   revalidatePath('/returns')
+  revalidatePath('/admin/logs')
   return { success: true, data }
 }
 
@@ -328,16 +364,37 @@ export async function approveReturnAction(returnId: string) {
     }
   }
 
+  await logAudit({
+    userId: user.id,
+    action: 'UPDATE',
+    entityType: 'return',
+    entityId: returnId,
+    entityName: ret.return_number,
+    detail: `Devolucion aprobada para venta ${ret.sale_number}. Tipo ${saleType}. Monto S/ ${returnAmount.toFixed(2)}.`,
+    store: ret.store_id,
+    oldValues: { status: ret.status },
+    newValues: { status: 'APROBADA', sale_type: saleType, total_amount: returnAmount },
+  })
+
   revalidatePath('/returns')
   revalidatePath('/cash')
   revalidatePath('/clients')
   revalidatePath('/debt')
   revalidatePath('/collections')
+  revalidatePath('/admin/logs')
   return { success: true, data, saleType }
 }
 
 export async function rejectReturnAction(returnId: string, adminNotes: string) {
   const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'No autorizado' }
+
+  const { data: previous } = await supabase
+    .from('returns')
+    .select('id, return_number, sale_number, status, store_id')
+    .eq('id', returnId)
+    .maybeSingle()
 
   const { data, error } = await supabase
     .from('returns')
@@ -351,7 +408,20 @@ export async function rejectReturnAction(returnId: string, adminNotes: string) {
     return { success: false, error: error.message }
   }
 
+  await logAudit({
+    userId: user.id,
+    action: 'UPDATE',
+    entityType: 'return',
+    entityId: returnId,
+    entityName: previous?.return_number || data.return_number,
+    detail: `Devolucion rechazada${previous?.sale_number ? ` para venta ${previous.sale_number}` : ''}. ${adminNotes || 'Sin notas adicionales.'}`,
+    store: previous?.store_id || data.store_id,
+    oldValues: { status: previous?.status || null },
+    newValues: { status: 'RECHAZADA', admin_notes: adminNotes },
+  })
+
   revalidatePath('/returns')
+  revalidatePath('/admin/logs')
   return { success: true, data }
 }
 
@@ -375,17 +445,21 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     return { success: false, error: `Solo se pueden completar devoluciones en estado APROBADA (actual: ${returnRecord.status})` }
   }
 
+  const [enrichedReturnRecord] = await enrichReturnedItems(service, [returnRecord])
+
   // ── Restaurar stock ───────────────────────────────────────────────────────
-  const returnedItems: Array<{ product_id?: string; quantity?: number }> =
-    Array.isArray(returnRecord?.returned_items) ? returnRecord.returned_items : []
+  const returnedItems: Array<{ product_id?: string; quantity?: number; product_name?: string; base_name?: string; product_barcode?: string }> =
+    Array.isArray(enrichedReturnRecord?.returned_items) ? enrichedReturnRecord.returned_items : []
   const warehouseId = returnRecord.store_id
+  const restoredItems: typeof returnedItems = []
 
   for (const item of returnedItems) {
-    if (!item.product_id || !item.quantity || item.quantity <= 0) continue
+    const quantity = Number(item.quantity)
+    if (!item.product_id || !quantity || quantity <= 0) continue
     const { error: stockError } = await service.rpc('increment_stock', {
       p_warehouse_id: warehouseId,
       p_product_id: item.product_id,
-      p_quantity: item.quantity,
+      p_quantity: quantity,
     })
     if (stockError) {
       // Fallback: direct UPDATE
@@ -398,7 +472,7 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
       if (existing) {
         const { error: updateStockError } = await service
           .from('stock')
-          .update({ quantity: (existing.quantity ?? 0) + item.quantity })
+          .update({ quantity: (existing.quantity ?? 0) + quantity })
           .eq('warehouse_id', warehouseId)
           .eq('product_id', item.product_id)
         if (updateStockError) {
@@ -410,7 +484,7 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
           .insert({
             warehouse_id: warehouseId,
             product_id: item.product_id,
-            quantity: item.quantity,
+            quantity,
           })
         if (insertStockError) {
           return { success: false, error: `No se pudo crear stock restaurado: ${insertStockError.message}` }
@@ -422,15 +496,17 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
       warehouse_id: warehouseId,
       product_id: item.product_id,
       type: 'ENTRADA',
-      quantity: item.quantity,
+      quantity,
       reference: `Devolución ${returnRecord.return_number}`,
-      notes: `Stock restaurado al completar devolución de venta ${returnRecord.sale_number}`,
+      notes: `Ingreso por devolucion completada de venta ${returnRecord.sale_number}`,
       user_id: user.id,
     })
 
     if (movementError) {
       return { success: false, error: `Stock restaurado, pero falló el movimiento: ${movementError.message}` }
     }
+
+    restoredItems.push({ ...item, quantity })
   }
 
   const { data, error } = await service
@@ -451,10 +527,18 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     entityType: 'return',
     entityId: returnId,
     entityName: returnRecord.return_number,
-    detail: `Devolución completada. Stock restaurado para ${returnedItems.length} producto(s).`,
+    detail: `Devolucion completada. Ingreso de stock registrado: ${summarizeReturnedItemsForAudit(restoredItems)}.`,
     store: warehouseId,
     oldValues: { status: returnRecord.status },
-    newValues: { status: 'COMPLETADA', refund_amount: refundAmount ?? Number(returnRecord.total_amount) },
+    newValues: {
+      status: 'COMPLETADA',
+      refund_amount: refundAmount ?? Number(returnRecord.total_amount),
+      stock_restored: restoredItems.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        product_name: item.product_name || item.base_name || null,
+      })),
+    },
   })
 
   revalidatePath('/returns')
