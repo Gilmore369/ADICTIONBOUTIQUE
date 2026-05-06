@@ -1,0 +1,271 @@
+# 🗄️ MIGRACIONES A EJECUTAR EN SUPABASE
+
+## 📋 Orden de Ejecución
+
+Ejecutar estas 4 migraciones **EN ORDEN** en Supabase Dashboard → SQL Editor:
+
+### 1️⃣ Migración 1: Idempotency Key para Pagos
+**Archivo:** `20260504000001_payments_idempotency_key.sql`
+
+```sql
+-- ============================================================================
+-- Add idempotency_key to payments
+-- ============================================================================
+-- Without this, a double-clicked "Registrar pago" button or a network retry
+-- can create two payment rows for the same intent and apply the cuota twice.
+-- The client now sends a UUID (idempotency_key) per payment attempt; if the
+-- DB already has a row with that key, processPayment short-circuits and
+-- returns the existing payment instead of re-applying.
+--
+-- Nullable for backward compatibility — payments inserted by older code paths
+-- (and seed data) don't have one. UNIQUE WHERE NOT NULL prevents collisions
+-- on real keys without forcing a value on legacy rows.
+-- ============================================================================
+
+SET search_path = public, pg_temp;
+
+ALTER TABLE public.payments
+  ADD COLUMN IF NOT EXISTS idempotency_key UUID;
+
+CREATE UNIQUE INDEX IF NOT EXISTS payments_idempotency_key_unique
+  ON public.payments (idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+
+COMMENT ON COLUMN public.payments.idempotency_key IS
+  'Client-generated UUID per payment attempt. processPayment uses it to dedupe duplicate submissions (double-click, retry).';
+```
+
+---
+
+### 2️⃣ Migración 2: Estado VOIDED para Cuotas
+**Archivo:** `20260504000002_installments_voided_status.sql`
+
+```sql
+-- ============================================================================
+-- Allow status='VOIDED' on installments
+-- ============================================================================
+-- voidSale() needs to mark installments as VOIDED when their parent sale is
+-- annulled, so they stop appearing in collections / overdue reports without
+-- losing the row (we keep it for audit history).
+--
+-- The original CHECK constraint only allowed PENDING/PARTIAL/PAID/OVERDUE.
+-- ============================================================================
+
+SET search_path = public, pg_temp;
+
+ALTER TABLE public.installments
+  DROP CONSTRAINT IF EXISTS installments_status_check;
+
+ALTER TABLE public.installments
+  ADD CONSTRAINT installments_status_check
+  CHECK (status IN ('PENDING', 'PARTIAL', 'PAID', 'OVERDUE', 'VOIDED'));
+```
+
+---
+
+### 3️⃣ Migración 3: Función Incrementar Stock
+**Archivo:** `20260504000003_increment_stock_rpc.sql`
+
+```sql
+-- ============================================================================
+-- increment_stock(p_warehouse_id, p_product_id, p_quantity)
+-- ============================================================================
+-- Counterpart of decrement_stock — used by voidSale() and approveReturnAction
+-- to put units back when a sale is annulled or a product is returned.
+--
+-- Uses SELECT ... FOR UPDATE to serialize concurrent updates on the same row.
+-- Inserts a row if the (warehouse, product) pair doesn't have one yet
+-- (sale could have used cross-store fallback in older code paths).
+-- ============================================================================
+
+SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION public.increment_stock(
+  p_warehouse_id TEXT,
+  p_product_id   UUID,
+  p_quantity     INTEGER
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+BEGIN
+  IF p_quantity IS NULL OR p_quantity <= 0 THEN
+    RAISE EXCEPTION 'increment_stock: p_quantity must be > 0 (got %)', p_quantity;
+  END IF;
+
+  -- Lock the (warehouse, product) row for the transaction; create if missing.
+  PERFORM 1
+  FROM public.stock
+  WHERE warehouse_id = p_warehouse_id
+    AND product_id = p_product_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    INSERT INTO public.stock (warehouse_id, product_id, quantity)
+    VALUES (p_warehouse_id, p_product_id, p_quantity)
+    ON CONFLICT (warehouse_id, product_id)
+    DO UPDATE SET quantity = public.stock.quantity + EXCLUDED.quantity;
+    RETURN;
+  END IF;
+
+  UPDATE public.stock
+  SET quantity = quantity + p_quantity
+  WHERE warehouse_id = p_warehouse_id
+    AND product_id = p_product_id;
+END;
+$;
+
+COMMENT ON FUNCTION public.increment_stock(TEXT, UUID, INTEGER) IS
+  'Atomically returns N units to stock. Used by voidSale and returns flow.';
+```
+
+---
+
+### 4️⃣ Migración 4: Función Peek Sale Number
+**Archivo:** `20260504000004_peek_sale_number_seq.sql`
+
+```sql
+-- ============================================================================
+-- peek_sale_number_seq() — read last_value of sale_number_seq without advancing
+-- ============================================================================
+-- /api/sales/next-number used to read the latest sale and add 1, which races
+-- with concurrent inserts and could crash one of two simultaneous POS sales.
+--
+-- The actual sale number is generated by `generate_sale_number()` (which
+-- calls nextval). For UI preview we only need to *peek* at the next value,
+-- without burning a number.
+-- ============================================================================
+
+SET search_path = public, pg_temp;
+
+CREATE OR REPLACE FUNCTION public.peek_sale_number_seq()
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $
+  -- pg_sequences.last_value is the last value handed out by nextval.
+  -- If the sequence has never been called, last_value is the start (1).
+  SELECT COALESCE(last_value, 0) FROM public.sale_number_seq;
+$;
+
+COMMENT ON FUNCTION public.peek_sale_number_seq() IS
+  'Returns the last value emitted by sale_number_seq without advancing it. Used by /api/sales/next-number for read-only UI preview.';
+
+GRANT EXECUTE ON FUNCTION public.peek_sale_number_seq() TO authenticated;
+```
+
+---
+
+## 🎯 Qué Hace Cada Migración
+
+### Migración 1: Idempotency Key
+- **Problema:** Doble clic en "Registrar pago" crea pagos duplicados
+- **Solución:** Agrega campo UUID único para evitar duplicados
+- **Impacto:** Previene errores de pagos duplicados
+
+### Migración 2: Estado VOIDED
+- **Problema:** No se pueden anular cuotas cuando se anula una venta
+- **Solución:** Agrega estado "VOIDED" a las cuotas
+- **Impacto:** Permite anular ventas a crédito correctamente
+
+### Migración 3: Incrementar Stock
+- **Problema:** No hay función para devolver stock al inventario
+- **Solución:** Crea función `increment_stock()` para devoluciones
+- **Impacto:** Permite anular ventas y procesar devoluciones
+
+### Migración 4: Peek Sale Number
+- **Problema:** Race condition al generar números de venta
+- **Solución:** Función para leer próximo número sin consumirlo
+- **Impacto:** Previene errores en POS con ventas simultáneas
+
+---
+
+## 📋 Checklist de Ejecución
+
+### Antes de Ejecutar:
+- [ ] Hacer backup de la base de datos
+- [ ] Verificar que no hay ventas en proceso
+- [ ] Tener acceso a Supabase Dashboard
+
+### Ejecutar en Orden:
+- [ ] 1️⃣ Migración 1: `payments_idempotency_key`
+- [ ] 2️⃣ Migración 2: `installments_voided_status`
+- [ ] 3️⃣ Migración 3: `increment_stock_rpc`
+- [ ] 4️⃣ Migración 4: `peek_sale_number_seq`
+
+### Después de Ejecutar:
+- [ ] Verificar que no hay errores
+- [ ] Probar funcionalidades críticas
+- [ ] Verificar que el POS funciona
+- [ ] Probar pagos y cuotas
+
+---
+
+## 🔍 Verificación Post-Migración
+
+### Verificar Columna Idempotency Key:
+```sql
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'payments' AND column_name = 'idempotency_key';
+```
+
+### Verificar Estado VOIDED:
+```sql
+SELECT constraint_name, check_clause
+FROM information_schema.check_constraints
+WHERE constraint_name = 'installments_status_check';
+```
+
+### Verificar Función Increment Stock:
+```sql
+SELECT routine_name, routine_type
+FROM information_schema.routines
+WHERE routine_name = 'increment_stock';
+```
+
+### Verificar Función Peek Sale Number:
+```sql
+SELECT routine_name, routine_type
+FROM information_schema.routines
+WHERE routine_name = 'peek_sale_number_seq';
+```
+
+---
+
+## 🆘 Si Algo Sale Mal
+
+### Error en Migración 1:
+- Verificar que la tabla `payments` existe
+- Verificar permisos de ALTER TABLE
+
+### Error en Migración 2:
+- Verificar que la tabla `installments` existe
+- Verificar que no hay cuotas con estados inválidos
+
+### Error en Migración 3:
+- Verificar que la tabla `stock` existe
+- Verificar permisos para crear funciones
+
+### Error en Migración 4:
+- Verificar que la secuencia `sale_number_seq` existe
+- Verificar permisos para crear funciones
+
+---
+
+## 🎉 Resultado Final
+
+Después de ejecutar todas las migraciones:
+- ✅ Pagos duplicados prevenidos
+- ✅ Anulación de ventas a crédito funcional
+- ✅ Devoluciones de stock implementadas
+- ✅ Race conditions en POS solucionadas
+- ✅ Sistema más robusto y confiable
+
+---
+
+**Tiempo estimado:** 5-10 minutos  
+**Dificultad:** Media  
+**Impacto:** Alto (mejoras críticas de estabilidad)

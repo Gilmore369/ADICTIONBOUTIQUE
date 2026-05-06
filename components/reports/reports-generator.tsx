@@ -18,8 +18,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  SelectGroup,
-  SelectLabel
 } from '@/components/ui/select'
 import { REPORT_TYPES, ReportTypeId, ReportFilters } from '@/lib/reports/report-types'
 import { generateInsights, Insight } from '@/lib/reports/insights'
@@ -38,7 +36,14 @@ import {
   Info,
   XCircle,
   Image as ImageIcon,
-  Store
+  Store,
+  Package,
+  ShoppingCart,
+  Truck,
+  Users,
+  Wallet,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { ReportCharts } from './report-charts'
 import {

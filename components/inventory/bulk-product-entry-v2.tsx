@@ -687,7 +687,7 @@ export function BulkProductEntryV2() {
                 onValueChange={setWarehouse}
                 disabled={selectedStore !== 'ALL'} // Lock when store filter is active
               >
-                <SelectTrigger className={selectedStore !== 'ALL' ? 'bg-gray-50 dark:bg-slate-900/40' : ''}>
+                <SelectTrigger className={selectedStore !== 'ALL' ? 'bg-muted/30' : ''}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -738,12 +738,12 @@ export function BulkProductEntryV2() {
                   <button
                     key={idx}
                     onClick={() => loadExistingModel(model)}
-                    className="w-full p-3 text-left bg-white dark:bg-slate-900 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                    className="w-full p-3 text-left bg-card border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
                   >
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-semibold text-sm">{model.baseName}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <p className="text-xs text-muted-foreground">
                           Código: {model.baseCode} • {model.variants?.length || 0} variantes
                         </p>
                       </div>
@@ -757,7 +757,7 @@ export function BulkProductEntryV2() {
             )}
 
             {searching && (
-              <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-center text-sm text-muted-foreground">
                 Buscando...
               </div>
             )}
@@ -771,18 +771,18 @@ export function BulkProductEntryV2() {
           <Card key={model.id} className="overflow-hidden">
             {/* Model Header */}
             <div 
-              className="p-4 bg-gray-50 dark:bg-slate-900/40 border-b flex items-center justify-between cursor-pointer"
+              className="p-4 bg-muted/30 border-b flex items-center justify-between cursor-pointer"
               onClick={() => toggleExpanded(model.id)}
             >
               <div className="flex items-center gap-3">
-                <Package className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                <Package className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <h3 className="font-semibold">
                     Modelo {index + 1}
                     {model.baseName && `: ${model.baseName}`}
                   </h3>
                   {getTotalUnits(model) > 0 && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       {getTotalUnits(model)} unidades en {model.variants.length} tallas
                     </p>
                   )}
@@ -807,9 +807,9 @@ export function BulkProductEntryV2() {
                   </Button>
                 )}
                 {model.expanded ? (
-                  <ChevronUp className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                  <ChevronUp className="h-5 w-5 text-muted-foreground/70" />
                 ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                  <ChevronDown className="h-5 w-5 text-muted-foreground/70" />
                 )}
               </div>
             </div>
@@ -828,8 +828,8 @@ export function BulkProductEntryV2() {
                       : (
                         <>
                           Se genera al seleccionar <strong>categoría</strong> (y opcionalmente marca).
-                          Formato: <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded text-[10px]">MARCA-CATEGORÍA-NÚMERO</code>
-                          {' '}(ej: <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded text-[10px]">NIK-BIL-001</code>) o <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded text-[10px]">CATEGORÍA-NÚMERO</code> si no eliges marca.
+                          Formato: <code className="bg-card px-1 py-0.5 rounded text-[10px]">MARCA-CATEGORÍA-NÚMERO</code>
+                          {' '}(ej: <code className="bg-card px-1 py-0.5 rounded text-[10px]">NIK-BIL-001</code>) o <code className="bg-card px-1 py-0.5 rounded text-[10px]">CATEGORÍA-NÚMERO</code> si no eliges marca.
                         </>
                       )}
                   </p>
@@ -859,7 +859,7 @@ export function BulkProductEntryV2() {
                         <Wand2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {model.baseCode
                         ? 'Código del modelo (compartido por todos los colores)'
                         : 'Se genera al seleccionar categoría · o escribe uno manualmente'}
@@ -956,7 +956,7 @@ export function BulkProductEntryV2() {
                       onChange={value => updateModel(model.id, 'color', value)}
                       placeholder="Color del modelo"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       {model.baseCode
                         ? '⚠️ Ingresa el NUEVO color que quieres agregar a este modelo'
                         : 'Se aplica a todas las tallas. Puedes personalizar por talla más abajo.'}
@@ -971,7 +971,7 @@ export function BulkProductEntryV2() {
                       onChange={value => updateModel(model.id, 'imageUrl', value)}
                       onRemove={() => updateModel(model.id, 'imageUrl', '')}
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Imagen compartida por todas las tallas del modelo
                     </p>
                   </div>
@@ -1048,7 +1048,7 @@ export function BulkProductEntryV2() {
                     <Label className="text-sm font-semibold">
                       Seleccionar Tallas <span className="text-red-500">*</span>
                     </Label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       Selecciona al menos una talla y asigna cantidades
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -1061,7 +1061,7 @@ export function BulkProductEntryV2() {
                               flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer transition-colors
                               ${isSelected 
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
-                                : 'border-gray-200 dark:border-slate-700 hover:border-gray-300'
+                                : 'border-border hover:border-gray-300'
                               }
                             `}
                           >
@@ -1090,7 +1090,7 @@ export function BulkProductEntryV2() {
                     </Label>
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-slate-900/40 border-b">
+                        <thead className="bg-muted/30 border-b">
                           <tr>
                             <th className="text-left p-3 font-semibold">Talla</th>
                             <th className="text-left p-3 font-semibold">Código de Barras *</th>
@@ -1102,9 +1102,9 @@ export function BulkProductEntryV2() {
                           {model.variants.map((variant, idx) => {
                             const hasCustomColor = variant.color && variant.color !== model.color
                             return (
-                              <tr key={variant.sizeId} className={idx % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-gray-50 dark:bg-slate-900/40'}>
+                              <tr key={variant.sizeId} className={idx % 2 === 0 ? 'bg-card' : 'bg-muted/30'}>
                                 <td className="p-3">
-                                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                                  <span className="font-semibold text-foreground/85">
                                     {variant.sizeName}
                                   </span>
                                 </td>
@@ -1155,15 +1155,15 @@ export function BulkProductEntryV2() {
                         </tbody>
                       </table>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      💡 Tip: Escribe el código de barras o escanéalo con un lector. Si lo dejas vacío, se generará automáticamente como <code className="bg-gray-100 dark:bg-slate-800 px-1 rounded">CODIGO-TALLA</code>. El color y código son personalizables por talla.
+                    <p className="text-xs text-muted-foreground mt-2">
+                      💡 Tip: Escribe el código de barras o escanéalo con un lector. Si lo dejas vacío, se generará automáticamente como <code className="bg-muted px-1 rounded">CODIGO-TALLA</code>. El color y código son personalizables por talla.
                     </p>
                   </div>
                 )}
 
                 {model.categoryId && categorySizes.length === 0 && (
                   <div className="border-t pt-4 text-center space-y-3">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-muted-foreground">
                       Esta categoría no tiene tallas configuradas
                     </p>
                     <Button

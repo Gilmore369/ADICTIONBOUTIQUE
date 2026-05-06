@@ -273,33 +273,33 @@ export function SmartPaymentPanel() {
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* ── LEFT: Form (3/5) ─────────────────────────────────────────────── */}
       <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-5">
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm p-5">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Registrar Pago</h2>
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+          <h2 className="text-base font-semibold text-foreground mb-4">Registrar Pago</h2>
 
           {/* Client search */}
           <div className="space-y-2 mb-4">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cliente *</label>
+            <label className="text-sm font-medium text-foreground/85">Cliente *</label>
             <div className="relative">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={e => { setSearchQuery(e.target.value); if (!e.target.value) clearClient() }}
                   placeholder="Buscar por nombre, DNI o teléfono..."
-                  className="w-full pl-9 pr-8 h-10 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-8 h-10 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoComplete="off"
                 />
-                {searchLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400 dark:text-gray-500" />}
+                {searchLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground/70" />}
                 {selectedClient && !searchLoading && (
-                  <button type="button" onClick={clearClient} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600">
+                  <button type="button" onClick={clearClient} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-gray-600">
                     <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
               {/* Dropdown */}
               {showDropdown && searchResults.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-lg max-h-56 overflow-y-auto">
+                <div className="absolute z-50 mt-1 w-full bg-card rounded-lg border border-border shadow-lg max-h-56 overflow-y-auto">
                   {searchResults.map(c => (
                     <button
                       key={c.id}
@@ -308,10 +308,10 @@ export function SmartPaymentPanel() {
                       className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center justify-between gap-3"
                     >
                       <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{c.name}</div>
-                        <div className="text-xs text-gray-400 dark:text-gray-500">{c.dni} {c.phone ? `· ${c.phone}` : ''}</div>
+                        <div className="text-sm font-medium text-foreground">{c.name}</div>
+                        <div className="text-xs text-muted-foreground/70">{c.dni} {c.phone ? `· ${c.phone}` : ''}</div>
                       </div>
-                      <ArrowRight className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -321,31 +321,31 @@ export function SmartPaymentPanel() {
 
           {/* Client preview */}
           {clientLoading && (
-            <div className="flex items-center gap-2 py-3 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Cargando datos del cliente...
             </div>
           )}
           {selectedClient && !clientLoading && (
-            <div className="bg-gray-50 dark:bg-slate-900/40 rounded-lg p-3.5 mb-4 flex flex-wrap gap-4 items-center">
+            <div className="bg-muted/30 rounded-lg p-3.5 mb-4 flex flex-wrap gap-4 items-center">
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{selectedClient.name}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{selectedClient.dni} {selectedClient.phone ? `· ${selectedClient.phone}` : ''}</div>
+                <div className="font-semibold text-foreground truncate">{selectedClient.name}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{selectedClient.dni} {selectedClient.phone ? `· ${selectedClient.phone}` : ''}</div>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
                 <div className="text-center">
-                  <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(selectedClient.totalDebt)}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500">Deuda total</div>
+                  <div className="text-sm font-bold text-foreground">{formatCurrency(selectedClient.totalDebt)}</div>
+                  <div className="text-xs text-muted-foreground/70">Deuda total</div>
                 </div>
                 <div className="text-center">
                   <div className="text-sm font-bold text-red-600">{formatCurrency(selectedClient.overdueDebt)}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500">Vencida</div>
+                  <div className="text-xs text-muted-foreground/70">Vencida</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{selectedClient.pendingCount}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500">Cuotas</div>
+                  <div className="text-sm font-bold text-foreground">{selectedClient.pendingCount}</div>
+                  <div className="text-xs text-muted-foreground/70">Cuotas</div>
                 </div>
                 {selectedClient.rating && (
-                  <span className={cn('px-2 py-0.5 rounded-full text-xs font-bold', RATING_COLORS[selectedClient.rating] || 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400')}>
+                  <span className={cn('px-2 py-0.5 rounded-full text-xs font-bold', RATING_COLORS[selectedClient.rating] || 'bg-muted text-muted-foreground')}>
                     {selectedClient.rating}
                   </span>
                 )}
@@ -370,20 +370,20 @@ export function SmartPaymentPanel() {
           {/* Pending installments mini list */}
           {visibleInstallments.length > 0 && (
             <div className="mb-4">
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Cuotas pendientes</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Cuotas pendientes</div>
               <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                 {visibleInstallments.map(inst => {
                   const pending = Number(inst.amount) - Number(inst.paid_amount || 0)
                   return (
-                    <div key={inst.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800 text-sm">
+                    <div key={inst.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-card rounded-lg border border-border text-sm">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-gray-500 text-xs">#{inst.installment_number}</span>
-                        <span className="text-gray-600 dark:text-gray-400 text-xs truncate">
+                        <span className="text-muted-foreground text-xs truncate">
                           {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', timeZone: PERU_TZ })}
                         </span>
                         <StatusBadge status={inst.status} days={inst.days_overdue} isOverdue={inst.is_overdue} />
                       </div>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100 flex-shrink-0">{formatCurrency(pending)}</span>
+                      <span className="font-semibold text-foreground flex-shrink-0">{formatCurrency(pending)}</span>
                     </div>
                   )
                 })}
@@ -394,9 +394,9 @@ export function SmartPaymentPanel() {
           {/* Amount + date */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Monto a pagar *</label>
+              <label className="text-sm font-medium text-foreground/85">Monto a pagar *</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 dark:text-gray-500 font-medium">S/</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground/70 font-medium">S/</span>
                 <Input
                   type="number"
                   step="0.01"
@@ -410,7 +410,7 @@ export function SmartPaymentPanel() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de pago *</label>
+              <label className="text-sm font-medium text-foreground/85">Fecha de pago *</label>
               <Input
                 type="date"
                 value={paymentDate}
@@ -422,7 +422,7 @@ export function SmartPaymentPanel() {
 
           {/* Payment method */}
           <div className="mb-4 space-y-1.5">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Método de pago</label>
+            <label className="text-sm font-medium text-foreground/85">Método de pago</label>
             <div className="grid grid-cols-4 gap-2">
               {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
                 <button
@@ -433,7 +433,7 @@ export function SmartPaymentPanel() {
                     'flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border text-xs font-medium transition-all',
                     paymentMethod === value
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700'
-                      : 'border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 hover:bg-gray-50'
+                      : 'border-border text-muted-foreground hover:border-gray-300 hover:bg-gray-50'
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -445,20 +445,20 @@ export function SmartPaymentPanel() {
 
           {/* Receipt upload */}
           <div className="mb-4 space-y-1.5">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Comprobante (opcional)</label>
+            <label className="text-sm font-medium text-foreground/85">Comprobante (opcional)</label>
             <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
             {receiptPreview ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40">
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
                 {receiptPreview === 'pdf' ? (
                   <div className="w-10 h-10 bg-red-100 rounded flex items-center justify-center text-red-600 text-xs font-bold flex-shrink-0">PDF</div>
                 ) : (
                   <img src={receiptPreview} alt="preview" className="w-10 h-10 object-cover rounded flex-shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{receiptFile?.name}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500">{receiptFile ? (receiptFile.size / 1024).toFixed(0) + ' KB' : ''}</div>
+                  <div className="text-xs font-medium text-foreground/85 truncate">{receiptFile?.name}</div>
+                  <div className="text-xs text-muted-foreground/70">{receiptFile ? (receiptFile.size / 1024).toFixed(0) + ' KB' : ''}</div>
                 </div>
-                <button type="button" onClick={() => { setReceiptFile(null); setReceiptPreview(null) }} className="text-gray-400 dark:text-gray-500 hover:text-red-500">
+                <button type="button" onClick={() => { setReceiptFile(null); setReceiptPreview(null) }} className="text-muted-foreground/70 hover:text-red-500">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -466,7 +466,7 @@ export function SmartPaymentPanel() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 h-10 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 h-10 border border-dashed border-input rounded-lg text-sm text-muted-foreground hover:border-gray-400 hover:bg-gray-50 transition-colors"
               >
                 <Upload className="h-4 w-4" />
                 Adjuntar foto o PDF
@@ -476,7 +476,7 @@ export function SmartPaymentPanel() {
 
           {/* Notes */}
           <div className="mb-4 space-y-1.5">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notas (opcional)</label>
+            <label className="text-sm font-medium text-foreground/85">Notas (opcional)</label>
             <Textarea
               placeholder="Comentarios adicionales sobre el pago..."
               value={notes}
@@ -494,7 +494,7 @@ export function SmartPaymentPanel() {
               onChange={e => setAutoAction(e.target.checked)}
               className="w-4 h-4 rounded accent-blue-500"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Registrar automáticamente acción "Pago recibido"</span>
+            <span className="text-sm text-foreground/85">Registrar automáticamente acción "Pago recibido"</span>
           </label>
 
           <Button
@@ -514,19 +514,19 @@ export function SmartPaymentPanel() {
 
       {/* ── RIGHT: Simulation (2/5) ──────────────────────────────────────── */}
       <div className="lg:col-span-2">
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm p-5 sticky top-20">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Simulación de pago</h3>
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 sticky top-20">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Simulación de pago</h3>
           {!selectedClient ? (
-            <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
-              <Users className="h-8 w-8 mx-auto mb-2 text-gray-200 dark:text-gray-700" />
+            <div className="py-8 text-center text-sm text-muted-foreground/70">
+              <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
               Selecciona un cliente para ver cómo se aplicará el pago
             </div>
           ) : !amountNum ? (
-            <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div className="py-8 text-center text-sm text-muted-foreground/70">
               Ingresa un monto para ver la distribución
             </div>
           ) : simLoading ? (
-            <div className="py-8 flex items-center justify-center text-sm text-gray-400 dark:text-gray-500 gap-2">
+            <div className="py-8 flex items-center justify-center text-sm text-muted-foreground/70 gap-2">
               <Loader2 className="h-4 w-4 animate-spin" /> Calculando...
             </div>
           ) : simulation ? (
@@ -539,7 +539,7 @@ export function SmartPaymentPanel() {
                     : 'bg-yellow-50 border-yellow-200'
                 )}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">Cuota #{inst.installment_number}</span>
+                    <span className="font-medium text-foreground/85">Cuota #{inst.installment_number}</span>
                     <span className={cn('text-sm font-bold',
                       (inst.amount_to_apply || 0) >= (inst.amount - inst.paid_amount)
                         ? 'text-green-700' : 'text-yellow-700'
@@ -547,20 +547,20 @@ export function SmartPaymentPanel() {
                       + {formatCurrency(inst.amount_to_apply || 0)}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 flex justify-between">
+                  <div className="text-xs text-muted-foreground flex justify-between">
                     <span>Vence: {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: '2-digit', timeZone: PERU_TZ })}</span>
                     <span>Pendiente: {formatCurrency(inst.amount - inst.paid_amount)}</span>
                   </div>
                 </div>
               ))}
 
-              <div className="border-t border-gray-100 dark:border-slate-800 pt-3 space-y-1.5 text-sm">
+              <div className="border-t border-border pt-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">Monto a pagar</span>
+                  <span className="text-muted-foreground">Monto a pagar</span>
                   <span className="font-semibold">{formatCurrency(amountNum)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">Cuotas afectadas</span>
+                  <span className="text-muted-foreground">Cuotas afectadas</span>
                   <span className="font-semibold">{simulation.installments.length}</span>
                 </div>
                 {simulation.remaining > 0 && (
@@ -572,7 +572,7 @@ export function SmartPaymentPanel() {
               </div>
             </div>
           ) : (
-            <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div className="py-8 text-center text-sm text-muted-foreground/70">
               Sin cuotas pendientes para este cliente
             </div>
           )}

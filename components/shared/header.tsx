@@ -67,7 +67,7 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-white dark:bg-slate-900 dark:bg-gray-900 border-b border-gray-200 dark:border-slate-700 dark:border-gray-800">
+    <header className="sticky top-0 z-30 w-full bg-card dark:bg-gray-900 border-b border-border dark:border-gray-800">
       <div className="flex items-center justify-between h-16 px-4 md:px-6">
         {/* Left side - could add breadcrumbs or page title here */}
         <div className="flex-1" />
@@ -88,7 +88,7 @@ export function Header({ user }: HeaderProps) {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
             <UserAvatar name={user?.name || user?.email || 'U'} />
-            <span className="hidden md:inline text-sm font-medium text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
+            <span className="hidden md:inline text-sm font-medium text-foreground/85 max-w-[120px] truncate">
               {user?.name || user?.email || 'Usuario'}
             </span>
           </Button>
@@ -103,14 +103,14 @@ export function Header({ user }: HeaderProps) {
               />
 
               {/* Dropdown content */}
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50">
-                <div className="p-3 border-b border-gray-200 dark:border-slate-700 flex items-center gap-3">
+              <div className="absolute right-0 mt-2 w-56 bg-card rounded-lg shadow-lg border border-border z-50">
+                <div className="p-3 border-b border-border flex items-center gap-3">
                   <UserAvatar name={user?.name || user?.email || 'U'} />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    <p className="text-sm font-semibold text-foreground truncate">
                       {user?.name || 'Usuario'}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {user?.email}
                     </p>
                   </div>
@@ -123,7 +123,7 @@ export function Header({ user }: HeaderProps) {
                       router.push('/settings')
                     }}
                     className={cn(
-                      'flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300',
+                      'flex items-center gap-3 w-full px-3 py-2 text-sm text-foreground/85',
                       'rounded-md hover:bg-gray-100 transition-colors'
                     )}
                   >

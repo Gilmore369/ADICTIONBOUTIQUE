@@ -373,13 +373,13 @@ export function ClientForm({
               />
               {searchingReferrer && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <div className="animate-spin h-4 w-4 border-2 border-gray-300 dark:border-slate-600 border-t-gray-600 rounded-full" />
+                  <div className="animate-spin h-4 w-4 border-2 border-input border-t-gray-600 rounded-full" />
                 </div>
               )}
               
               {/* Search Results Dropdown */}
               {referredByResults.length > 0 && !referredBy && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-900 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-card border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   {referredByResults.map(client => (
                     <button
                       key={client.id}
@@ -389,7 +389,7 @@ export function ClientForm({
                     >
                       <div className="font-medium">{client.name}</div>
                       {client.dni && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">DNI: {client.dni}</div>
+                        <div className="text-xs text-muted-foreground">DNI: {client.dni}</div>
                       )}
                     </button>
                   ))}
@@ -431,7 +431,7 @@ export function ClientForm({
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               💡 Solo se pueden crear clientes cuando son referidos por un cliente existente
             </p>
           </div>
@@ -661,7 +661,7 @@ export function ClientForm({
                   }}
                   className={[
                     'rounded-lg border-2 p-2.5 text-center transition-all flex flex-col items-center gap-1',
-                    isSelected ? cfg.color + ' border-current shadow-sm scale-105' : 'border-gray-200 dark:border-slate-700 hover:border-gray-400 bg-white dark:bg-slate-900',
+                    isSelected ? cfg.color + ' border-current shadow-sm scale-105' : 'border-border hover:border-gray-400 bg-card',
                   ].join(' ')}
                 >
                   <span className="text-lg leading-none">{cfg.symbol}</span>
@@ -760,7 +760,7 @@ export function ClientForm({
                   type="checkbox"
                   checked={field.value}
                   onChange={field.onChange}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-slate-600"
+                  className="h-4 w-4 rounded border-input"
                 />
               </FormControl>
               <FormLabel className="!mt-0">Cliente activo</FormLabel>

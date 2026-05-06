@@ -248,7 +248,7 @@ export function CreditPlansView() {
     return (
       <div className="space-y-3">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="h-14 rounded-xl border bg-gray-50 dark:bg-slate-900/40 animate-pulse" />
+          <div key={i} className="h-14 rounded-xl border bg-muted/30 animate-pulse" />
         ))}
       </div>
     )
@@ -312,7 +312,7 @@ export function CreditPlansView() {
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
           <Input
             placeholder="Buscar cliente, DNI, ticket..."
             value={search}
@@ -333,7 +333,7 @@ export function CreditPlansView() {
 
       {/* Client accordion list */}
       {filtered.length === 0 && (
-        <Card className="p-12 text-center text-gray-400 dark:text-gray-500 text-sm">
+        <Card className="p-12 text-center text-muted-foreground/70 text-sm">
           {search ? 'Sin resultados para la busqueda' : 'No hay clientes con credito activo'}
         </Card>
       )}
@@ -403,7 +403,7 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
   const isOverdue = client.overdue_count > 0
 
   return (
-    <div className={`rounded-xl border transition-colors ${isOverdue ? 'border-rose-200 bg-rose-50 dark:bg-rose-950/30/30' : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900'}`}>
+    <div className={`rounded-xl border transition-colors ${isOverdue ? 'border-rose-200 bg-rose-50 dark:bg-rose-950/30/30' : 'border-border bg-card'}`}>
 
       {/* Client header row */}
       <div
@@ -411,7 +411,7 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
         className="w-full px-4 py-3 flex items-center gap-3 text-left rounded-xl hover:bg-black/5 transition-colors cursor-pointer"
       >
         <ChevronRight
-          className={`h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+          className={`h-4 w-4 text-muted-foreground/70 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
         />
 
         {/* Grid: name | plans | debt | overdue | actions */}
@@ -420,32 +420,32 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
           {/* Name + phone */}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-              <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{client.name}</span>
+              <User className="h-3.5 w-3.5 text-muted-foreground/70 flex-shrink-0" />
+              <span className="font-semibold text-sm text-foreground truncate">{client.name}</span>
             </div>
             {client.phone && (
               <div className="flex items-center gap-1 mt-0.5 ml-5">
-                <Phone className="h-3 w-3 text-gray-300 dark:text-gray-600" />
-                <span className="text-xs text-gray-400 dark:text-gray-500">{client.phone}</span>
+                <Phone className="h-3 w-3 text-muted-foreground/50" />
+                <span className="text-xs text-muted-foreground/70">{client.phone}</span>
               </div>
             )}
           </div>
 
           {/* Plan count */}
           <div className="text-center hidden md:block">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Planes</p>
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{client.plans.length}</p>
+            <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">Planes</p>
+            <p className="text-sm font-semibold text-foreground/85">{client.plans.length}</p>
           </div>
 
           {/* Total debt */}
           <div className="text-right hidden md:block">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Deuda total</p>
+            <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide">Deuda total</p>
             <p className="text-sm font-bold text-amber-600 tabular-nums">{formatCurrency(client.total_debt)}</p>
           </div>
 
           {/* Overdue */}
           <div className="text-right">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide hidden md:block">Vencido</p>
+            <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide hidden md:block">Vencido</p>
             {isOverdue ? (
               <p className="text-sm font-bold text-rose-600 tabular-nums">{formatCurrency(client.overdue_amount)}</p>
             ) : (
@@ -478,7 +478,7 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
 
       {/* Expanded: plans list */}
       {isExpanded && (
-        <div className="border-t border-dashed border-gray-200 dark:border-slate-700">
+        <div className="border-t border-dashed border-border">
           {client.plans.map(plan => (
             <PlanAccordion
               key={plan.plan_id}
@@ -499,7 +499,7 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
   const pct = plan.total_amount > 0 ? Math.min((plan.paid_amount / plan.total_amount) * 100, 100) : 0
 
   return (
-    <div className={`border-b last:border-b-0 ${plan.overdue_count > 0 ? 'bg-rose-50 dark:bg-rose-950/30/40' : 'bg-white dark:bg-slate-900'}`}>
+    <div className={`border-b last:border-b-0 ${plan.overdue_count > 0 ? 'bg-rose-50 dark:bg-rose-950/30/40' : 'bg-card'}`}>
 
       {/* Plan row */}
       <button
@@ -507,18 +507,18 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
         className="w-full px-6 py-2.5 flex items-center gap-3 text-left hover:bg-gray-50/80 transition-colors"
       >
         <ChevronRight
-          className={`h-3.5 w-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+          className={`h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
         />
-        <Receipt className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+        <Receipt className="h-3.5 w-3.5 text-muted-foreground/70 flex-shrink-0" />
 
         <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center">
 
           {/* Ticket info */}
           <div>
-            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+            <p className="text-xs font-semibold text-foreground">
               {plan.sale_number ? `Ticket #${plan.sale_number}` : 'Sin ticket asociado'}
             </p>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500">
+            <p className="text-[10px] text-muted-foreground/70">
               {plan.installments_count} cuota{plan.installments_count !== 1 ? 's' : ''}
               {plan.sale_date && ` · ${formatSafeDate(plan.sale_date, 'dd/MM/yy')}`}
             </p>
@@ -526,19 +526,19 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
 
           {/* Total */}
           <div className="text-right hidden md:block">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500">Total</p>
-            <p className="text-xs tabular-nums text-gray-700 dark:text-gray-300">{formatCurrency(plan.total_amount)}</p>
+            <p className="text-[10px] text-muted-foreground/70">Total</p>
+            <p className="text-xs tabular-nums text-foreground/85">{formatCurrency(plan.total_amount)}</p>
           </div>
 
           {/* Pagado */}
           <div className="text-right hidden md:block">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500">Pagado</p>
+            <p className="text-[10px] text-muted-foreground/70">Pagado</p>
             <p className="text-xs tabular-nums text-emerald-600">{formatCurrency(plan.paid_amount)}</p>
           </div>
 
           {/* Pendiente */}
           <div className="text-right">
-            <p className="text-[10px] text-gray-400 dark:text-gray-500">Pendiente</p>
+            <p className="text-[10px] text-muted-foreground/70">Pendiente</p>
             <p className="text-xs font-semibold tabular-nums text-amber-600">{formatCurrency(plan.pending_amount)}</p>
           </div>
 
@@ -564,32 +564,32 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
       {/* Progress bar */}
       <div className="px-14 pb-1.5">
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-emerald-50 dark:bg-emerald-950/300' : pct >= 60 ? 'bg-blue-400' : pct >= 30 ? 'bg-amber-400' : 'bg-rose-400'}`}
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums w-8 text-right">{pct.toFixed(0)}%</span>
+          <span className="text-[10px] text-muted-foreground/70 tabular-nums w-8 text-right">{pct.toFixed(0)}%</span>
         </div>
       </div>
 
       {/* Expanded: installments table */}
       {isExpanded && (
         <div className="px-6 pb-4 pt-1">
-          <div className="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden shadow-sm">
+          <div className="rounded-lg border border-border overflow-hidden shadow-sm">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-gray-50 dark:bg-slate-900/40 border-b border-gray-200 dark:border-slate-700">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">Cuota</th>
-                  <th className="px-3 py-2 text-right font-semibold text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">Monto</th>
-                  <th className="px-3 py-2 text-center font-semibold text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">Vencimiento</th>
-                  <th className="px-3 py-2 text-right font-semibold text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">Pagado</th>
-                  <th className="px-3 py-2 text-right font-semibold text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">Saldo</th>
-                  <th className="px-3 py-2 text-center font-semibold text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wide">Estado</th>
+                <tr className="bg-muted/30 border-b border-border">
+                  <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wide">Cuota</th>
+                  <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-[10px] uppercase tracking-wide">Monto</th>
+                  <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-[10px] uppercase tracking-wide">Vencimiento</th>
+                  <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-[10px] uppercase tracking-wide">Pagado</th>
+                  <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-[10px] uppercase tracking-wide">Saldo</th>
+                  <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-[10px] uppercase tracking-wide">Estado</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-border">
                 {plan.installments.map(inst => {
                   const balance = Number(inst.amount) - Number(inst.paid_amount)
                   const isPaid = inst.status === 'PAID' || balance <= 0
@@ -601,19 +601,19 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
                       key={inst.id}
                       className={`transition-colors ${isOverdue ? 'bg-rose-50 dark:bg-rose-950/30' : isPaid ? 'bg-emerald-50 dark:bg-emerald-950/30/40' : 'hover:bg-gray-50'}`}
                     >
-                      <td className="px-3 py-2 font-semibold text-gray-700 dark:text-gray-300">
+                      <td className="px-3 py-2 font-semibold text-foreground/85">
                         #{inst.installment_number}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/85">
                         {formatCurrency(inst.amount)}
                       </td>
-                      <td className={`px-3 py-2 text-center tabular-nums ${isOverdue ? 'text-rose-600 font-semibold' : 'text-gray-600 dark:text-gray-400'}`}>
+                      <td className={`px-3 py-2 text-center tabular-nums ${isOverdue ? 'text-rose-600 font-semibold' : 'text-muted-foreground'}`}>
                         {formatSafeDate(inst.due_date, 'dd/MM/yy')}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-emerald-600">
                         {inst.paid_amount > 0 ? formatCurrency(inst.paid_amount) : '—'}
                       </td>
-                      <td className={`px-3 py-2 text-right tabular-nums font-semibold ${balance > 0 ? (isOverdue ? 'text-rose-600' : 'text-amber-600') : 'text-gray-400 dark:text-gray-500'}`}>
+                      <td className={`px-3 py-2 text-right tabular-nums font-semibold ${balance > 0 ? (isOverdue ? 'text-rose-600' : 'text-amber-600') : 'text-muted-foreground/70'}`}>
                         {balance > 0 ? formatCurrency(balance) : '—'}
                       </td>
                       <td className="px-3 py-2 text-center">
@@ -625,8 +625,8 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
               </tbody>
               {/* Plan totals footer */}
               <tfoot>
-                <tr className="bg-gray-50 dark:bg-slate-900/40 border-t-2 border-gray-200 dark:border-slate-700">
-                  <td colSpan={3} className="px-3 py-2 font-semibold text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                <tr className="bg-muted/30 border-t-2 border-border">
+                  <td colSpan={3} className="px-3 py-2 font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
                     Totales del plan
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-bold text-emerald-600 text-xs">

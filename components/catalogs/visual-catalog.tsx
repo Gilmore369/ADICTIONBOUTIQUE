@@ -116,7 +116,7 @@ interface FilterOption { id: string; name: string }
 
 const COLOR_NAME_MAP: Record<string, string> = {
   'negro': 'bg-black', 'black': 'bg-black',
-  'blanco': 'bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600', 'white': 'bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600',
+  'blanco': 'bg-card border border-input', 'white': 'bg-card border border-input',
   'rojo': 'bg-red-600', 'red': 'bg-red-600', 'roja': 'bg-red-600',
   'azul': 'bg-blue-600', 'blue': 'bg-blue-600', 'azul marino': 'bg-blue-900',
   'verde': 'bg-green-600', 'green': 'bg-green-600', 'verde olivo': 'bg-lime-700',
@@ -134,7 +134,7 @@ const COLOR_NAME_MAP: Record<string, string> = {
   'crema': 'bg-yellow-50 border border-yellow-200',
 }
 const HEX_MAP: Record<string, string> = {
-  '#000000': 'bg-black', '#FFFFFF': 'bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600',
+  '#000000': 'bg-black', '#FFFFFF': 'bg-card border border-input',
   '#DC2626': 'bg-red-600', '#2563EB': 'bg-blue-600',
   '#16A34A': 'bg-green-600', '#EAB308': 'bg-yellow-500',
   '#EC4899': 'bg-pink-500', '#D4A574': 'bg-amber-300',
@@ -374,7 +374,7 @@ function ModelCardItem({
 
         {/* Stock badge */}
         <div className="absolute top-1.5 right-1.5">
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white dark:bg-slate-900/90 shadow-sm ${stockBadgeColor}`}>
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-card/90 shadow-sm ${stockBadgeColor}`}>
             {model.total_stock > 0 ? `${model.total_stock} uds` : 'Agotado'}
           </span>
         </div>
@@ -422,7 +422,7 @@ function ModelCardItem({
                   {/* Indicador de foto vinculada */}
                   {hasImage && (
                     <span
-                      className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm"
+                      className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-card flex items-center justify-center shadow-sm"
                       title={`Foto vinculada: ${c}`}
                     >
                       <Camera className="w-1.5 h-1.5 text-primary" />
@@ -920,13 +920,13 @@ function ModelDetailModal({
                 <>
                   <button
                     onClick={() => setGalleryIdx(i => (i - 1 + displayImages.length) % displayImages.length)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white dark:bg-slate-900/80 shadow flex items-center justify-center hover:bg-white transition"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-card/80 shadow flex items-center justify-center hover:bg-white transition"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setGalleryIdx(i => (i + 1) % displayImages.length)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white dark:bg-slate-900/80 shadow flex items-center justify-center hover:bg-white transition"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-card/80 shadow flex items-center justify-center hover:bg-white transition"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -940,7 +940,7 @@ function ModelDetailModal({
                   </div>
                 )}
                 {currentImg?.color && (
-                  <div className="bg-white dark:bg-slate-900/90 text-foreground text-[9px] font-medium px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                  <div className="bg-card/90 text-foreground text-[9px] font-medium px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
                     <ColorDot color={currentImg.color} size="sm" />
                     {currentImg.color}
                   </div>
@@ -1174,9 +1174,9 @@ function ModelDetailModal({
                   {/* Row 1: Talla + Color */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Talla</label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Talla</label>
                       {loadingSizes ? (
-                        <div className="h-8 flex items-center text-xs text-gray-400 dark:text-gray-500 gap-1.5">
+                        <div className="h-8 flex items-center text-xs text-muted-foreground/70 gap-1.5">
                           <Loader2 className="h-3 w-3 animate-spin" /> Cargando…
                         </div>
                       ) : catalogSizes.length > 0 ? (
@@ -1184,7 +1184,7 @@ function ModelDetailModal({
                           <select
                             value={addSize}
                             onChange={e => setAddSize(e.target.value)}
-                            className="h-8 flex-1 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            className="h-8 flex-1 rounded-lg border border-border bg-card px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                           >
                             <option value="">— elegir —</option>
                             {catalogSizes.map(s => (
@@ -1206,14 +1206,14 @@ function ModelDetailModal({
                                 {creatingSize ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                               </button>
                               <button type="button" onClick={() => setShowNewSizeInput(false)}
-                                className="flex h-8 w-6 items-center justify-center rounded-md border border-gray-200 dark:border-slate-700 text-gray-400 dark:text-gray-500 hover:bg-gray-50">
+                                className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-gray-50">
                                 <X className="h-3 w-3" />
                               </button>
                             </div>
                           ) : (
                             <button type="button" onClick={() => setShowNewSizeInput(true)}
                               title="Nueva talla"
-                              className="flex h-8 w-7 items-center justify-center rounded-lg border border-dashed border-gray-300 dark:border-slate-600 text-gray-400 dark:text-gray-500 hover:border-blue-400 hover:text-blue-600">
+                              className="flex h-8 w-7 items-center justify-center rounded-lg border border-dashed border-input text-muted-foreground/70 hover:border-blue-400 hover:text-blue-600">
                               <Plus className="h-3 w-3" />
                             </button>
                           )}
@@ -1223,12 +1223,12 @@ function ModelDetailModal({
                           value={addSize}
                           onChange={e => setAddSize(e.target.value)}
                           placeholder="ej: M, 28, 100ml"
-                          className="h-8 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                         />
                       )}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Color</label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Color</label>
                       {colorMode === 'custom' ? (
                         <div className="flex gap-1">
                           <input
@@ -1236,10 +1236,10 @@ function ModelDetailModal({
                             value={customColor}
                             onChange={e => { setCustomColor(e.target.value); setAddColor(e.target.value) }}
                             placeholder="Escribe el color"
-                            className="h-8 flex-1 rounded-lg border border-blue-300 bg-white dark:bg-slate-900 px-2 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+                            className="h-8 flex-1 rounded-lg border border-blue-300 bg-card px-2 text-xs outline-none focus:ring-1 focus:ring-blue-400"
                           />
                           <button type="button" onClick={() => { setColorMode('select'); setCustomColor(''); setAddColor('') }}
-                            className="flex h-8 w-6 items-center justify-center rounded-md border border-gray-200 dark:border-slate-700 text-gray-400 dark:text-gray-500 hover:bg-gray-50">
+                            className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-gray-50">
                             <X className="h-3 w-3" />
                           </button>
                         </div>
@@ -1250,7 +1250,7 @@ function ModelDetailModal({
                             if (e.target.value === '__custom__') { setColorMode('custom'); setAddColor('') }
                             else setAddColor(e.target.value)
                           }}
-                          className="h-8 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          className="h-8 w-full rounded-lg border border-border bg-card px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                         >
                           <option value="">— sin color —</option>
                           {model.colors.map(c => (
@@ -1264,42 +1264,42 @@ function ModelDetailModal({
 
                   {/* Row 2: Barcode */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Código de barras <span className="text-red-500">*</span></label>
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Código de barras <span className="text-red-500">*</span></label>
                     <input
                       value={addBarcode}
                       onChange={e => setAddBarcode(e.target.value)}
                       placeholder="0000000000000"
-                      className="h-8 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      className="h-8 w-full rounded-lg border border-border bg-card px-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                     />
                   </div>
 
                   {/* Row 3: Precios + Stock */}
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">P. Compra</label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">P. Compra</label>
                       <input type="number" min="0" step="0.01"
                         value={addPurchasePrice}
                         onChange={e => setAddPurchasePrice(e.target.value)}
                         placeholder="0.00"
-                        className="h-8 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">P. Venta <span className="text-red-500">*</span></label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">P. Venta <span className="text-red-500">*</span></label>
                       <input type="number" min="0" step="0.01"
                         value={addSalePrice}
                         onChange={e => setAddSalePrice(e.target.value)}
                         placeholder="0.00"
-                        className="h-8 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Stock ini.</label>
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Stock ini.</label>
                       <input type="number" min="0" step="1"
                         value={addQty}
                         onChange={e => setAddQty(e.target.value)}
                         placeholder="0"
-                        className="h-8 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                       />
                     </div>
                   </div>
@@ -1318,7 +1318,7 @@ function ModelDetailModal({
                     <button
                       type="button"
                       onClick={() => setShowAddVariant(false)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 dark:border-slate-700 text-gray-400 dark:text-gray-500 hover:bg-gray-50"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground/70 hover:bg-gray-50"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>

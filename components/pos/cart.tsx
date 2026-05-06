@@ -41,7 +41,7 @@ export function Cart({
       <h2 className="text-lg font-semibold mb-4">Carrito</h2>
       
       {items.length === 0 ? (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-8 text-muted-foreground">
           No hay productos en el carrito
         </div>
       ) : (
@@ -55,7 +55,7 @@ export function Cart({
                 <div className="font-medium text-sm truncate">
                   {item.product_name}
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-muted-foreground">
                   {formatCurrency(item.unit_price)}
                 </div>
               </div>

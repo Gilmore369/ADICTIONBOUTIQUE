@@ -220,7 +220,7 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
         </div>
 
         <div className="w-64">
-          <label className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+          <label className="text-xs font-medium text-foreground/85 mb-1 block">
             Filtrar por Línea
           </label>
           <select
@@ -233,7 +233,7 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
                 if (cat && cat.line_id !== e.target.value) setFilterCategory('')
               }
             }}
-            className="w-full h-9 px-3 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-9 px-3 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Todas las líneas</option>
             {lines.map(line => (
@@ -243,13 +243,13 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
         </div>
 
         <div className="w-64">
-          <label className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+          <label className="text-xs font-medium text-foreground/85 mb-1 block">
             Filtrar por Categoría
           </label>
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="w-full h-9 px-3 border border-gray-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-9 px-3 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={!filterLine}
             title={!filterLine ? 'Elige una línea primero' : ''}
           >

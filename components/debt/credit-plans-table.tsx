@@ -100,7 +100,7 @@ export function CreditPlansTable({ initialPlans }: CreditPlansTableProps) {
     <div className="space-y-4">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
         <Input
           placeholder="Buscar por cliente, DNI o número de venta..."
           value={searchTerm}
@@ -127,13 +127,13 @@ export function CreditPlansTable({ initialPlans }: CreditPlansTableProps) {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   Buscando...
                 </TableCell>
               </TableRow>
             ) : plans.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No se encontraron planes de crédito
                 </TableCell>
               </TableRow>
@@ -153,14 +153,14 @@ export function CreditPlansTable({ initialPlans }: CreditPlansTableProps) {
                       <div>
                         <div className="font-medium">{plan.client.name}</div>
                         {plan.client.dni && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400">DNI: {plan.client.dni}</div>
+                          <div className="text-xs text-muted-foreground">DNI: {plan.client.dni}</div>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
                         <div className="text-sm">{plan.sale.sale_number}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {formatSafeDate(plan.sale.created_at, 'dd/MM/yyyy')}
                         </div>
                       </div>
@@ -180,7 +180,7 @@ export function CreditPlansTable({ initialPlans }: CreditPlansTableProps) {
                           {formatSafeDate(plan.next_due_date, 'dd/MM/yyyy')}
                         </div>
                       ) : (
-                        <span className="text-gray-400 dark:text-gray-500">-</span>
+                        <span className="text-muted-foreground/70">-</span>
                       )}
                     </TableCell>
                     <TableCell>

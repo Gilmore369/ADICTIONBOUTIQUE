@@ -174,21 +174,21 @@ function SearchableSelect({
           onClick={handleOpen}
           disabled={disabled}
           className={cn(
-            'flex h-9 w-full items-center justify-between rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 text-sm',
+            'flex h-9 w-full items-center justify-between rounded-lg border border-input bg-card px-3 text-sm',
             'transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400',
             'disabled:cursor-not-allowed disabled:bg-gray-50 disabled:opacity-60',
-            !selected && 'text-gray-400 dark:text-gray-500',
+            !selected && 'text-muted-foreground/70',
           )}
         >
           <span className="flex-1 truncate text-left font-medium">
             {selected ? selected.name : placeholder}
           </span>
-          <ChevronDown className={cn('ml-1 h-3.5 w-3.5 shrink-0 text-gray-400 dark:text-gray-500 transition-transform', open && 'rotate-180')} />
+          <ChevronDown className={cn('ml-1 h-3.5 w-3.5 shrink-0 text-muted-foreground/70 transition-transform', open && 'rotate-180')} />
         </button>
 
         {open && (
-          <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[200px] overflow-hidden rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl">
-            <div className="border-b border-gray-100 dark:border-slate-800 px-3 py-2">
+          <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[200px] overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+            <div className="border-b border-border px-3 py-2">
               <input
                 ref={inputRef}
                 value={query}
@@ -203,7 +203,7 @@ function SearchableSelect({
             </div>
             <div className="max-h-52 overflow-y-auto py-1">
               {filtered.length === 0 ? (
-                <p className="px-3 py-2.5 text-xs text-gray-400 dark:text-gray-500">Sin resultados</p>
+                <p className="px-3 py-2.5 text-xs text-muted-foreground/70">Sin resultados</p>
               ) : filtered.map((opt) => (
                 <button
                   key={opt.id}
@@ -234,15 +234,15 @@ function SearchableSelect({
               'flex h-9 w-9 items-center justify-center rounded-lg border transition-colors',
               creating
                 ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30 text-blue-600'
-                : 'border-dashed border-gray-300 dark:border-slate-600 text-gray-400 dark:text-gray-500 hover:border-blue-400 hover:text-blue-600',
+                : 'border-dashed border-input text-muted-foreground/70 hover:border-blue-400 hover:text-blue-600',
             )}
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
 
           {creating && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 shadow-xl">
-              <p className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">{quickCreateLabel}</p>
+            <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl border border-border bg-card p-3 shadow-xl">
+              <p className="mb-2 text-xs font-semibold text-foreground/85">{quickCreateLabel}</p>
               <div className="flex gap-1.5">
                 <input
                   ref={newNameRef}
@@ -253,7 +253,7 @@ function SearchableSelect({
                     if (e.key === 'Escape') setCreating(false)
                   }}
                   placeholder="Nombre…"
-                  className="h-8 flex-1 rounded-lg border border-gray-200 dark:border-slate-700 px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                  className="h-8 flex-1 rounded-lg border border-border px-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 <button
                   type="button"
@@ -279,7 +279,7 @@ function Field({ label, required, children, className }: {
 }) {
   return (
     <div className={cn('space-y-1.5', className)}>
-      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <Label className="text-sm font-medium text-foreground/85">
         {label}{required && <span className="ml-0.5 text-red-500">*</span>}
       </Label>
       {children}
@@ -309,7 +309,7 @@ function SizeCell({ value, onChange, availableSizes, loadingSizes, categoryId, o
   }
 
   if (loadingSizes) {
-    return <div className="h-8 flex items-center px-2 text-xs text-gray-400 dark:text-gray-500">Cargando…</div>
+    return <div className="h-8 flex items-center px-2 text-xs text-muted-foreground/70">Cargando…</div>
   }
 
   const handleCreate = async () => {
@@ -327,7 +327,7 @@ function SizeCell({ value, onChange, availableSizes, loadingSizes, categoryId, o
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="h-8 flex-1 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="h-8 flex-1 rounded-lg border border-border bg-card px-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
       >
         <option value="">— talla —</option>
         {availableSizes.map(s => (
@@ -350,14 +350,14 @@ function SizeCell({ value, onChange, availableSizes, loadingSizes, categoryId, o
             {creatingSz ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
           </button>
           <button type="button" onClick={() => setShowAdd(false)}
-            className="flex h-8 w-6 items-center justify-center rounded-md border border-gray-200 dark:border-slate-700 text-gray-400 dark:text-gray-500 hover:bg-gray-50">
+            className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-gray-50">
             <X className="h-3 w-3" />
           </button>
         </div>
       ) : (
         <button type="button" onClick={() => setShowAdd(true)}
           title="Crear nueva talla"
-          className="flex h-8 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-300 dark:border-slate-600 text-gray-400 dark:text-gray-500 hover:border-blue-400 hover:text-blue-600">
+          className="flex h-8 w-7 shrink-0 items-center justify-center rounded-lg border border-dashed border-input text-muted-foreground/70 hover:border-blue-400 hover:text-blue-600">
           <Plus className="h-3 w-3" />
         </button>
       )}
@@ -654,22 +654,22 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* ── Header ─────────────────────────────────────────────── */}
-        <DialogHeader className="shrink-0 border-b border-gray-100 dark:border-slate-800 px-6 pb-4 pt-5">
+        <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-5">
           <DialogTitle className="text-lg font-semibold tracking-tight">
             Nuevo Producto
           </DialogTitle>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Completa los datos base y agrega las variantes (talla/color) que necesites.
           </p>
         </DialogHeader>
 
         {/* ── Body ───────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="space-y-0 divide-y divide-gray-100 dark:divide-slate-800">
+          <div className="space-y-0 divide-y divide-border">
 
             {/* ══ SECCIÓN 1: Datos base ══════════════════════════════ */}
             <div className="px-6 py-5 space-y-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
                 Datos base
               </p>
 
@@ -684,7 +684,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                   />
                 </Field>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                  <label className="text-sm font-medium text-foreground/85 flex items-center gap-1">
                     Código modelo
                     {baseCodeOverride === null && name.trim() && (
                       <span className="text-[10px] text-emerald-600 font-normal">(auto)</span>
@@ -695,9 +695,9 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                     onChange={e => setBaseCodeOverride(e.target.value.toUpperCase().slice(0, 8))}
                     placeholder="BLUAC"
                     maxLength={8}
-                    className="h-9 w-28 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 text-sm font-mono font-semibold text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="h-9 w-28 rounded-lg border border-input bg-card px-3 text-sm font-mono font-semibold text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">Agrupa variantes del mismo modelo</p>
+                  <p className="text-[10px] text-muted-foreground/70">Agrupa variantes del mismo modelo</p>
                 </div>
               </div>
 
@@ -759,7 +759,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                   <select
                     value={warehouseId}
                     onChange={(e) => setWarehouseId(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="flex h-9 w-full rounded-lg border border-input bg-card px-3 text-sm font-medium text-foreground/85 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   >
                     {WAREHOUSES.map((w) => (
                       <option key={w.id} value={w.id}>{w.label}</option>
@@ -770,12 +770,12 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
 
               {/* Image upload */}
               <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Imagen del producto</p>
+                <p className="text-sm font-medium text-foreground/85">Imagen del producto</p>
                 <div className="flex items-start gap-4">
                   <div
                     className={cn(
                       'flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-xl border-2 border-dashed',
-                      imagePreview ? 'border-transparent' : 'border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/40',
+                      imagePreview ? 'border-transparent' : 'border-border bg-muted/30',
                     )}
                   >
                     {imagePreview ? (
@@ -791,7 +791,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                         </button>
                       </div>
                     ) : (
-                      <ImageIcon className="h-8 w-8 text-gray-300 dark:text-gray-600" />
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                     )}
                   </div>
                   <div className="space-y-1.5 pt-1">
@@ -804,7 +804,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                       {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                       {uploadingImage ? 'Subiendo…' : 'Subir imagen'}
                     </Button>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">JPG, PNG o WEBP · máx. 2 MB</p>
+                    <p className="text-xs text-muted-foreground/70">JPG, PNG o WEBP · máx. 2 MB</p>
                     <input
                       ref={fileInputRef} type="file"
                       accept="image/jpeg,image/png,image/webp"
@@ -822,10 +822,10 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
             <div className="px-6 py-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
                     Variantes
                   </p>
-                  <span className="rounded-full bg-gray-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                     {variants.length}
                   </span>
                 </div>
@@ -851,17 +851,17 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                 </div>
               </div>
               {availableSizes.length > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Tallas disponibles para <strong>{categories.find(c => c.id === categoryId)?.name}</strong>:{' '}
                   {availableSizes.map(s => s.name).join(', ')}
                 </p>
               )}
 
               {/* Table — scrollable horizontally on small screens */}
-              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-slate-800">
+              <div className="overflow-x-auto rounded-xl border border-border">
                 {/* Header */}
                 <div
-                  className="grid bg-gray-50 dark:bg-slate-900/40/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                  className="grid bg-muted/30/80 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
                   style={{ gridTemplateColumns: '2fr 160px 200px 130px 130px 120px 36px' }}
                 >
                   <span>Código de barras</span>
@@ -935,8 +935,8 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                         className={cn(
                           'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
                           variants.length === 1
-                            ? 'cursor-not-allowed text-gray-200 dark:text-gray-700'
-                            : 'text-gray-400 dark:text-gray-500 hover:bg-red-50 hover:text-red-500',
+                            ? 'cursor-not-allowed text-muted-foreground/40'
+                            : 'text-muted-foreground/70 hover:bg-red-50 hover:text-red-500',
                         )}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -946,7 +946,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-muted-foreground/70">
                 Cada fila crea un SKU independiente. Deja Talla vacía si el producto no tiene variante de talla.
               </p>
             </div>
@@ -954,7 +954,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────── */}
-        <div className="shrink-0 border-t border-gray-100 dark:border-slate-800 px-6 py-4">
+        <div className="shrink-0 border-t border-border px-6 py-4">
           {formError && (
             <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
               <AlertCircle className="h-4 w-4 shrink-0" />
