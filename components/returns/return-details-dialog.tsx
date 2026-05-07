@@ -305,7 +305,7 @@ export function ReturnDetailsDialog({
               </p>
               {saleType === 'CONTADO' && (
                 <p className="text-xs text-blue-600">
-                  💵 Egreso de {formatCurrency(Number(returnData.total_amount))} registrado en caja
+                  Egreso de {formatCurrency(Number(returnData.total_amount))} se registrara al completar
                 </p>
               )}
               {saleType === 'CREDITO' && (
@@ -324,7 +324,7 @@ export function ReturnDetailsDialog({
                 </p>
               )}
               <p className="text-xs text-blue-600 font-semibold">
-                📦 Haz clic en "Completar devolución" para restaurar el stock
+                Haz clic en "Completar devolucion" para registrar caja y restaurar stock
               </p>
             </div>
           )}
@@ -352,7 +352,7 @@ export function ReturnDetailsDialog({
               <div>
                 <p className="text-xs font-semibold text-amber-700">Pendiente de revisión</p>
                 <p className="text-xs text-amber-600 mt-0.5">
-                  {saleType === 'CONTADO' && 'Al aprobar se registrará un egreso en caja. La caja debe estar abierta en la tienda.'}
+                  {saleType === 'CONTADO' && 'Al aprobar queda lista para completar. El egreso de caja se registra al completar y requiere caja abierta en la tienda.'}
                   {saleType === 'CREDITO' && 'Al aprobar se cancelará el plan de crédito, se eliminarán las cuotas pendientes y se restaurará el límite de crédito del cliente.'}
                   {!saleType && 'Al aprobar se procesará el reembolso según el tipo de venta original.'}
                 </p>

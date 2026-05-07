@@ -76,6 +76,107 @@ function summarizeReturnedItemsForAudit(items: any[]) {
   return parts.length > 0 ? parts.join(', ') : 'sin productos'
 }
 
+async function getReturnSaleType(
+  service: ReturnType<typeof createServiceClient>,
+  saleId: string | null | undefined
+): Promise<'CONTADO' | 'CREDITO'> {
+  if (!saleId) return 'CONTADO'
+
+  const { data: sale } = await service
+    .from('sales')
+    .select('sale_type')
+    .eq('id', saleId)
+    .maybeSingle()
+
+  return sale?.sale_type === 'CREDITO' ? 'CREDITO' : 'CONTADO'
+}
+
+async function ensureCashRefundExpenseForReturn(
+  service: ReturnType<typeof createServiceClient>,
+  params: {
+    returnNumber: string
+    saleNumber: string | null
+    storeId: string
+    amount: number
+    userId: string
+  }
+): Promise<{ success: true; cashExpenseId: string; reused: boolean } | { success: false; error: string }> {
+  const { data: existingExpenses, error: existingError } = await service
+    .from('cash_expenses')
+    .select('id, shift_id')
+    .eq('category', 'DEVOLUCION')
+    .ilike('description', `%${params.returnNumber}%`)
+    .order('created_at', { ascending: false })
+
+  if (existingError) {
+    return { success: false, error: `No se pudo validar el egreso de caja: ${existingError.message}` }
+  }
+
+  const linkedExpense = (existingExpenses || []).find((expense: any) => expense.shift_id)
+  if (linkedExpense) {
+    return { success: true, cashExpenseId: linkedExpense.id, reused: true }
+  }
+
+  const { data: shift, error: shiftError } = await service
+    .from('cash_shifts')
+    .select('id')
+    .eq('store_id', params.storeId)
+    .eq('status', 'OPEN')
+    .order('opened_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (shiftError) {
+    return { success: false, error: `No se pudo validar la caja abierta: ${shiftError.message}` }
+  }
+  if (!shift) {
+    return {
+      success: false,
+      error: `No hay caja abierta en ${params.storeId}. Abre la caja antes de completar este reembolso en efectivo.`,
+    }
+  }
+
+  const description = `Reembolso devolucion ${params.returnNumber}${params.saleNumber ? ` - venta ${params.saleNumber}` : ''}`
+  const unlinkedExpense = (existingExpenses || [])[0]
+
+  if (unlinkedExpense) {
+    const { error: updateError } = await service
+      .from('cash_expenses')
+      .update({
+        shift_id: shift.id,
+        user_id: params.userId,
+        amount: params.amount,
+        description,
+        created_at: new Date().toISOString(),
+      })
+      .eq('id', unlinkedExpense.id)
+
+    if (updateError) {
+      return { success: false, error: `No se pudo enlazar el egreso a la caja: ${updateError.message}` }
+    }
+
+    return { success: true, cashExpenseId: unlinkedExpense.id, reused: false }
+  }
+
+  const { data: insertedExpense, error: insertError } = await service
+    .from('cash_expenses')
+    .insert({
+      shift_id: shift.id,
+      amount: params.amount,
+      category: 'DEVOLUCION',
+      description,
+      user_id: params.userId,
+    })
+    .select('id')
+    .single()
+
+  if (insertError) {
+    return { success: false, error: `No se pudo registrar el egreso en caja: ${insertError.message}` }
+  }
+
+  return { success: true, cashExpenseId: insertedExpense.id, reused: false }
+}
+
 export async function getReturnsAction(userStores?: string[], selectedStore?: string) {
   const service = createServiceClient()
 
@@ -198,36 +299,7 @@ export async function approveReturnAction(returnId: string) {
   const returnAmount = Number(ret.total_amount)
 
   // ── 2. Obtener tipo de venta original (CONTADO / CREDITO) ─────────────────
-  let saleType: 'CONTADO' | 'CREDITO' = 'CONTADO'
-  if (ret.sale_id) {
-    const { data: sale } = await service
-      .from('sales')
-      .select('sale_type')
-      .eq('id', ret.sale_id)
-      .single()
-    if (sale?.sale_type) saleType = sale.sale_type as 'CONTADO' | 'CREDITO'
-  }
-
-  // ── 3. Validación de caja abierta (CONTADO → egreso en efectivo) ──────────
-  let openShiftId: string | null = null
-  if (saleType === 'CONTADO' && returnAmount > 0) {
-    const { data: shift } = await service
-      .from('cash_shifts')
-      .select('id')
-      .eq('store_id', ret.store_id)
-      .eq('status', 'OPEN')
-      .order('opened_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (!shift) {
-      return {
-        success: false,
-        error: `No hay caja abierta en ${ret.store_id}. Abre la caja antes de aprobar este reembolso en efectivo.`,
-      }
-    }
-    openShiftId = shift.id
-  }
+  const saleType = await getReturnSaleType(service, ret.sale_id)
 
   // ── 4. Marcar como APROBADA ───────────────────────────────────────────────
   const { data, error } = await service
@@ -242,22 +314,8 @@ export async function approveReturnAction(returnId: string) {
     return { success: false, error: error.message }
   }
 
-  // ── 5a. CONTADO → Registrar egreso en caja ────────────────────────────────
-  let cashExpenseFailed = false
-  if (saleType === 'CONTADO' && openShiftId && returnAmount > 0) {
-    const { error: expErr } = await service.from('cash_expenses').insert({
-      shift_id:    openShiftId,
-      amount:      returnAmount,
-      category:    'DEVOLUCION',
-      description: `Reembolso devolución ${ret.return_number} — venta ${ret.sale_number}`,
-      user_id:     user.id,
-    })
-    if (expErr) {
-      // La aprobación ya se grabó — marcamos la falla para que el frontend la muestre
-      console.error('[approveReturn] cash_expenses insert failed:', expErr)
-      cashExpenseFailed = true
-    }
-  }
+  // El egreso de caja para CONTADO se registra al completar la devolucion,
+  // junto con el ingreso de stock.
 
   // ── 5b. CREDITO → Ajustar plan, cuotas y restaurar crédito ──────────────
   if (saleType === 'CREDITO' && ret.client_id && ret.sale_id) {
@@ -384,7 +442,7 @@ export async function approveReturnAction(returnId: string) {
   revalidatePath('/debt')
   revalidatePath('/collections')
   revalidatePath('/admin/logs')
-  return { success: true, data, saleType, cashExpenseFailed }
+  return { success: true, data, saleType }
 }
 
 export async function rejectReturnAction(returnId: string, adminNotes: string) {
@@ -445,6 +503,28 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
   }
   if (returnRecord.status !== 'APROBADA') {
     return { success: false, error: `Solo se pueden completar devoluciones en estado APROBADA (actual: ${returnRecord.status})` }
+  }
+
+  const saleType = await getReturnSaleType(service, returnRecord.sale_id)
+  const finalRefundAmount = refundAmount ?? Number(returnRecord.total_amount)
+  let cashRefundExpenseId: string | null = null
+  let cashRefundReused = false
+
+  if (saleType === 'CONTADO' && finalRefundAmount > 0) {
+    const cashRefund = await ensureCashRefundExpenseForReturn(service, {
+      returnNumber: returnRecord.return_number,
+      saleNumber: returnRecord.sale_number,
+      storeId: returnRecord.store_id,
+      amount: finalRefundAmount,
+      userId: user.id,
+    })
+
+    if (!cashRefund.success) {
+      return { success: false, error: cashRefund.error }
+    }
+
+    cashRefundExpenseId = cashRefund.cashExpenseId
+    cashRefundReused = cashRefund.reused
   }
 
   const [enrichedReturnRecord] = await enrichReturnedItems(service, [returnRecord])
@@ -513,7 +593,7 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
 
   const { data, error } = await service
     .from('returns')
-    .update({ status: 'COMPLETADA', refund_amount: refundAmount ?? Number(returnRecord.total_amount) })
+    .update({ status: 'COMPLETADA', refund_amount: finalRefundAmount })
     .eq('id', returnId)
     .select()
     .single()
@@ -529,12 +609,16 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     entityType: 'return',
     entityId: returnId,
     entityName: returnRecord.return_number,
-    detail: `Devolucion completada. Ingreso de stock registrado: ${summarizeReturnedItemsForAudit(restoredItems)}.`,
+    detail: saleType === 'CONTADO'
+      ? `Devolucion completada. Egreso de caja e ingreso de stock registrados: ${summarizeReturnedItemsForAudit(restoredItems)}.`
+      : `Devolucion completada. Ingreso de stock registrado: ${summarizeReturnedItemsForAudit(restoredItems)}.`,
     store: warehouseId,
     oldValues: { status: returnRecord.status },
     newValues: {
       status: 'COMPLETADA',
-      refund_amount: refundAmount ?? Number(returnRecord.total_amount),
+      sale_type: saleType,
+      refund_amount: finalRefundAmount,
+      cash_expense_id: cashRefundExpenseId,
       stock_restored: restoredItems.map((item) => ({
         product_id: item.product_id,
         quantity: item.quantity,
@@ -549,7 +633,7 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
   revalidatePath('/admin/logs')
   revalidatePath('/reports')
   revalidatePath('/cash')
-  return { success: true, data }
+  return { success: true, data, saleType, cashRefundExpenseId, cashRefundReused }
 }
 
 export async function requestExtensionAction(returnId: string, extensionReason: string) {

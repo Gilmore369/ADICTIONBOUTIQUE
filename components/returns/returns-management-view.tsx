@@ -132,19 +132,11 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
     setApprovingId(null)
     if (result.success) {
       const r = result as any
-      if (r.cashExpenseFailed) {
-        toast.warning(`Devolución ${ret.return_number} aprobada con advertencia`, {
-          description: '⚠️ No se pudo registrar el egreso en caja automáticamente. Registra el egreso de S/ ' +
-            ret.total_amount.toFixed(2) + ' manualmente en la caja.',
-          duration: 8000,
-        })
-      } else {
-        toast.success(`Devolución ${ret.return_number} aprobada`, {
-          description: r.saleType === 'CREDITO'
-            ? 'Plan de crédito cancelado y crédito del cliente restaurado.'
-            : 'Egreso registrado en caja correctamente.',
-        })
-      }
+      toast.success(`Devolución ${ret.return_number} aprobada`, {
+        description: r.saleType === 'CREDITO'
+          ? 'Plan de crédito cancelado y crédito del cliente restaurado.'
+          : 'Queda lista para completar. El egreso de caja se registrará al completar.',
+      })
       setReturns(prev => prev.map(r => r.id === ret.id ? { ...r, status: 'APROBADA' } : r))
       if (selected?.id === ret.id) setSelected(s => s ? { ...s, status: 'APROBADA' } : s)
     } else {
@@ -170,8 +162,11 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
     const result = await completeReturnAction(ret.id)
     setCompletingId(null)
     if (result.success) {
+      const r = result as any
       toast.success(`Devolución ${ret.return_number} completada`, {
-        description: 'Stock restaurado exitosamente.',
+        description: r.saleType === 'CONTADO'
+          ? 'Stock restaurado y egreso registrado en caja.'
+          : 'Stock restaurado exitosamente.',
       })
       setReturns(prev => prev.map(r => r.id === ret.id ? { ...r, status: 'COMPLETADA' } : r))
       if (selected?.id === ret.id) setSelected(s => s ? { ...s, status: 'COMPLETADA' } : s)
