@@ -13,8 +13,15 @@ export const STORE_DISPLAY_NAMES: Record<string, string> = {
 /**
  * Returns the list of allowed store display names for the current user,
  * or null if the user has access to all stores.
+ *
+ * @param requestedStore - Optional UI store selection ('MUJERES' | 'HOMBRES' | 'ALL').
+ *   When provided and the user has access to that store, the result is scoped to
+ *   that single store. This allows admins to filter the map by selected store.
  */
-export async function getAllowedStoreNames(supabase: any): Promise<string[] | null> {
+export async function getAllowedStoreNames(
+  supabase: any,
+  requestedStore?: string | null
+): Promise<string[] | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
@@ -31,6 +38,17 @@ export async function getAllowedStoreNames(supabase: any): Promise<string[] | nu
   const hasAllAccess =
     userStores.length === 0 ||
     (upper.includes('MUJERES') && upper.includes('HOMBRES'))
+
+  // If caller requested a specific store and user has access to it → scope to that store
+  if (requestedStore && requestedStore !== 'ALL') {
+    const reqUpper = requestedStore.toUpperCase()
+    const userHasAccess = hasAllAccess || upper.includes(reqUpper)
+    if (userHasAccess) {
+      const displayName = STORE_DISPLAY_NAMES[reqUpper]
+      return displayName ? [displayName] : null
+    }
+    // User doesn't have access to requested store → fall through to their own restriction
+  }
 
   if (hasAllAccess) return null
 

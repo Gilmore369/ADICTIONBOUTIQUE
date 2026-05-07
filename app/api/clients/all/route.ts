@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { getAllowedStoreNames, getAllowedClientIds } from '@/lib/utils/store-filter'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createServerClient()
 
@@ -11,8 +11,10 @@ export async function GET() {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    // Store filter — for activation view, also scope to store's clients
-    const allowedStoreNames = await getAllowedStoreNames(supabase)
+    // Store filter — respeta selección de tienda del UI y restricciones del perfil
+    const { searchParams } = new URL(request.url)
+    const requestedStore = searchParams.get('store')
+    const allowedStoreNames = await getAllowedStoreNames(supabase, requestedStore)
     let clientIdFilter: string[] | null = null
     if (allowedStoreNames) {
       clientIdFilter = await getAllowedClientIds(supabase, allowedStoreNames)

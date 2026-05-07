@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getTodayPeru } from '@/lib/utils/timezone'
 import { getAllowedStoreNames, getAllowedPlanIds } from '@/lib/utils/store-filter'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createServerClient()
 
@@ -18,8 +18,10 @@ export async function GET() {
     const todayStr = getTodayPeru()
     const sevenDaysStr = sevenDaysFromNow.toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
 
-    // Store filter
-    const allowedStoreNames = await getAllowedStoreNames(supabase)
+    // Store filter — respeta selección de tienda del UI y restricciones del perfil
+    const { searchParams } = new URL(request.url)
+    const requestedStore = searchParams.get('store')
+    const allowedStoreNames = await getAllowedStoreNames(supabase, requestedStore)
     let planIdFilter: string[] | null = null
     if (allowedStoreNames) {
       planIdFilter = await getAllowedPlanIds(supabase, allowedStoreNames)

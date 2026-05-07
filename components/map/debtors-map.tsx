@@ -23,6 +23,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { Navigation, Loader2, ListChecks, X, CalendarDays } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { VisitPanel, type VisitEntry } from './visit-panel'
+import { useStore } from '@/contexts/store-context'
 import { PERU_TZ } from '@/lib/utils/timezone'
 
 type FilterType = 'overdue' | 'upcoming' | 'up-to-date' | 'all' | 'activation'
@@ -139,6 +140,7 @@ const DAYS_FILTERS = [
 export function DebtorsMap() {
   const searchParams = useSearchParams()
   const visitClientIds = searchParams.get('clients') // comma-separated UUIDs from Agenda
+  const { selectedStore } = useStore()
 
   const [filter, setFilter] = useState<FilterType>('overdue')
   const [clients, setClients] = useState<Client[]>([])
@@ -189,13 +191,15 @@ export function DebtorsMap() {
   })
 
   // If coming from Agenda with specific client IDs, load those directly
+  // Reload when filter OR selected store changes
   useEffect(() => {
     if (visitClientIds) {
       loadClientsByIds(visitClientIds)
     } else {
       loadClients(filter)
     }
-  }, [filter, visitClientIds])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, visitClientIds, selectedStore])
 
   const loadClientsByIds = async (ids: string) => {
     setLoading(true)
@@ -218,7 +222,9 @@ export function DebtorsMap() {
   const loadClients = async (filterType: FilterType) => {
     setLoading(true)
     try {
-      const response = await fetch(filterConfig[filterType].api)
+      // Pasar tienda seleccionada para que la API filtre correctamente
+      const storeParam = selectedStore && selectedStore !== 'ALL' ? `?store=${selectedStore}` : ''
+      const response = await fetch(filterConfig[filterType].api + storeParam)
       const { data } = await response.json()
       setClients(data || [])
     } catch (error) {

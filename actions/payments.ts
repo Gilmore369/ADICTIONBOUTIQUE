@@ -334,6 +334,7 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
     revalidatePath('/debt/plans')
     revalidatePath(`/debt/plans/${unpaidInstallments[0]?.plan_id}`)
     revalidatePath('/dashboard') // Revalidar dashboard para actualizar cobros del día
+    revalidatePath('/cash')      // Cobros recibidos afectan el cuadre de caja
 
     return {
       success: true,
