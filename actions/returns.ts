@@ -243,6 +243,7 @@ export async function approveReturnAction(returnId: string) {
   }
 
   // ── 5a. CONTADO → Registrar egreso en caja ────────────────────────────────
+  let cashExpenseFailed = false
   if (saleType === 'CONTADO' && openShiftId && returnAmount > 0) {
     const { error: expErr } = await service.from('cash_expenses').insert({
       shift_id:    openShiftId,
@@ -252,8 +253,9 @@ export async function approveReturnAction(returnId: string) {
       user_id:     user.id,
     })
     if (expErr) {
-      // Egreso no registrado: lo advertimos pero la aprobación ya se hizo
+      // La aprobación ya se grabó — marcamos la falla para que el frontend la muestre
       console.error('[approveReturn] cash_expenses insert failed:', expErr)
+      cashExpenseFailed = true
     }
   }
 
@@ -382,7 +384,7 @@ export async function approveReturnAction(returnId: string) {
   revalidatePath('/debt')
   revalidatePath('/collections')
   revalidatePath('/admin/logs')
-  return { success: true, data, saleType }
+  return { success: true, data, saleType, cashExpenseFailed }
 }
 
 export async function rejectReturnAction(returnId: string, adminNotes: string) {

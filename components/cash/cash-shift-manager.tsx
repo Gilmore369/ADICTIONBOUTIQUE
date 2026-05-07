@@ -55,7 +55,11 @@ interface ShiftBreakdown {
   creditSales: number
   collections: number
   expenses: number
+  refunds: number
+  otherExpenses: number
   expensesList: { id: string; amount: number; category: string; description?: string; created_at: string }[]
+  refundsList: { id: string; amount: number; category: string; description?: string; created_at: string }[]
+  otherExpensesList: { id: string; amount: number; category: string; description?: string; created_at: string }[]
 }
 
 interface CuadreResult {
@@ -63,6 +67,8 @@ interface CuadreResult {
   cashSales: number
   collections: number
   expenses: number
+  refunds: number
+  otherExpenses: number
   expected: number
   closing: number
   difference: number
@@ -143,12 +149,30 @@ function CuadreModal({ result, storeName, onClose }: {
               icon={<CreditCard className="h-4 w-4" />}
               highlight="positive"
             />
-            <CuadreRow
-              label="− Gastos"
-              value={result.expenses}
-              icon={<Minus className="h-4 w-4" />}
-              highlight="negative"
-            />
+            {result.refunds > 0 && (
+              <CuadreRow
+                label="− Devoluciones"
+                value={result.refunds}
+                icon={<TrendingDown className="h-4 w-4" />}
+                highlight="negative"
+              />
+            )}
+            {result.otherExpenses > 0 && (
+              <CuadreRow
+                label="− Gastos Operativos"
+                value={result.otherExpenses}
+                icon={<Minus className="h-4 w-4" />}
+                highlight="negative"
+              />
+            )}
+            {result.refunds === 0 && result.otherExpenses === 0 && result.expenses > 0 && (
+              <CuadreRow
+                label="− Gastos"
+                value={result.expenses}
+                icon={<Minus className="h-4 w-4" />}
+                highlight="negative"
+              />
+            )}
             <div className="border-t pt-2 mt-2">
               <CuadreRow
                 label="= Efectivo Esperado"
@@ -377,12 +401,30 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
                         icon={<Plus className="h-4 w-4" />}
                         highlight="positive"
                       />
-                      <CuadreRow
-                        label="− Gastos"
-                        value={bd.expenses}
-                        icon={<Minus className="h-4 w-4" />}
-                        highlight="negative"
-                      />
+                      {(bd.refunds ?? 0) > 0 && (
+                        <CuadreRow
+                          label="− Devoluciones"
+                          value={bd.refunds}
+                          icon={<TrendingDown className="h-4 w-4" />}
+                          highlight="negative"
+                        />
+                      )}
+                      {(bd.otherExpenses ?? 0) > 0 && (
+                        <CuadreRow
+                          label="− Gastos Operativos"
+                          value={bd.otherExpenses}
+                          icon={<Minus className="h-4 w-4" />}
+                          highlight="negative"
+                        />
+                      )}
+                      {!(bd.refunds ?? 0) && !(bd.otherExpenses ?? 0) && bd.expenses > 0 && (
+                        <CuadreRow
+                          label="− Gastos"
+                          value={bd.expenses}
+                          icon={<Minus className="h-4 w-4" />}
+                          highlight="negative"
+                        />
+                      )}
                       <div className="border-t pt-2 mt-1">
                         <CuadreRow
                           label="= Efectivo Esperado"

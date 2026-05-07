@@ -131,11 +131,20 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
     const result = await approveReturnAction(ret.id)
     setApprovingId(null)
     if (result.success) {
-      toast.success(`Devolución ${ret.return_number} aprobada`, {
-        description: (result as any).saleType === 'CREDITO'
-          ? 'Plan de crédito cancelado y crédito del cliente restaurado.'
-          : 'Egreso registrado en caja.',
-      })
+      const r = result as any
+      if (r.cashExpenseFailed) {
+        toast.warning(`Devolución ${ret.return_number} aprobada con advertencia`, {
+          description: '⚠️ No se pudo registrar el egreso en caja automáticamente. Registra el egreso de S/ ' +
+            ret.total_amount.toFixed(2) + ' manualmente en la caja.',
+          duration: 8000,
+        })
+      } else {
+        toast.success(`Devolución ${ret.return_number} aprobada`, {
+          description: r.saleType === 'CREDITO'
+            ? 'Plan de crédito cancelado y crédito del cliente restaurado.'
+            : 'Egreso registrado en caja correctamente.',
+        })
+      }
       setReturns(prev => prev.map(r => r.id === ret.id ? { ...r, status: 'APROBADA' } : r))
       if (selected?.id === ret.id) setSelected(s => s ? { ...s, status: 'APROBADA' } : s)
     } else {

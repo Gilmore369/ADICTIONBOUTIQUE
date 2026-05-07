@@ -44,9 +44,17 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
       .eq('shift_id', shiftId)
       .order('created_at', { ascending: false })
 
-    const totalExpenses = (expenses || []).reduce(
+    const allExpenses = expenses || []
+    const refundsList      = allExpenses.filter(e => e.category === 'DEVOLUCION')
+    const otherExpensesList = allExpenses.filter(e => e.category !== 'DEVOLUCION')
+
+    const totalRefunds  = refundsList.reduce(
       (sum, e) => sum + parseFloat(e.amount?.toString() || '0'), 0
     )
+    const totalOtherExpenses = otherExpensesList.reduce(
+      (sum, e) => sum + parseFloat(e.amount?.toString() || '0'), 0
+    )
+    const totalExpenses = totalRefunds + totalOtherExpenses
 
     return {
       success: true,
@@ -55,7 +63,11 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
         creditSales: totalCreditSales,
         collections: totalCollections,
         expenses: totalExpenses,
-        expensesList: expenses || [],
+        refunds: totalRefunds,
+        otherExpenses: totalOtherExpenses,
+        expensesList: allExpenses,
+        refundsList,
+        otherExpensesList,
       }
     }
   } catch (error) {
@@ -180,13 +192,19 @@ export async function closeCashShift(shiftId: string, closingAmount: number) {
       (sum, p) => sum + parseFloat(p.amount?.toString() || '0'), 0
     ) || 0
 
-    // Get total expenses for this shift
+    // Get total expenses for this shift (split refunds vs other)
     const { data: expenses } = await supabase
       .from('cash_expenses')
-      .select('amount')
+      .select('amount, category')
       .eq('shift_id', shiftId)
 
-    const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0) || 0
+    const totalRefunds = (expenses || [])
+      .filter(e => e.category === 'DEVOLUCION')
+      .reduce((sum, e) => sum + parseFloat(e.amount.toString()), 0)
+    const totalOtherExpenses = (expenses || [])
+      .filter(e => e.category !== 'DEVOLUCION')
+      .reduce((sum, e) => sum + parseFloat(e.amount.toString()), 0)
+    const totalExpenses = totalRefunds + totalOtherExpenses
 
     const expectedAmount = shift.opening_amount + totalCashSales + totalCollections - totalExpenses
     const difference = closingAmount - expectedAmount
@@ -226,6 +244,8 @@ export async function closeCashShift(shiftId: string, closingAmount: number) {
         cashSales: totalCashSales,
         collections: totalCollections,
         expenses: totalExpenses,
+        refunds: totalRefunds,
+        otherExpenses: totalOtherExpenses,
         expected: expectedAmount,
         closing: closingAmount,
         difference,
