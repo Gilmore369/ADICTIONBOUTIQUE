@@ -131,6 +131,21 @@ export function ReturnDetailsDialog({
   const isPending = returnData.status === 'PENDIENTE'
   const isApproved = returnData.status === 'APROBADA'
   const saleType = returnData.sales?.sale_type as 'CONTADO' | 'CREDITO' | undefined
+  const originalItemsTotal = items.reduce(
+    (sum, item) => sum + Number(item.original_subtotal ?? (Number(item.unit_price) * Number(item.quantity || 0))),
+    0
+  )
+  const refundTotal = Number(returnData.total_amount || 0)
+  const isPartialRefund = originalItemsTotal > 0 && Math.abs(originalItemsTotal - refundTotal) > 0.01
+  const getOriginalSubtotal = (item: ReturnedItem) =>
+    Number(item.original_subtotal ?? (Number(item.unit_price) * Number(item.quantity || 0)))
+  const getRefundSubtotal = (item: ReturnedItem) => {
+    if (item.refund_subtotal !== undefined && item.refund_subtotal !== null) return Number(item.refund_subtotal)
+    if (isPartialRefund && originalItemsTotal > 0) {
+      return Math.round((getOriginalSubtotal(item) / originalItemsTotal) * refundTotal * 100) / 100
+    }
+    return Number(item.subtotal ?? getOriginalSubtotal(item))
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -236,12 +251,19 @@ export function ReturnDetailsDialog({
             ) : (
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
+                  {isPartialRefund && (
+                    <caption className="caption-bottom px-3 py-2 text-left text-xs text-muted-foreground bg-muted/40 border-t border-border">
+                      Devolucion parcial: se devuelve {formatCurrency(refundTotal)} sobre productos vendidos por {formatCurrency(originalItemsTotal)}.
+                    </caption>
+                  )}
                   <thead>
                     <tr className="bg-muted/70 border-b border-border">
                       <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Producto</th>
                       <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-16">Cant.</th>
                       <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-28">Precio / costo</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-24">Subtotal</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground w-24">
+                        {isPartialRefund ? 'Devuelto' : 'Subtotal'}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -276,7 +298,12 @@ export function ReturnDetailsDialog({
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold text-foreground">
-                          {formatCurrency(Number(item.subtotal || item.unit_price * item.quantity))}
+                          {formatCurrency(getRefundSubtotal(item))}
+                          {isPartialRefund && (
+                            <p className="text-[10px] font-normal text-muted-foreground">
+                              Venta: {formatCurrency(getOriginalSubtotal(item))}
+                            </p>
+                          )}
                         </td>
                       </tr>
                     ))}

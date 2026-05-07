@@ -44,6 +44,8 @@ export interface ReturnedItem {
   quantity: number
   unit_price: number
   subtotal: number
+  original_subtotal?: number | null
+  refund_subtotal?: number | null
   product_name?: string
   product_barcode?: string | null
   base_name?: string | null

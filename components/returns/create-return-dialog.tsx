@@ -204,7 +204,13 @@ export function CreateReturnDialog({ onClose, onSuccess }: CreateReturnDialogPro
         returned_at: new Date().toISOString(),
         quantity:     i.returnQty,
         unit_price:   i.unitPrice,
-        subtotal:     i.unitPrice * i.returnQty,
+        original_subtotal: i.unitPrice * i.returnQty,
+        refund_subtotal: returnAmount > 0
+          ? Math.round(((i.unitPrice * i.returnQty) / returnAmount) * finalAmount * 100) / 100
+          : 0,
+        subtotal: returnAmount > 0
+          ? Math.round(((i.unitPrice * i.returnQty) / returnAmount) * finalAmount * 100) / 100
+          : 0,
       }))
 
       const result = await createReturnAction({
