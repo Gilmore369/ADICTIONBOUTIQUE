@@ -56,6 +56,9 @@ function shortPrefix(name: string, length = 3): string {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const searchParams = request.nextUrl.searchParams
     const categoryId = searchParams.get('category_id')
     const brandId    = searchParams.get('brand_id')  // OPCIONAL

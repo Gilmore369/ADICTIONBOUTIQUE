@@ -15,6 +15,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const searchParams = request.nextUrl.searchParams
     const brandId = searchParams.get('brand_id')
 
@@ -24,8 +28,6 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = await createServerClient()
 
     // Get suppliers that sell this brand through supplier_brands junction table
     const { data, error } = await supabase

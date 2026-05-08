@@ -17,8 +17,11 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const searchParams = request.nextUrl.searchParams
-    
+
     const baseName = searchParams.get('baseName') || ''
     const supplierId = searchParams.get('supplier_id') || ''
     const size = searchParams.get('size') || ''

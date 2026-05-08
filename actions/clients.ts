@@ -23,20 +23,20 @@ import { ActionType } from '@/lib/types/crm'
 
 // Validation Schemas
 const actionLogSchema = z.object({
-  clientId: z.string().uuid(),
+  clientId: z.string().min(1, 'El cliente es requerido'),
   actionType: z.enum(['NOTA', 'LLAMADA', 'VISITA', 'MENSAJE', 'REACTIVACION']),
   description: z.string().min(1, 'La descripción es requerida'),
 })
 
 const collectionActionSchema = z.object({
-  clientId: z.string().uuid(),
+  clientId: z.string().min(1, 'El cliente es requerido'),
   actionType: z.string().min(1, 'El tipo de acción es requerido'),
   description: z.string().min(1, 'La descripción es requerida'),
   followUpDate: z.string().min(1, 'La fecha de seguimiento es requerida'),
 })
 
 const deactivationSchema = z.object({
-  clientId: z.string().uuid(),
+  clientId: z.string().min(1, 'El cliente es requerido'),
   reason: z.enum(['FALLECIDO', 'MUDADO', 'DESAPARECIDO', 'OTRO']),
   notes: z.string().nullable(),
 })

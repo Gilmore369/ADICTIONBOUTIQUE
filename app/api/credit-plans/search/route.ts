@@ -13,8 +13,11 @@ import { createServerClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const searchParams = request.nextUrl.searchParams
-    
+
     const query = searchParams.get('q') || ''
     const limitParam = searchParams.get('limit')
     const limit = limitParam ? Math.min(Number(limitParam), 100) : 50

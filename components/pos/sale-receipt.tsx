@@ -324,7 +324,7 @@ export function SaleReceipt({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-auto">
+      <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-auto">
         {/* Header con botones - No se imprime */}
         <div className="flex items-center justify-between p-4 border-b print:hidden">
           <h2 className="text-lg font-semibold">Ticket de Venta</h2>
@@ -368,7 +368,7 @@ export function SaleReceipt({
 
         {/* Email input - No se imprime */}
         {showEmailForm && (
-          <div className="p-4 border-b bg-gray-50 print:hidden">
+          <div className="p-4 border-b bg-muted/50 print:hidden">
             <Label className="text-sm mb-2 block">Enviar ticket por correo</Label>
             <div className="flex gap-2">
               <Input

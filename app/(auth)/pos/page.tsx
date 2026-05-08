@@ -334,15 +334,15 @@ export default function POSPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Punto de Venta</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Punto de Venta</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Sistema de ventas y gestión de caja
           </p>
         </div>
         
         {/* Warehouse Selector */}
         <Card className="p-3">
-          <label className="text-xs font-medium text-gray-600 block mb-1">
+          <label className="text-xs font-medium text-muted-foreground block mb-1">
             Tienda {(cart.items.length > 0 || selectedStore !== 'ALL') && '🔒'}
           </label>
           <select
@@ -505,17 +505,17 @@ export default function POSPage() {
 
           {/* Cash calculator — only for CONTADO with items */}
           {saleType === 'CONTADO' && cart.total > 0 && (
-            <Card className="p-4 bg-emerald-50 border-emerald-200">
-              <h3 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-1.5">
+            <Card className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+              <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-3 flex items-center gap-1.5">
                 💵 Efectivo
               </h3>
               <div className="space-y-2.5">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Total a cobrar:</span>
-                  <span className="font-bold text-gray-900 text-base">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(cart.total)}</span>
+                  <span className="text-emerald-700 dark:text-emerald-400">Total a cobrar:</span>
+                  <span className="font-bold text-foreground text-base">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(cart.total)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600 whitespace-nowrap w-24 shrink-0">Recibido:</label>
+                  <label className="text-sm text-emerald-700 dark:text-emerald-400 whitespace-nowrap w-24 shrink-0">Recibido:</label>
                   <Input
                     type="number"
                     min="0"
@@ -523,7 +523,7 @@ export default function POSPage() {
                     placeholder="0.00"
                     value={cashReceived}
                     onChange={e => setCashReceived(e.target.value)}
-                    className="h-9 text-right font-semibold text-base bg-white border-emerald-300 focus:border-emerald-500"
+                    className="h-9 text-right font-semibold text-base bg-card border-emerald-300 dark:border-emerald-700 focus:border-emerald-500"
                     autoFocus={false}
                   />
                 </div>

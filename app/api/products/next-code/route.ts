@@ -12,6 +12,10 @@ import { createServerClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const searchParams = request.nextUrl.searchParams
     const prefix = searchParams.get('prefix')
 
@@ -29,8 +33,6 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = await createServerClient()
 
     // Find the highest number for this prefix
     // Pattern: PREFIX-NNN (e.g., BLS-001, BLS-002)
