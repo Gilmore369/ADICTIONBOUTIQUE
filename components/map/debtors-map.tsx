@@ -15,7 +15,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { GoogleMap, useLoadScript, Marker, InfoWindow } from '@react-google-maps/api'
+import { GoogleMap, useLoadScript, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -125,7 +125,7 @@ function optimizeRoute(origin: { lat: number; lng: number }, clients: Client[], 
   return route
 }
 
-const MAX_ROUTE_STOPS = 9 // Google Maps URL limit (~10 stops including origin)
+const MAX_ROUTE_STOPS = 20 // Google Maps supports up to ~25 waypoints in URL
 const MAPS_LIBRARIES: ['places'] = ['places']
 
 const ROUTE_TYPES: RouteType[] = ['Cobranza', 'Delivery']
@@ -155,6 +155,10 @@ export function DebtorsMap() {
   const [selectionMode, setSelectionMode] = useState(false)
   const [visitEntries, setVisitEntries]   = useState<VisitEntry[]>([])
   const [panelOpen, setPanelOpen]         = useState(false)
+
+  // In-map route state
+  const [directionsResult, setDirectionsResult] = useState<google.maps.DirectionsResult | null>(null)
+  const [routeActive, setRouteActive] = useState(false)
 
   // Load persisted visit checklist on mount
   useEffect(() => {
@@ -193,6 +197,8 @@ export function DebtorsMap() {
   // If coming from Agenda with specific client IDs, load those directly
   // Reload when filter OR selected store changes
   useEffect(() => {
+    setDirectionsResult(null)
+    setRouteActive(false)
     if (visitClientIds) {
       loadClientsByIds(visitClientIds)
     } else {
@@ -258,14 +264,21 @@ export function DebtorsMap() {
     visitEntries.some(e => e.client.id === clientId)
 
   // ── Route optimization ─────────────────────────────────────────────────────
-  const handleGenerateRoute = () => {
-    // Use visit panel list if populated, otherwise all displayed clients
-    const sourceClients = visitEntries.length > 0
-      ? visitEntries.map(e => e.client as unknown as Client)
-      : displayedClients
+  // pendingEntries = visit list minus already-completed stops
+  const pendingEntries = visitEntries.filter(e => !e.visitedResult)
+
+  const handleGenerateRoute = (pendingOnly = false) => {
+    let sourceClients: Client[]
+    if (visitEntries.length > 0) {
+      const pool = pendingOnly ? pendingEntries : visitEntries
+      sourceClients = pool.map(e => e.client as unknown as Client)
+    } else {
+      sourceClients = displayedClients
+    }
+
     const validClients = sourceClients.filter(c => c.lat && c.lng && !isNaN(c.lat) && !isNaN(c.lng))
     if (validClients.length === 0) {
-      toast.error('Sin datos', 'Ningún cliente del filtro actual tiene coordenadas GPS.')
+      toast.error('Sin datos', 'Todos los clientes ya fueron visitados o no tienen GPS.')
       return
     }
 
@@ -280,21 +293,47 @@ export function DebtorsMap() {
         const origin = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         const route = optimizeRoute(origin, validClients, MAX_ROUTE_STOPS)
 
-        // Build Google Maps multi-stop URL with route type label
-        const stops = [
-          `${origin.lat},${origin.lng}`,
-          ...route.map(c => `${c.lat},${c.lng}`)
-        ]
-        const mapsUrl = `https://www.google.com/maps/dir/${stops.join('/')}`
+        if (route.length === 0) {
+          setGeneratingRoute(false)
+          toast.error('Sin paradas', 'No hay paradas con coordenadas válidas.')
+          return
+        }
 
-        window.open(mapsUrl, '_blank')
-        setGeneratingRoute(false)
+        // Build Directions request
+        const destination = route[route.length - 1]
+        const waypoints = route.slice(0, -1).map(c => ({
+          location: new google.maps.LatLng(c.lat, c.lng),
+          stopover: true,
+        }))
 
-        const total = validClients.length
-        const shown = route.length
-        toast.success(
-          `Ruta de ${routeType} generada`,
-          `${shown} de ${total} parada${total !== 1 ? 's' : ''} optimizadas por distancia`
+        const directionsService = new google.maps.DirectionsService()
+        directionsService.route(
+          {
+            origin: new google.maps.LatLng(origin.lat, origin.lng),
+            destination: new google.maps.LatLng(destination.lat, destination.lng),
+            waypoints,
+            travelMode: google.maps.TravelMode.DRIVING,
+            optimizeWaypoints: false, // already optimized by nearest-neighbor
+          },
+          (result, status) => {
+            setGeneratingRoute(false)
+            if (status === 'OK' && result) {
+              setDirectionsResult(result)
+              setRouteActive(true)
+              toast.success(
+                `Ruta de ${routeType} en mapa`,
+                `${route.length} parada${route.length !== 1 ? 's' : ''} optimizadas · usa el panel para navegar`
+              )
+            } else {
+              // Fallback: open in Maps if Directions API fails
+              const stops = [
+                `${origin.lat},${origin.lng}`,
+                ...route.map(c => `${c.lat},${c.lng}`),
+              ]
+              window.open(`https://www.google.com/maps/dir/${stops.join('/')}`, '_blank')
+              toast.info('Ruta en Google Maps', `Directions API no disponible — abierta en pestaña nueva`)
+            }
+          }
         )
       },
       (err) => {
@@ -306,6 +345,11 @@ export function DebtorsMap() {
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
     )
+  }
+
+  const handleClearRoute = () => {
+    setDirectionsResult(null)
+    setRouteActive(false)
   }
 
   // Determinar color del marcador según filtro
@@ -477,20 +521,31 @@ export function DebtorsMap() {
               </select>
             </div>
 
-            {/* Generate route button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateRoute}
-              disabled={generatingRoute || displayedClients.length === 0 || loading}
-              className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
-              title={`Generar ruta de ${routeType} (máx. ${MAX_ROUTE_STOPS} paradas)`}
-            >
-              {generatingRoute
-                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> GPS…</>
-                : <><Navigation className="h-3.5 w-3.5" /> Generar Ruta</>
-              }
-            </Button>
+            {/* Generate / clear route button */}
+            {routeActive ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearRoute}
+                className="gap-2 border-red-300 text-red-600 hover:bg-red-50"
+              >
+                <X className="h-3.5 w-3.5" /> Limpiar ruta
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleGenerateRoute(false)}
+                disabled={generatingRoute || displayedClients.length === 0 || loading}
+                className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                title={`Generar ruta de ${routeType} (máx. ${MAX_ROUTE_STOPS} paradas — solo pendientes si hay lista activa)`}
+              >
+                {generatingRoute
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> GPS…</>
+                  : <><Navigation className="h-3.5 w-3.5" /> Generar Ruta</>
+                }
+              </Button>
+            )}
           </div>
         </div>
 
@@ -526,9 +581,14 @@ export function DebtorsMap() {
             ? '✅ Modo selección activo — haz clic en los marcadores del mapa para agregarlos a tu lista de visitas'
             : currentFilter.description
           }
-          {!selectionMode && displayedClients.length > MAX_ROUTE_STOPS && (
+          {!selectionMode && displayedClients.length > MAX_ROUTE_STOPS && visitEntries.length === 0 && (
             <span className="ml-1 text-amber-600">
               · La ruta incluirá las {MAX_ROUTE_STOPS} paradas más cercanas de {displayedClients.length} clientes
+            </span>
+          )}
+          {visitEntries.length > 0 && pendingEntries.length < visitEntries.length && (
+            <span className="ml-1 text-emerald-600 font-medium">
+              · {visitEntries.length - pendingEntries.length} completadas · {pendingEntries.length} pendientes en ruta
             </span>
           )}
         </p>
@@ -622,7 +682,19 @@ export function DebtorsMap() {
       </Card>
 
       {/* Mapa */}
-      <Card className="p-0 overflow-hidden">
+      <Card className="p-0 overflow-hidden relative">
+        {/* "Limpiar ruta" overlay — only shown when a route is active */}
+        {routeActive && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+            <button
+              onClick={handleClearRoute}
+              className="flex items-center gap-1.5 bg-white shadow-md border border-gray-200 rounded-full px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+              Limpiar ruta
+            </button>
+          </div>
+        )}
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
           center={center}
@@ -633,9 +705,24 @@ export function DebtorsMap() {
             fullscreenControl: true,
           }}
         >
-          {displayedClients.map((client) => {
+          {/* Route polyline with stop markers */}
+          {directionsResult && (
+            <DirectionsRenderer
+              directions={directionsResult}
+              options={{
+                suppressMarkers: false,
+                polylineOptions: {
+                  strokeColor: '#3B82F6',
+                  strokeWeight: 5,
+                  strokeOpacity: 0.85,
+                },
+              }}
+            />
+          )}
+
+          {/* Hide individual markers when route is drawn — DirectionsRenderer shows its own */}
+          {!routeActive && displayedClients.map((client) => {
             const selected = isSelected(client.id)
-            // Selected marker: bright green checkmark override
             const iconColor = selected ? '#10B981' : getMarkerColor(client)
             return (
               <Marker
@@ -883,8 +970,16 @@ export function DebtorsMap() {
           setSelectionMode(false)
           setPanelOpen(false)
         }}
-        onGenerateRoute={handleGenerateRoute}
+        onGenerateRoute={() => { handleClearRoute(); handleGenerateRoute(true) }}
         generatingRoute={generatingRoute}
+        onVisitSaved={() => {
+          // Reload map after a visit/payment is registered so counts and markers update
+          if (visitClientIds) {
+            loadClientsByIds(visitClientIds)
+          } else {
+            loadClients(filter)
+          }
+        }}
       />
     </div>
   )

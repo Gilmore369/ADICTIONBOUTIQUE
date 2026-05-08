@@ -6,10 +6,10 @@
  * Each client can be marked as visited via RegisterVisitDialog.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils/currency'
-import { X, Navigation, Trash2, CheckCircle2, Clock, MapPin, FileText } from 'lucide-react'
+import { X, Navigation, Trash2, CheckCircle2, Clock, MapPin, FileText, ExternalLink } from 'lucide-react'
 import {
   RegisterVisitDialog,
   VisitResultBadge,
@@ -34,6 +34,8 @@ interface Props {
   generatingRoute: boolean
   open: boolean
   onClose: () => void
+  /** Called after a visit is saved — used to reload map markers */
+  onVisitSaved?: (visitId: string, result: VisitResult) => void
 }
 
 export function VisitPanel({
@@ -45,6 +47,7 @@ export function VisitPanel({
   generatingRoute,
   open,
   onClose,
+  onVisitSaved,
 }: Props) {
   const [registering, setRegistering] = useState<VisitClient | null>(null)
   const [pastVisits, setPastVisits]   = useState<any[]>([])
@@ -56,6 +59,15 @@ export function VisitPanel({
 
   const visitedCount  = localEntries.filter(e => e.visitedResult).length
   const pendingCount  = localEntries.length - visitedCount
+
+  // Pre-built Google Maps URL for all pending stops (nearest-neighbor from first pending)
+  const pendingMapsUrl = useMemo(() => {
+    const pending = localEntries.filter(e => !e.visitedResult && (e.client as any).lat && (e.client as any).lng)
+    if (pending.length === 0) return null
+    // Simple ordered route (panel order) — GPS-optimized version uses the parent's handler
+    const coords = pending.map(e => `${(e.client as any).lat},${(e.client as any).lng}`)
+    return `https://www.google.com/maps/dir/${coords.join('/')}`
+  }, [localEntries])
 
   const handleOpenRegister = async (client: VisitClient) => {
     // Pre-fetch visit history for this client
@@ -78,6 +90,8 @@ export function VisitPanel({
       )
     )
     setRegistering(null)
+    // Notify parent so map can reload and reflect payment/visit changes
+    onVisitSaved?.(visitId, result)
   }
 
   if (!open) return null
@@ -222,15 +236,38 @@ export function VisitPanel({
               Generar Reporte ({visitedCount} visitas)
             </Button>
           )}
+
+          {/* GPS-optimized route — only pending stops */}
           <Button
             onClick={onGenerateRoute}
-            disabled={generatingRoute || localEntries.length === 0}
-            className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+            disabled={generatingRoute || pendingCount === 0}
+            className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
             size="sm"
+            title="Usa tu GPS para ordenar las paradas pendientes por distancia"
           >
             <Navigation className="h-3.5 w-3.5" />
-            {generatingRoute ? 'Obteniendo GPS…' : `Ruta optimizada (${localEntries.length} paradas)`}
+            {generatingRoute
+              ? 'Obteniendo GPS…'
+              : pendingCount === 0
+                ? '✓ Todas completadas'
+                : `Ruta optimizada (${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''})`
+            }
           </Button>
+
+          {/* Quick Maps link — updated live as stops complete */}
+          {pendingMapsUrl && pendingCount > 0 && (
+            <a
+              href={pendingMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 w-full text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 rounded py-1.5 bg-white transition-colors font-medium"
+              title="Abre Google Maps con las paradas pendientes en el orden de la lista"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Abrir en Google Maps ({pendingCount} parada{pendingCount !== 1 ? 's' : ''})
+            </a>
+          )}
+
           <button
             onClick={onClearAll}
             disabled={localEntries.length === 0}

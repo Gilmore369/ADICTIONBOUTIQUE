@@ -10,7 +10,9 @@ import { exportFilteredClients } from '@/actions/export'
 import { toast } from '@/lib/toast'
 import type { ClientFilters as ClientFiltersType } from '@/lib/types/crm'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, ChevronLeft, ChevronRight, Cake } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { AlertTriangle, ChevronLeft, ChevronRight, Cake, Search, X } from 'lucide-react'
+import { useDebounce } from '@/hooks/use-debounce'
 
 const PAGE_SIZE = 50
 
@@ -47,16 +49,25 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showOnlyBlacklisted, setShowOnlyBlacklisted] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearch = useDebounce(searchQuery, 200)
 
   const blacklistedCount = useMemo(() => clients.filter(c => c.blacklisted).length, [clients])
 
-  // Filter clients based on current filters
+  // Filter clients based on current filters + search query
   const filteredClients = useMemo(() => {
-    if (Object.keys(filters).length === 0) {
-      return clients
-    }
+    const q = debouncedSearch.trim().toLowerCase()
 
     return clients.filter(client => {
+      // Text search — name, DNI, phone
+      if (q) {
+        const matchName = client.name.toLowerCase().includes(q)
+        const matchDni = client.dni?.toLowerCase().includes(q) ?? false
+        const matchPhone = client.phone?.toLowerCase().includes(q) ?? false
+        if (!matchName && !matchDni && !matchPhone) return false
+      }
+
+      if (Object.keys(filters).length === 0) return true
       // Debt status filter
       if (filters.debtStatus) {
         if (filters.debtStatus === 'MOROSO') {
@@ -112,7 +123,7 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
 
       return true
     })
-  }, [clients, filters, showOnlyBlacklisted])
+  }, [clients, filters, showOnlyBlacklisted, debouncedSearch])
 
   // Paginated slice of filteredClients
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE))
@@ -120,6 +131,9 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
     () => filteredClients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [filteredClients, currentPage]
   )
+
+  // Reset to page 1 when search changes
+  useEffect(() => { setCurrentPage(1) }, [debouncedSearch])
 
   const handleFilterChange = useCallback(async (newFilters: ClientFiltersType) => {
     setFilters(newFilters)
@@ -224,6 +238,25 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
           )}
         </div>
         <CreateClientDialog onSuccess={handleClientCreated} />
+      </div>
+
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Buscar por nombre, DNI o teléfono..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-9 pr-9 h-9"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <ClientFilters onFilterChange={handleFilterChange} />
