@@ -76,6 +76,76 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
 }
 
 /**
+ * Reconstruye el desglose de un turno ya CERRADO
+ * Igual que getCashShiftBreakdown pero usa closed_at como límite superior
+ */
+export async function getClosedShiftBreakdown(
+  shiftId: string,
+  storeId: string,
+  openedAt: string,
+  closedAt: string,
+) {
+  try {
+    const supabase = await createServerClient()
+
+    const { data: sales } = await supabase
+      .from('sales')
+      .select('total, sale_type')
+      .eq('store_id', storeId)
+      .eq('voided', false)
+      .gte('created_at', openedAt)
+      .lte('created_at', closedAt)
+
+    const cashSales        = (sales || []).filter(s => s.sale_type === 'CONTADO')
+    const totalCashSales   = cashSales.reduce((s, x) => s + parseFloat(x.total?.toString() || '0'), 0)
+    const creditSales      = (sales || []).filter(s => s.sale_type === 'CREDITO')
+    const totalCreditSales = creditSales.reduce((s, x) => s + parseFloat(x.total?.toString() || '0'), 0)
+
+    const { data: collectionPayments } = await supabase
+      .from('payments')
+      .select('amount')
+      .gte('created_at', openedAt)
+      .lte('created_at', closedAt)
+
+    const totalCollections = (collectionPayments || []).reduce(
+      (s, p) => s + parseFloat(p.amount?.toString() || '0'), 0
+    )
+
+    const { data: expenses } = await supabase
+      .from('cash_expenses')
+      .select('id, amount, category, description, created_at')
+      .eq('shift_id', shiftId)
+      .order('created_at', { ascending: false })
+
+    const allExpenses       = expenses || []
+    const refundsList       = allExpenses.filter(e => e.category === 'DEVOLUCION')
+    const otherExpensesList = allExpenses.filter(e => e.category !== 'DEVOLUCION')
+    const totalRefunds      = refundsList.reduce((s, e) => s + parseFloat(e.amount?.toString() || '0'), 0)
+    const totalOther        = otherExpensesList.reduce((s, e) => s + parseFloat(e.amount?.toString() || '0'), 0)
+    const totalExpenses     = totalRefunds + totalOther
+
+    return {
+      success: true,
+      data: {
+        cashSales:        totalCashSales,
+        creditSales:      totalCreditSales,
+        collections:      totalCollections,
+        expenses:         totalExpenses,
+        refunds:          totalRefunds,
+        otherExpenses:    totalOther,
+        expensesList:     allExpenses,
+        refundsList,
+        otherExpensesList,
+        salesCount:       (sales || []).length,
+        paymentsCount:    (collectionPayments || []).length,
+      }
+    }
+  } catch {
+    return { success: false, error: 'Error al cargar desglose' }
+  }
+}
+
+/**
  * Open a new cash shift
  */
 export async function openCashShift(storeId: string, openingAmount: number) {

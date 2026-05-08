@@ -31,8 +31,10 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  Search,
+  Loader2,
 } from 'lucide-react'
-import { openCashShift, closeCashShift, addCashExpense } from '@/actions/cash'
+import { openCashShift, closeCashShift, addCashExpense, getClosedShiftBreakdown } from '@/actions/cash'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -252,6 +254,8 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
   const [addingExpense, setAddingExpense] = useState<string | null>(null)
   const [cuadreResult, setCuadreResult] = useState<(CuadreResult & { storeName: string }) | null>(null)
   const [showExpenses, setShowExpenses] = useState<Record<string, boolean>>({})
+  const [detailShift, setDetailShift] = useState<(CuadreResult & { storeName: string; opening: number; salesCount?: number; paymentsCount?: number; expensesList?: any[] }) | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState<string | null>(null)
 
   const ALL_STORES = [
     { id: 'Tienda Mujeres', name: 'Tienda Mujeres' },
@@ -330,6 +334,37 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
     setAddingExpense(null)
   }
 
+  const handleViewDetail = async (shift: CashShift) => {
+    if (!shift.closed_at) return
+    setLoadingDetail(shift.id)
+    try {
+      const result = await getClosedShiftBreakdown(shift.id, shift.store_id, shift.opened_at, shift.closed_at)
+      if (result.success && result.data) {
+        const d = result.data as any
+        const expected = shift.opening_amount + d.cashSales + d.collections - d.expenses
+        setDetailShift({
+          storeName:     shift.store_id,
+          opening:       shift.opening_amount,
+          cashSales:     d.cashSales,
+          collections:   d.collections,
+          expenses:      d.expenses,
+          refunds:       d.refunds,
+          otherExpenses: d.otherExpenses,
+          expected,
+          closing:       shift.closing_amount ?? 0,
+          difference:    (shift.closing_amount ?? 0) - expected,
+          salesCount:    d.salesCount,
+          paymentsCount: d.paymentsCount,
+          expensesList:  d.expensesList,
+        })
+      } else {
+        toast.error('No se pudo cargar el detalle del turno')
+      }
+    } finally {
+      setLoadingDetail(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Cuadre modal after close */}
@@ -339,6 +374,97 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
           storeName={cuadreResult.storeName}
           onClose={() => setCuadreResult(null)}
         />
+      )}
+
+      {/* Modal detalle de turno cerrado */}
+      {detailShift && (
+        <Dialog open onOpenChange={() => setDetailShift(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Detalle del Turno — {detailShift.storeName}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 text-sm">
+              {/* Resumen numérico */}
+              <div className="border rounded-lg p-4 space-y-1 bg-muted/30">
+                <CuadreRow label="Apertura"            value={detailShift.opening}      icon={<Wallet className="h-4 w-4" />} />
+                <CuadreRow label="+ Ventas Contado"    value={detailShift.cashSales}    icon={<ShoppingCart className="h-4 w-4" />} highlight="positive" />
+                <CuadreRow label="+ Cobros Recibidos"  value={detailShift.collections}  icon={<CreditCard className="h-4 w-4" />} highlight="positive" />
+                {detailShift.refunds > 0 && (
+                  <CuadreRow label="− Devoluciones"    value={detailShift.refunds}      icon={<TrendingDown className="h-4 w-4" />} highlight="negative" />
+                )}
+                {detailShift.otherExpenses > 0 && (
+                  <CuadreRow label="− Gastos"          value={detailShift.otherExpenses} icon={<Minus className="h-4 w-4" />} highlight="negative" />
+                )}
+                <div className="border-t pt-2">
+                  <CuadreRow label="= Esperado"        value={detailShift.expected}     icon={<DollarSign className="h-4 w-4" />} highlight="total" />
+                </div>
+              </div>
+
+              {/* Diferencia */}
+              <div className="border rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Esperado en caja</span>
+                  <span className="font-semibold">S/ {detailShift.expected.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Lo declarado al cerrar</span>
+                  <span className="font-semibold">S/ {detailShift.closing.toFixed(2)}</span>
+                </div>
+                <div className={`flex justify-between border-t pt-2 font-bold text-base ${
+                  Math.abs(detailShift.difference) < 0.01 ? 'text-green-600'
+                  : detailShift.difference > 0 ? 'text-blue-600' : 'text-red-600'
+                }`}>
+                  <span>Diferencia</span>
+                  <span>
+                    {Math.abs(detailShift.difference) < 0.01
+                      ? '✅ Cuadrado'
+                      : detailShift.difference > 0
+                      ? `+S/ ${detailShift.difference.toFixed(2)} (sobrante)`
+                      : `-S/ ${Math.abs(detailShift.difference).toFixed(2)} (faltante)`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Estadísticas rápidas */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="border rounded-lg p-2 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Ventas</p>
+                  <p className="font-bold">{detailShift.salesCount ?? '—'}</p>
+                </div>
+                <div className="border rounded-lg p-2 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Cobros</p>
+                  <p className="font-bold">{detailShift.paymentsCount ?? '—'}</p>
+                </div>
+                <div className="border rounded-lg p-2 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Gastos</p>
+                  <p className="font-bold">{detailShift.expensesList?.length ?? 0}</p>
+                </div>
+              </div>
+
+              {/* Lista de gastos */}
+              {detailShift.expensesList && detailShift.expensesList.length > 0 && (
+                <div className="border rounded-lg p-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Gastos del turno</p>
+                  <div className="space-y-1">
+                    {detailShift.expensesList.map((exp: any) => (
+                      <div key={exp.id} className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {exp.category}{exp.description ? ` — ${exp.description}` : ''}
+                        </span>
+                        <span className="text-rose-500 font-medium">−S/ {parseFloat(exp.amount).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={() => setDetailShift(null)} className="w-full">Cerrar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Open Shifts */}
@@ -612,13 +738,24 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
               recentShifts.map((shift) => (
                 <div
                   key={shift.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors"
                 >
                   <div className="space-y-1">
                     <div className="font-medium">{shift.store_id}</div>
                     <div className="text-sm text-muted-foreground">
                       {format(new Date(shift.closed_at!), "d 'de' MMMM, HH:mm", { locale: es })}
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground -ml-2 mt-1"
+                      disabled={loadingDetail === shift.id}
+                      onClick={() => handleViewDetail(shift)}
+                    >
+                      {loadingDetail === shift.id
+                        ? <><Loader2 className="h-3 w-3 animate-spin" /> Cargando...</>
+                        : <><Search className="h-3 w-3" /> Ver detalle</>}
+                    </Button>
                   </div>
                   <div className="text-right space-y-1">
                     <div className="text-sm text-muted-foreground">
