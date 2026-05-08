@@ -84,9 +84,8 @@ export default async function SalesHistoryPage({
         )
       )
     `)
-    .eq('voided', false)
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(300)
 
   if (lockedStore) {
     query = query.eq('store_id', lockedStore) as typeof query

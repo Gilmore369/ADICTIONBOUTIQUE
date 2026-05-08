@@ -4,11 +4,12 @@ import { useState, useMemo, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Download, Search, Calendar, DollarSign, ShoppingCart, TrendingUp } from 'lucide-react'
+import { Ban, Download, Search, Calendar, DollarSign, ShoppingCart, TrendingUp } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { useStore } from '@/contexts/store-context'
 import { formatSafeDate } from '@/lib/utils/date'
 import { toast } from 'sonner'
+import { voidSale } from '@/actions/sales'
 
 interface SaleItem {
   id: string
@@ -51,13 +52,15 @@ const STORE_CTX_MAP: Record<string, 'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>
 }
 
 export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'ALL' }: SalesHistoryViewProps) {
-  const [sales] = useState<Sale[]>(initialSales)
+  const [sales, setSales] = useState<Sale[]>(initialSales)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'ALL' | 'CONTADO' | 'CREDITO'>('ALL')
   const [filterStore, setFilterStore] = useState<'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>(
     (lockedStore as any) || 'ALL'
   )
   const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | '3MONTHS' | '6MONTHS' | '12MONTHS' | 'ALL'>(initialPeriod)
+  const [showVoided, setShowVoided] = useState(false)
+  const [voidingId, setVoidingId] = useState<string | null>(null)
 
   // Sincronizar con el selector global de tienda del header
   const { selectedStore } = useStore()
@@ -88,9 +91,31 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     }
   }
 
+  // Handler para anular venta
+  const handleVoidSale = async (sale: Sale) => {
+    if (!confirm(`¿Anular la venta ${sale.sale_number}? Esta acción no se puede deshacer.`)) return
+    setVoidingId(sale.id)
+    try {
+      const result = await voidSale(sale.id)
+      if (result.success) {
+        setSales(prev => prev.map(s => s.id === sale.id ? { ...s, voided: true } : s))
+        toast.success('Venta anulada', `${sale.sale_number} marcada como anulada`)
+      } else {
+        toast.error('Error al anular', typeof result.error === 'string' ? result.error : 'Error desconocido')
+      }
+    } catch {
+      toast.error('Error inesperado al anular la venta')
+    } finally {
+      setVoidingId(null)
+    }
+  }
+
   // Filter sales
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
+      // Anuladas filter
+      if (!showVoided && sale.voided) return false
+
       // Search filter
       if (searchTerm) {
         const term = searchTerm.toLowerCase()
@@ -137,7 +162,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
 
       return true
     })
-  }, [sales, searchTerm, filterType, filterStore, filterPeriod])
+  }, [sales, searchTerm, filterType, filterStore, filterPeriod, showVoided])
 
   // Metrics always reflect current filtered view
   const metrics = useMemo(() => computeMetrics(filteredSales), [filteredSales])
@@ -292,22 +317,36 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
           )}
         </div>
 
-        <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
+        <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted-foreground flex-wrap">
           <span>Mostrando {filteredSales.length} de {sales.length} ventas</span>
-          {(searchTerm || filterType !== 'ALL' || filterStore !== 'ALL' || filterPeriod !== 'ALL') && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearchTerm('')
-                setFilterType('ALL')
-                setFilterStore((lockedStore as any) || 'ALL')
-                setFilterPeriod('ALL')
-              }}
-            >
-              Limpiar filtros
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Toggle anuladas */}
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <div
+                role="switch"
+                aria-checked={showVoided}
+                onClick={() => setShowVoided(v => !v)}
+                className={`relative h-5 w-9 rounded-full transition-colors ${showVoided ? 'bg-rose-500' : 'bg-muted-foreground/30'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${showVoided ? 'translate-x-4' : ''}`} />
+              </div>
+              <span className={showVoided ? 'text-rose-600 font-medium' : ''}>Ver anuladas</span>
+            </label>
+            {(searchTerm || filterType !== 'ALL' || filterStore !== 'ALL' || filterPeriod !== 'ALL') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('')
+                  setFilterType('ALL')
+                  setFilterStore((lockedStore as any) || 'ALL')
+                  setFilterPeriod('ALL')
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -335,9 +374,22 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
                 </tr>
               ) : (
                 filteredSales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-mono font-medium text-foreground">
-                      {sale.sale_number}
+                  <tr
+                    key={sale.id}
+                    className={`hover:bg-muted/40 transition-colors ${sale.voided ? 'opacity-60' : ''}`}
+                  >
+                    <td className="px-4 py-3 text-sm font-mono font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className={sale.voided ? 'line-through text-muted-foreground' : 'text-foreground'}>
+                          {sale.sale_number}
+                        </span>
+                        {sale.voided && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                            <Ban className="h-2.5 w-2.5" />
+                            ANULADA
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {formatSafeDate(sale.created_at, 'dd/MM/yyyy HH:mm', '-')}
@@ -348,8 +400,8 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                         sale.sale_type === 'CONTADO'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-100 text-blue-700'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                          : 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
                       }`}>
                         {sale.sale_type}
                       </span>
@@ -358,18 +410,35 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
                       {sale.store_id}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-right text-foreground">
-                      {formatCurrency(sale.total)}
+                      <span className={sale.voided ? 'line-through text-muted-foreground' : ''}>
+                        {formatCurrency(sale.total)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadPDF(sale)}
-                        className="gap-2"
-                      >
-                        <Download className="h-4 w-4" />
-                        PDF
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadPDF(sale)}
+                          className="gap-1.5 text-xs"
+                          disabled={sale.voided}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          PDF
+                        </Button>
+                        {!sale.voided && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleVoidSale(sale)}
+                            disabled={voidingId === sale.id}
+                            className="gap-1.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                            {voidingId === sale.id ? '...' : 'Anular'}
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
