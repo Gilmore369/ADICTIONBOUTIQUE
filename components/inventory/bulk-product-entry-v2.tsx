@@ -1080,7 +1080,7 @@ export function BulkProductEntryV2() {
                       Seleccionar Tallas <span className="text-red-500">*</span>
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Selecciona al menos una talla y asigna cantidades
+                      Selecciona al menos una talla y asigna cantidades · También puedes crear una nueva con el botón <kbd className="px-1 bg-muted rounded text-[10px]">+ Nueva</kbd>
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {categorySizes.map(size => {
@@ -1090,8 +1090,8 @@ export function BulkProductEntryV2() {
                             key={size.id}
                             className={`
                               flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer transition-colors
-                              ${isSelected 
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30' 
+                              ${isSelected
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
                                 : 'border-border hover:border-gray-300'
                               }
                             `}
@@ -1104,6 +1104,17 @@ export function BulkProductEntryV2() {
                           </label>
                         )
                       })}
+
+                      {/* "+ Nueva talla" chip — abre el quick-create dialog */}
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedModelForSize(model.id); setShowSizeDialog(true) }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-blue-400 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors text-sm font-medium"
+                        title="Crear una nueva talla para esta categoría"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Nueva talla
+                      </button>
                     </div>
                     {model.variants.length === 0 && (
                       <p className="text-xs text-red-500">
