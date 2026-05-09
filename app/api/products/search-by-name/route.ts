@@ -27,11 +27,13 @@ export async function GET(request: NextRequest) {
     const size = searchParams.get('size') || ''
     const color = searchParams.get('color') || ''
     
-    if (!baseName || !supplierId) {
+    if (!baseName) {
       return NextResponse.json({ data: [] })
     }
-    
-    // Construir query para buscar productos
+
+    // Construir query para buscar productos.
+    // Se busca en name, base_name, base_code Y barcode (por prefijo) para detectar
+    // productos legacy cuyo base_code es NULL pero el barcode empieza con el código buscado.
     let query = supabase
       .from('products')
       .select(`
@@ -52,9 +54,19 @@ export async function GET(request: NextRequest) {
         categories:category_id(id, name),
         brands:brand_id(id, name)
       `)
-      .eq('supplier_id', supplierId)
-      .or(`name.ilike.%${baseName}%,base_name.ilike.%${baseName}%,base_code.ilike.%${baseName}%`)
+      .or(
+        `name.ilike.%${baseName}%,` +
+        `base_name.ilike.%${baseName}%,` +
+        `base_code.ilike.%${baseName}%,` +
+        `barcode.ilike.${baseName}-%`   // ← detecta CIN-001-M si buscamos CIN-001
+      )
       .eq('active', true)
+      .limit(200)
+
+    // Filtrar por proveedor solo si se especifica
+    if (supplierId) {
+      query = query.eq('supplier_id', supplierId) as typeof query
+    }
 
     if (size) query = query.eq('size', size)
     if (color) query = query.ilike('color', `%${color}%`)
@@ -70,12 +82,21 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Agrupar por base_code (clave canónica) ─────────────────────────────
-    // Si base_code es null (productos viejos), usar base_name como fallback
+    // Si base_code es null (productos viejos), intentar derivarlo del barcode
+    // (quitando el último segmento separado por guion, ej: CIN-001-M → CIN-001).
+    // Si tampoco hay barcode, usar base_name o name como fallback.
     const models = new Map<string, any>()
 
     if (products) {
       for (const product of products as any[]) {
-        const groupKey = product.base_code || product.base_name || product.name.split(' - ')[0]
+        const derivedFromBarcode = product.barcode
+          ? product.barcode.replace(/-[^-]+$/, '')
+          : null
+        const groupKey =
+          product.base_code ||
+          derivedFromBarcode ||
+          product.base_name ||
+          product.name.split(' - ')[0]
 
         if (!models.has(groupKey)) {
           models.set(groupKey, {

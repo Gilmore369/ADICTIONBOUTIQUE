@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2, Palette, Printer } from 'lucide-react'
+import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2, Palette, Printer, XCircle, Loader2 } from 'lucide-react'
 import { generateBarcodePdf, type BarcodeItem } from '@/lib/barcodes/generate-barcode-pdf'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -63,6 +63,7 @@ interface ExistingVariant {
   size: string | null
   color: string | null
   price: number | null
+  purchase_price?: number | null
 }
 
 interface ProductModel {
@@ -422,22 +423,59 @@ export function BulkProductEntryV2() {
     }
   }
 
-  // Detectar variantes existentes cuando el usuario digita un base_code que ya existe
-  const checkExistingByBaseCode = async (modelId: string, baseCode: string) => {
-    if (!baseCode || baseCode.length < 3 || !supplier) return
+  // Desactivar una variante legacy directamente desde el banner amber
+  const [deactivating, setDeactivating] = useState<string | null>(null) // product_id en proceso
+
+  const deactivateVariant = async (modelId: string, productId: string, label: string) => {
+    setDeactivating(productId)
     try {
-      const res = await fetch(`/api/products/search-by-name?baseName=${encodeURIComponent(baseCode)}&supplier_id=${supplier}`)
+      const res = await fetch('/api/products/deactivate-variant', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error('No se pudo desactivar', json.error || 'Error desconocido')
+        return
+      }
+      // Quitar la variante del listado local
+      setModels(prev => prev.map(m => {
+        if (m.id !== modelId) return m
+        return { ...m, existingVariants: (m.existingVariants || []).filter(v => v.productId !== productId) }
+      }))
+      toast.success(`Variante "${label}" desactivada`, 'Ya no aparecerá en el catálogo visual')
+    } catch (e) {
+      toast.error('Error de red al desactivar variante')
+    } finally {
+      setDeactivating(null)
+    }
+  }
+
+  // Detectar variantes existentes cuando el usuario digita un base_code que ya existe.
+  // Buscamos SIN filtrar por proveedor para detectar CUALQUIER variante antigua,
+  // incluyendo las de proveedores distintos (ej: M/L creadas antes del catálogo de tallas).
+  const checkExistingByBaseCode = async (modelId: string, baseCode: string) => {
+    if (!baseCode || baseCode.length < 3) return
+    try {
+      // Pasar supplier si hay uno seleccionado (mejora relevancia), pero no requerirlo
+      const params = new URLSearchParams({ baseName: baseCode })
+      if (supplier) params.set('supplier_id', supplier)
+      const res = await fetch(`/api/products/search-by-name?${params}`)
       const { data } = await res.json()
-      const match = (data || []).find((m: any) => m.baseCode === baseCode)
+      // Buscar coincidencia exacta de base_code (no solo ilike parcial)
+      const match = (data || []).find(
+        (m: any) => m.baseCode === baseCode || m.baseCode?.toUpperCase() === baseCode.toUpperCase()
+      )
       if (match && match.variants?.length > 0) {
         setModels(prev => prev.map(m => {
           if (m.id !== modelId) return m
-          // Solo asignar si no fue cargado vía buscador (que ya lo trae)
+          // Solo sobreescribir si aún no tiene variantes existentes (buscador ya las trae)
           if (m.existingVariants && m.existingVariants.length > 0) return m
           return { ...m, existingVariants: match.variants }
         }))
       }
-    } catch (e) {
+    } catch {
       // Silencioso — solo es un aviso preventivo
     }
   }
@@ -945,35 +983,58 @@ export function BulkProductEntryV2() {
                   </p>
                 </div>
 
-                {/* ⚠ Variantes existentes en BD (cuando se cargó un modelo existente) */}
+                {/* ⚠ Variantes existentes en BD (cuando se cargó un modelo existente o se detectó por base_code) */}
                 {model.existingVariants && model.existingVariants.length > 0 && (
                   <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 rounded-lg p-3">
-                    <p className="text-sm text-amber-900 dark:text-amber-200 font-semibold mb-2 flex items-center gap-1">
-                      ⚠ Este modelo ya tiene {model.existingVariants.length} variante(s) registrada(s) en BD
+                    <p className="text-sm text-amber-900 dark:text-amber-200 font-semibold mb-1 flex items-center gap-1.5">
+                      ⚠ Este modelo ya tiene {model.existingVariants.length} variante(s) en el catálogo
                     </p>
-                    <p className="text-xs text-amber-800 dark:text-amber-300 mb-2">
-                      Estas variantes ya existen y aparecen en el catálogo visual junto con las nuevas que agregues.
-                      Si una de estas combinaciones <strong>(talla + color)</strong> se repite abajo, se actualizará el stock en vez de crear duplicado.
+                    <p className="text-xs text-amber-800 dark:text-amber-300 mb-3">
+                      Estas variantes ya existen y aparecen en el catálogo visual. Si alguna es incorrecta
+                      (ej: tallas antiguas como "M" o "L" que ya no usas), puedes
+                      <strong> Desactivarlas</strong> aquí para que dejen de aparecer.
                     </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-[11px]">
                         <thead>
-                          <tr className="text-amber-900 dark:text-amber-300">
-                            <th className="text-left py-1 pr-3">Código de Barras</th>
-                            <th className="text-left py-1 pr-3">Talla</th>
-                            <th className="text-left py-1 pr-3">Color</th>
-                            <th className="text-right py-1">Precio</th>
+                          <tr className="text-amber-900 dark:text-amber-300 border-b border-amber-200 dark:border-amber-800">
+                            <th className="text-left pb-1.5 pr-3">Código de Barras</th>
+                            <th className="text-left pb-1.5 pr-3">Talla</th>
+                            <th className="text-left pb-1.5 pr-3">Color</th>
+                            <th className="text-right pb-1.5 pr-3">Precio</th>
+                            <th className="text-right pb-1.5">Acción</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {model.existingVariants.map((v) => (
-                            <tr key={v.productId} className="border-t border-amber-200 dark:border-amber-900">
-                              <td className="py-1 pr-3 font-mono">{v.barcode || '—'}</td>
-                              <td className="py-1 pr-3 font-semibold">{v.size || '—'}</td>
-                              <td className="py-1 pr-3">{v.color || '—'}</td>
-                              <td className="py-1 text-right tabular-nums">{v.price != null ? `S/ ${Number(v.price).toFixed(2)}` : '—'}</td>
-                            </tr>
-                          ))}
+                          {model.existingVariants.map((v) => {
+                            const label = [v.size, v.color].filter(Boolean).join(' / ') || v.barcode || v.productId
+                            const isDeactivating = deactivating === v.productId
+                            return (
+                              <tr key={v.productId} className="border-t border-amber-200 dark:border-amber-900">
+                                <td className="py-1.5 pr-3 font-mono text-amber-900 dark:text-amber-300">{v.barcode || '—'}</td>
+                                <td className="py-1.5 pr-3 font-semibold text-amber-900 dark:text-amber-200">{v.size || '—'}</td>
+                                <td className="py-1.5 pr-3 text-amber-800 dark:text-amber-300">{v.color || '—'}</td>
+                                <td className="py-1.5 pr-3 text-right tabular-nums text-amber-800 dark:text-amber-300">
+                                  {v.price != null ? `S/ ${Number(v.price).toFixed(2)}` : '—'}
+                                </td>
+                                <td className="py-1.5 text-right">
+                                  <button
+                                    type="button"
+                                    disabled={isDeactivating}
+                                    onClick={() => deactivateVariant(model.id, v.productId, label)}
+                                    title={`Desactivar "${label}" — dejará de aparecer en el catálogo`}
+                                    className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900 disabled:opacity-50 transition-colors"
+                                  >
+                                    {isDeactivating
+                                      ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                      : <XCircle className="h-2.5 w-2.5" />
+                                    }
+                                    {isDeactivating ? 'Desactivando…' : 'Desactivar'}
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
