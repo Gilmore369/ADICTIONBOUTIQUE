@@ -35,7 +35,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, Printer } from 'lucide-react'
+import { generateBarcodePdf, type BarcodeItem } from '@/lib/barcodes/generate-barcode-pdf'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
 import { deleteProduct } from '@/actions/catalogs'
@@ -113,6 +114,38 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
   // Handle create product — opens new unified modal
   const handleCreate = () => {
     setCreateModalOpen(true)
+  }
+
+  // Imprimir PDF de etiquetas para los productos filtrados
+  // useStock=false → 1 etiqueta por SKU (re-impresión rápida)
+  // useStock=true  → 1 etiqueta por unidad en stock (reposición completa)
+  const handlePrintLabels = (useStock: boolean) => {
+    const items: BarcodeItem[] = filteredProducts
+      .filter(p => p.barcode)
+      .map(p => ({
+        barcode: p.barcode!,
+        name: p.name,
+        size: p.size,
+        color: p.color,
+        price: p.price,
+        quantity: useStock ? Math.max(1, p.stock?.quantity ?? 1) : 1,
+      }))
+    if (items.length === 0) {
+      toast.error('Sin productos', 'No hay productos con código de barras para imprimir')
+      return
+    }
+    try {
+      generateBarcodePdf(items, {
+        title: useStock
+          ? `Etiquetas (×stock) — ${new Date().toLocaleDateString('es-PE')}`
+          : `Etiquetas (1×SKU) — ${new Date().toLocaleDateString('es-PE')}`,
+        showPrice: true,
+      })
+      const total = items.reduce((s, x) => s + x.quantity, 0)
+      toast.success('PDF generado', `${items.length} SKU(s) · ${total} etiqueta(s)`)
+    } catch (e) {
+      toast.error('Error', e instanceof Error ? e.message : 'No se pudo generar el PDF')
+    }
   }
 
   // Handle edit product
@@ -202,6 +235,26 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handlePrintLabels(false)}
+            disabled={filteredProducts.length === 0}
+            className="gap-2"
+            title="1 etiqueta por SKU"
+          >
+            <Printer className="h-4 w-4" />
+            Etiquetas (1×SKU)
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handlePrintLabels(true)}
+            disabled={filteredProducts.length === 0}
+            className="gap-2"
+            title="Una etiqueta por cada unidad en stock"
+          >
+            <Printer className="h-4 w-4" />
+            Etiquetas (×stock)
+          </Button>
           <Button onClick={handleCreate} className="gap-2">
             <Plus className="h-4 w-4" />
             Nuevo Producto

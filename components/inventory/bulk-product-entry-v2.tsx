@@ -28,7 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2, Palette } from 'lucide-react'
+import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2, Palette, Printer } from 'lucide-react'
+import { generateBarcodePdf, type BarcodeItem } from '@/lib/barcodes/generate-barcode-pdf'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -625,11 +626,34 @@ export function BulkProductEntryV2() {
       const result = await createBulkProducts(productsToCreate)
 
       if (result.success) {
-        toast.success(
-          'Productos creados',
-          `${result.data.count} productos registrados exitosamente`
-        )
-        
+        // Generar PDF de etiquetas con códigos de barra (1 por unidad)
+        try {
+          const barcodeItems: BarcodeItem[] = productsToCreate.map(p => ({
+            barcode: p.barcode,
+            name: p.base_name || p.name,
+            size: p.size,
+            color: p.color,
+            price: p.price,
+            quantity: p.quantity,
+          }))
+          const totalLabels = barcodeItems.reduce((s, x) => s + (x.quantity || 0), 0)
+          generateBarcodePdf(barcodeItems, {
+            title: `Adiction Boutique — Lote ${new Date().toLocaleDateString('es-PE')}`,
+            showPrice: true,
+          })
+          toast.success(
+            'Productos creados · Etiquetas generadas',
+            `${result.data.count} SKUs · ${totalLabels} etiquetas en PDF`
+          )
+        } catch (pdfErr) {
+          // Si falla el PDF, no bloqueamos el flujo
+          console.error('[barcode-pdf] Error:', pdfErr)
+          toast.success(
+            'Productos creados',
+            `${result.data.count} productos registrados (PDF de etiquetas falló)`
+          )
+        }
+
         // Resetear formulario manteniendo proveedor y tienda para carga continua
         resetForm()
       } else {

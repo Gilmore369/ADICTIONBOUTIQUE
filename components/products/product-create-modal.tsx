@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CompactColorPicker } from '@/components/ui/color-picker'
 import { createBulkProducts } from '@/actions/products'
+import { generateBarcodePdf, type BarcodeItem } from '@/lib/barcodes/generate-barcode-pdf'
 import { createSupplier, createBrand, createCategory, createSize, linkBrandToSupplier } from '@/actions/catalogs'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -629,11 +630,42 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
         toast.error('Error al guardar', String(result.error)); return
       }
       const { created = 0, updated = 0 } = (result.data as any) || {}
-      toast.success(
-        'Producto guardado',
-        created > 0 ? `${created} variante(s) creada(s)${updated > 0 ? `, ${updated} actualizada(s)` : ''}`
-          : `${updated} variante(s) actualizada(s)`,
-      )
+
+      // Generar PDF de etiquetas SOLO para las variantes nuevas (created > 0)
+      // Si todas son actualizaciones de stock, no tiene sentido reimprimir.
+      if (created > 0) {
+        try {
+          const barcodeItems: BarcodeItem[] = products.map(p => ({
+            barcode: p.barcode,
+            name: p.base_name || p.name,
+            size: p.size,
+            color: p.color,
+            price: p.price,
+            quantity: p.quantity,
+          }))
+          const totalLabels = barcodeItems.reduce((s, x) => s + (x.quantity || 0), 0)
+          generateBarcodePdf(barcodeItems, {
+            title: `Adiction Boutique — ${baseName}`,
+            showPrice: true,
+          })
+          toast.success(
+            'Producto guardado · Etiquetas generadas',
+            `${created} variante(s) · ${totalLabels} etiquetas en PDF`,
+          )
+        } catch (pdfErr) {
+          console.error('[barcode-pdf] Error:', pdfErr)
+          toast.success(
+            'Producto guardado',
+            `${created} variante(s) creada(s) (PDF de etiquetas falló)`,
+          )
+        }
+      } else {
+        toast.success(
+          'Producto guardado',
+          `${updated} variante(s) actualizada(s)`,
+        )
+      }
+
       onOpenChange(false); onSuccess?.(); router.refresh()
     } finally {
       setSaving(false)
