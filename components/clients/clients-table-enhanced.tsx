@@ -30,6 +30,7 @@ interface Client {
   active: boolean
   deactivation_reason: string | null
   blacklisted?: boolean | null
+  imported_from_legacy?: boolean | null
 }
 
 interface ClientsTableEnhancedProps {
@@ -111,6 +112,11 @@ export function ClientsTableEnhanced({ clients, onExport }: ClientsTableEnhanced
                         </Link>
                         {client.blacklisted && (
                           <AlertTriangle className="h-3 w-3 text-red-500 flex-shrink-0" title="Lista Negra" />
+                        )}
+                        {client.imported_from_legacy && (
+                          <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-50 text-amber-700 border-amber-200" title="Cliente importado desde el sistema anterior">
+                            LEGACY
+                          </Badge>
                         )}
                       </div>
                     </TableCell>

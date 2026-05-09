@@ -29,6 +29,7 @@ interface Client {
   deactivation_reason: string | null
   blacklisted?: boolean | null
   birthday?: string | null
+  imported_from_legacy?: boolean | null
 }
 
 interface ClientsListViewProps {

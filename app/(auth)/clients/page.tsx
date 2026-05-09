@@ -70,7 +70,7 @@ async function ClientsData() {
 
   let queryWithBL = supabase
     .from('clients')
-    .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted, birthday')
+    .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted, birthday, imported_from_legacy')
     .eq('active', true)
     .order('blacklisted', { ascending: false })
     .order('name')

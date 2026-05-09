@@ -31,6 +31,7 @@ import {
   Store,
   Tag,
   Truck,
+  Upload,
   UserCog,
   Users,
   Wallet,
@@ -135,6 +136,7 @@ const groups: NavGroup[] = [
     adminOnly: true,
     items: [
       { title: 'Usuarios', href: '/admin/users', icon: UserCog, adminOnly: true },
+      { title: 'Importar Deudas', href: '/admin/import-debts', icon: Upload, adminOnly: true },
       { title: 'Logs/Auditoría', href: '/admin/logs', icon: ScrollText, adminOnly: true },
       { title: 'Configuración', href: '/settings', icon: Settings, adminOnly: true },
     ],
