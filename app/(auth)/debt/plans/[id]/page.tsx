@@ -64,6 +64,13 @@ async function PlanDetails({ id }: { id: string }) {
       installment_amount,
       status,
       created_at,
+      imported_from_legacy,
+      legacy_purchase_description,
+      legacy_purchase_date,
+      legacy_original_total,
+      legacy_source,
+      legacy_imported_at,
+      legacy_notes,
       client:clients (
         id,
         name,

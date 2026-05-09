@@ -48,6 +48,10 @@ interface PlanRow {
   overdue_count: number
   overdue_amount: number
   installments: InstallmentRow[]
+  imported_from_legacy?: boolean
+  legacy_purchase_description?: string | null
+  legacy_purchase_date?: string | null
+  legacy_source?: string | null
 }
 
 interface ClientRow {
@@ -60,6 +64,7 @@ interface ClientRow {
   total_debt: number
   overdue_count: number
   overdue_amount: number
+  imported_from_legacy?: boolean
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -99,8 +104,12 @@ export function CreditPlansView() {
         sale_id,
         status,
         created_at,
+        imported_from_legacy,
+        legacy_purchase_description,
+        legacy_purchase_date,
+        legacy_source,
         sale:sales ( id, sale_number, created_at, store_id ),
-        client:clients ( id, name, phone, dni, credit_limit, credit_used ),
+        client:clients ( id, name, phone, dni, credit_limit, credit_used, imported_from_legacy ),
         installments ( id, installment_number, amount, paid_amount, due_date, status )
       `)
       .in('status', ['ACTIVE', 'OVERDUE'])
@@ -138,6 +147,7 @@ export function CreditPlansView() {
           total_debt: 0,
           overdue_count: 0,
           overdue_amount: 0,
+          imported_from_legacy: !!c.imported_from_legacy,
         }
       }
 
@@ -176,6 +186,10 @@ export function CreditPlansView() {
         overdue_count: overdueInsts.length,
         overdue_amount: overdueAmt,
         installments: insts,
+        imported_from_legacy: !!(plan as any).imported_from_legacy,
+        legacy_purchase_description: (plan as any).legacy_purchase_description || null,
+        legacy_purchase_date: (plan as any).legacy_purchase_date || null,
+        legacy_source: (plan as any).legacy_source || null,
       })
 
       byClient[c.id].total_debt += pendingAmt
@@ -422,6 +436,24 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
             <div className="flex items-center gap-1.5">
               <User className="h-3.5 w-3.5 text-muted-foreground/70 flex-shrink-0" />
               <span className="font-semibold text-sm text-foreground truncate">{client.name}</span>
+              {client.imported_from_legacy && (
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1 text-[9px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 flex-shrink-0"
+                  title="Cliente importado del sistema anterior"
+                >
+                  LEGACY
+                </Badge>
+              )}
+              {client.plans.some(p => p.imported_from_legacy) && !client.imported_from_legacy && (
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1 text-[9px] bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 flex-shrink-0"
+                  title="Cliente con deudas importadas del sistema anterior"
+                >
+                  Deuda legacy
+                </Badge>
+              )}
             </div>
             {client.phone && (
               <div className="flex items-center gap-1 mt-0.5 ml-5">
@@ -515,12 +547,31 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
 
           {/* Ticket info */}
           <div>
-            <p className="text-xs font-semibold text-foreground">
-              {plan.sale_number ? `Ticket #${plan.sale_number}` : 'Sin ticket asociado'}
-            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-xs font-semibold text-foreground">
+                {plan.sale_number
+                  ? `Ticket #${plan.sale_number}`
+                  : plan.imported_from_legacy
+                    ? 'Deuda importada (sistema anterior)'
+                    : 'Sin ticket asociado'}
+              </p>
+              {plan.imported_from_legacy && (
+                <Badge
+                  variant="outline"
+                  className="h-4 px-1 text-[9px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+                  title={`Importada de: ${plan.legacy_source ?? 'sistema anterior'}`}
+                >
+                  LEGACY
+                </Badge>
+              )}
+            </div>
             <p className="text-[10px] text-muted-foreground/70">
-              {plan.installments_count} cuota{plan.installments_count !== 1 ? 's' : ''}
-              {plan.sale_date && ` · ${formatSafeDate(plan.sale_date, 'dd/MM/yy')}`}
+              {plan.imported_from_legacy && plan.legacy_purchase_description
+                ? `${plan.legacy_purchase_description}`
+                : `${plan.installments_count} cuota${plan.installments_count !== 1 ? 's' : ''}`}
+              {plan.imported_from_legacy && plan.legacy_purchase_date
+                ? ` · Compra: ${formatSafeDate(plan.legacy_purchase_date, 'dd/MM/yy')}`
+                : plan.sale_date && ` · ${formatSafeDate(plan.sale_date, 'dd/MM/yy')}`}
             </p>
           </div>
 
