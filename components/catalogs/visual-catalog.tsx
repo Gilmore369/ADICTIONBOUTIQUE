@@ -115,8 +115,9 @@ interface FilterOption { id: string; name: string }
 // ─── Color Helpers ────────────────────────────────────────────────────────────
 
 const COLOR_NAME_MAP: Record<string, string> = {
-  'negro': 'bg-black', 'black': 'bg-black',
-  'blanco': 'bg-card border border-input', 'white': 'bg-card border border-input',
+  'negro': 'bg-neutral-900', 'black': 'bg-neutral-900',
+  // Blanco: fondo blanco fijo + borde visible — no usar bg-card (cambia con el tema)
+  'blanco': 'bg-white border-2 border-gray-300', 'white': 'bg-white border-2 border-gray-300',
   'rojo': 'bg-red-600', 'red': 'bg-red-600', 'roja': 'bg-red-600',
   'azul': 'bg-blue-600', 'blue': 'bg-blue-600', 'azul marino': 'bg-blue-900',
   'verde': 'bg-green-600', 'green': 'bg-green-600', 'verde olivo': 'bg-lime-700',
@@ -126,15 +127,16 @@ const COLOR_NAME_MAP: Record<string, string> = {
   'violeta': 'bg-violet-500', 'lila': 'bg-violet-300',
   'naranja': 'bg-orange-500', 'orange': 'bg-orange-500',
   'gris': 'bg-gray-400', 'gray': 'bg-gray-400', 'grey': 'bg-gray-400', 'gris oscuro': 'bg-gray-600',
-  'beige': 'bg-amber-100 border border-amber-200',
+  // Beige: color visible y reconocible, con borde para distinguirlo del fondo
+  'beige': 'bg-amber-200 border border-amber-400',
   'cafe': 'bg-amber-700', 'marrón': 'bg-amber-700', 'marron': 'bg-amber-700',
   'celeste': 'bg-sky-400', 'turquesa': 'bg-teal-400',
   'dorado': 'bg-yellow-500', 'plateado': 'bg-gray-300',
   'coral': 'bg-red-400', 'salmon': 'bg-orange-300',
-  'crema': 'bg-yellow-50 border border-yellow-200',
+  'crema': 'bg-amber-50 border-2 border-amber-200',
 }
 const HEX_MAP: Record<string, string> = {
-  '#000000': 'bg-black', '#FFFFFF': 'bg-card border border-input',
+  '#000000': 'bg-neutral-900', '#FFFFFF': 'bg-white border-2 border-gray-300',
   '#DC2626': 'bg-red-600', '#2563EB': 'bg-blue-600',
   '#16A34A': 'bg-green-600', '#EAB308': 'bg-yellow-500',
   '#EC4899': 'bg-pink-500', '#D4A574': 'bg-amber-300',
