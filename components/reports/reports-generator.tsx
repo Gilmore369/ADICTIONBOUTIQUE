@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, type ComponentType } from 'react'
-import * as XLSX from 'xlsx'
+// xlsx-js-style is a drop-in fork of xlsx that supports cell styling (font, fill, alignment)
+import * as XLSX from 'xlsx-js-style'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import Papa from 'papaparse'
@@ -142,20 +143,23 @@ async function captureChartsAsPng(
 }
 
 // ─── Fechas por defecto por tipo de reporte ───────────────────────────────────
+// Default: últimos 30 días para todos los reportes
+// Excepción: sales-by-month → desde inicio del año (vista anual)
+function daysAgoLima(n: number): string {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000)
+    .toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+}
+
 function getDefaultDates(reportId: string) {
   const today = getTodayPeru()
   const now = new Date()
   const firstOfYear = new Date(now.getFullYear(), 0, 1).toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
-  const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
 
   if (reportId === 'sales-by-month') {
     return { startDate: firstOfYear, endDate: today }
   }
-  if (['purchases-by-supplier', 'purchases-by-period', 'inventory-rotation', 'stock-rotation', 'kardex'].includes(reportId)) {
-    return { startDate: ninetyDaysAgo, endDate: today }
-  }
-  return { startDate: firstOfMonth, endDate: today }
+  // Default 30 días — coherente con los KPIs del dashboard
+  return { startDate: daysAgoLima(30), endDate: today }
 }
 
 type ReportDefinition = typeof REPORT_TYPES[keyof typeof REPORT_TYPES]
@@ -228,9 +232,9 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
   const [showFilters, setShowFilters] = useState(false)
   const [activeTab, setActiveTab] = useState<'stats' | 'data'>('stats')
   const [filters, setFilters] = useState<ReportFilters>({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA', { timeZone: 'America/Lima' }),
+    startDate: daysAgoLima(30),
     endDate: getTodayPeru(),
-    warehouse: undefined
+    warehouse: undefined,
   })
 
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
@@ -326,7 +330,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     }
   }
 
-  // Exportar CSV
+  // Exportar CSV \u2014 con metadata y headers prettified
   const exportCSV = () => {
     if (!reportData.length || !currentReport) {
       toast.warning('No hay datos para exportar')
@@ -334,8 +338,24 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     }
     try {
       const headers = Object.keys(reportData[0])
-      const csv = Papa.unparse({ fields: headers, data: reportData.map(r => headers.map(h => r[h] ?? '')) })
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+      const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
+
+      // Prefijo metadata como comentarios CSV (l\u00EDneas iniciales)
+      const metaLines = [
+        `# ${currentReport.name}`,
+        `# Generado: ${fecha}`,
+        `# Periodo: ${filters.startDate || 'N/A'} a ${filters.endDate || 'N/A'}`,
+        `# Tienda: ${filters.warehouse || 'Todas'}`,
+        `# Registros: ${reportData.length}`,
+        '',
+      ].join('\n')
+
+      const csv = Papa.unparse({
+        fields: headers.map(prettifyHeader),
+        data: reportData.map(r => headers.map(h => r[h] ?? '')),
+      })
+
+      const blob = new Blob(['\uFEFF' + metaLines + csv], { type: 'text/csv;charset=utf-8;' })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url
       a.download = `${currentReport.id}-${new Date().toISOString().split('T')[0]}.csv`
@@ -347,7 +367,18 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     }
   }
 
-  // Exportar Excel con hoja de datos + hoja de resumen
+  // Helpers para formato profesional de Excel
+  const prettifyHeader = (h: string) =>
+    h.replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .trim()
+
+  const isCurrencyKey = (k: string) =>
+    /(price|amount|total|monto|valor|saldo|deuda|costo|venta|ingres|gast|util)/i.test(k)
+
+  const isPercentKey = (k: string) => /(porcentaj|percent|margen|tasa|rotac)/i.test(k)
+
+  // Exportar Excel — formato profesional con portada, datos, resumen
   const exportExcel = () => {
     if (!reportData.length || !currentReport) {
       toast.warning('No hay datos para exportar')
@@ -356,47 +387,150 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     try {
       const wb = XLSX.utils.book_new()
       const headers = Object.keys(reportData[0])
+      const prettyHeaders = headers.map(prettifyHeader)
       const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
+      const numericKeys = headers.filter(h => typeof reportData[0][h] === 'number')
 
-      // Hoja principal: Datos
-      const ws = XLSX.utils.aoa_to_sheet([
-        [currentReport.name],
-        [`Generado: ${fecha}`],
-        [`Periodo: ${filters.startDate || ''} a ${filters.endDate || ''}`],
+      // ─── Hoja 1: PORTADA ─────────────────────────────────────────────────
+      const cover = XLSX.utils.aoa_to_sheet([
+        ['ADICTION BOUTIQUE'],
+        ['Sistema de Gestión'],
         [],
-        headers,
-        ...reportData.map(r => headers.map(h => {
+        [currentReport.name],
+        [currentReport.description || ''],
+        [],
+        ['Generado', fecha],
+        ['Periodo', `${filters.startDate || 'N/A'}  →  ${filters.endDate || 'N/A'}`],
+        ['Tienda', filters.warehouse || 'Todas las tiendas'],
+        ['Total de registros', reportData.length],
+        [],
+        ['Hojas incluidas:'],
+        ['  • Datos — Listado completo de registros'],
+        numericKeys.length > 0 ? ['  • Resumen — Totales, promedios, mínimos y máximos'] : null,
+      ].filter(Boolean) as any[][])
+      cover['!cols'] = [{ wch: 28 }, { wch: 50 }]
+      cover['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 1 } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: 1 } },
+      ]
+      // Negrita en celdas clave (xlsx soporta s.font con cellStyles)
+      const boldCells = ['A1', 'A4']
+      for (const ref of boldCells) {
+        if (cover[ref]) cover[ref].s = { font: { bold: true, sz: 14 } }
+      }
+      XLSX.utils.book_append_sheet(wb, cover, 'Portada')
+
+      // ─── Hoja 2: DATOS ────────────────────────────────────────────────────
+      // Headers en negrita + filas con tipado numérico real
+      const dataRows = reportData.map(r =>
+        headers.map(h => {
           const v = r[h]
-          return typeof v === 'number' ? v : (v != null ? String(v) : '')
-        }))
-      ])
-      ws['!cols'] = headers.map(() => ({ wch: 20 }))
+          if (typeof v === 'number') return v
+          if (v == null) return ''
+          // Detectar fechas ISO
+          if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v
+          return String(v)
+        })
+      )
+
+      const ws = XLSX.utils.aoa_to_sheet([prettyHeaders, ...dataRows])
+
+      // Anchos de columna inteligentes — basados en contenido máximo
+      ws['!cols'] = headers.map((h, i) => {
+        const maxLen = Math.max(
+          prettyHeaders[i].length,
+          ...reportData.slice(0, 100).map(r => String(r[h] ?? '').length)
+        )
+        return { wch: Math.min(Math.max(maxLen + 2, 12), 40) }
+      })
+
+      // Freeze header row + autofilter
+      ws['!freeze'] = { xSplit: 0, ySplit: 1 }
+      ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: dataRows.length, c: headers.length - 1 } }) }
+
+      // Formato numérico por columna (currency / percent / integer)
+      for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+        const key = headers[colIdx]
+        if (typeof reportData[0][key] !== 'number') continue
+        const fmt = isCurrencyKey(key)
+          ? '"S/" #,##0.00'
+          : isPercentKey(key)
+            ? '0.00%'
+            : '#,##0.##'
+        for (let rowIdx = 1; rowIdx <= dataRows.length; rowIdx++) {
+          const ref = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx })
+          if (ws[ref]) ws[ref].z = fmt
+        }
+      }
+
+      // Header bold
+      for (let c = 0; c < headers.length; c++) {
+        const ref = XLSX.utils.encode_cell({ r: 0, c })
+        if (ws[ref]) {
+          ws[ref].s = {
+            font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+            fill: { fgColor: { rgb: 'FF10B981' } },
+            alignment: { horizontal: 'center', vertical: 'center' },
+          }
+        }
+      }
+
       XLSX.utils.book_append_sheet(wb, ws, 'Datos')
 
-      // Hoja secundaria: Resumen agregado (si el reporte tiene campos numericos)
-      const numericKeys = headers.filter(h => typeof reportData[0][h] === 'number')
+      // ─── Hoja 3: RESUMEN ──────────────────────────────────────────────────
       if (numericKeys.length > 0) {
-        const sumRow = ['TOTAL', ...numericKeys.map(k => reportData.reduce((s, r) => s + (Number(r[k]) || 0), 0))]
-        const avgRow = ['PROMEDIO', ...numericKeys.map(k => {
+        const prettyNumKeys = numericKeys.map(prettifyHeader)
+        const sumRow = ['Total', ...numericKeys.map(k => reportData.reduce((s, r) => s + (Number(r[k]) || 0), 0))]
+        const avgRow = ['Promedio', ...numericKeys.map(k => {
           const sum = reportData.reduce((s, r) => s + (Number(r[k]) || 0), 0)
           return sum / reportData.length
         })]
-        const maxRow = ['MAXIMO', ...numericKeys.map(k => Math.max(...reportData.map(r => Number(r[k]) || 0)))]
+        const minRow = ['Mínimo', ...numericKeys.map(k => Math.min(...reportData.map(r => Number(r[k]) || 0)))]
+        const maxRow = ['Máximo', ...numericKeys.map(k => Math.max(...reportData.map(r => Number(r[k]) || 0)))]
+        const countRow = ['Registros', ...numericKeys.map(() => reportData.length)]
+
         const wsSum = XLSX.utils.aoa_to_sheet([
-          [currentReport.name + ' — Resumen'],
-          [`Generado: ${fecha}`],
+          [currentReport.name + ' — Resumen Estadístico'],
+          [`Periodo: ${filters.startDate || 'N/A'} → ${filters.endDate || 'N/A'}`],
           [],
-          ['CONCEPTO', ...numericKeys],
+          ['Concepto', ...prettyNumKeys],
           sumRow,
           avgRow,
-          maxRow
+          minRow,
+          maxRow,
+          countRow,
         ])
-        wsSum['!cols'] = [{ wch: 20 }, ...numericKeys.map(() => ({ wch: 16 }))]
+        wsSum['!cols'] = [{ wch: 18 }, ...numericKeys.map((k) => ({ wch: Math.max(prettifyHeader(k).length + 2, 16) }))]
+        wsSum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: numericKeys.length } }]
+
+        // Formato numérico
+        for (let colIdx = 1; colIdx <= numericKeys.length; colIdx++) {
+          const key = numericKeys[colIdx - 1]
+          const fmt = isCurrencyKey(key) ? '"S/" #,##0.00' : isPercentKey(key) ? '0.00%' : '#,##0.##'
+          for (let rowIdx = 4; rowIdx <= 8; rowIdx++) {
+            const ref = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx })
+            if (wsSum[ref]) wsSum[ref].z = fmt
+          }
+        }
+
+        // Header bold
+        for (let c = 0; c <= numericKeys.length; c++) {
+          const ref = XLSX.utils.encode_cell({ r: 3, c })
+          if (wsSum[ref]) {
+            wsSum[ref].s = {
+              font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+              fill: { fgColor: { rgb: 'FF10B981' } },
+            }
+          }
+        }
+
         XLSX.utils.book_append_sheet(wb, wsSum, 'Resumen')
       }
 
       XLSX.writeFile(wb, `${currentReport.id}-${new Date().toISOString().split('T')[0]}.xlsx`)
-      toast.success('Excel exportado con hoja de datos y resumen')
+      toast.success('Excel exportado · Portada, Datos y Resumen')
     } catch (e) {
       toast.error(`Error al exportar Excel: ${e instanceof Error ? e.message : 'Error'}`)
     }
@@ -588,7 +722,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     }
   }
 
-  // Backup BD — completo con todas las tablas del sistema
+  // Backup BD — completo con todas las tablas del sistema (estructura profesional)
   const handleDatabaseBackup = async () => {
     try {
       setLoading(true)
@@ -598,45 +732,134 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
         const wb = XLSX.utils.book_new()
         const backupData = (result.data as any).data || result.data
         const errors = (result.data as any).errors || []
+        const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
+        const dateStr = new Date().toISOString().split('T')[0]
         let tablesExported = 0
+        let totalRecords = 0
 
-        Object.entries(backupData).forEach(([tableName, tableData]: [string, any]) => {
-          if (Array.isArray(tableData)) {
-            // Incluir hoja aunque esté vacía (importante para verificar estructura)
-            const ws = tableData.length > 0
-              ? XLSX.utils.json_to_sheet(tableData)
-              : XLSX.utils.aoa_to_sheet([['(tabla vacía)']])
-            XLSX.utils.book_append_sheet(wb, ws, tableName.substring(0, 31))
-            tablesExported++
+        // ─── Hoja 1: PORTADA (primera, visible al abrir) ───────────────────
+        const totals: [string, number][] = []
+        Object.entries(backupData).forEach(([t, d]) => {
+          if (Array.isArray(d)) totalRecords += d.length
+          if (Array.isArray(d)) totals.push([t, d.length])
+        })
+        totals.sort((a, b) => b[1] - a[1])
+
+        const cover = XLSX.utils.aoa_to_sheet([
+          ['ADICTION BOUTIQUE'],
+          ['Backup completo de base de datos'],
+          [],
+          ['Fecha de generación', fecha],
+          ['Versión del esquema', (result.data as any).version || '2.0'],
+          ['Total de tablas', Object.keys(backupData).length],
+          ['Total de registros', totalRecords],
+          ['Estado', errors.length > 0 ? `${errors.length} advertencias` : 'OK'],
+          [],
+          ['Tabla', 'Registros', 'Estado'],
+          ...totals.map(([t, count]) => [
+            t,
+            count,
+            errors.some((e: string) => e.startsWith(t)) ? '⚠ Error' : '✓ OK',
+          ]),
+        ])
+        cover['!cols'] = [{ wch: 32 }, { wch: 14 }, { wch: 12 }]
+        cover['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+        ]
+        // Estilos en celdas clave
+        if (cover['A1']) cover['A1'].s = { font: { bold: true, sz: 16 } }
+        if (cover['A2']) cover['A2'].s = { font: { italic: true, color: { rgb: 'FF6B7280' } } }
+        // Header de tabla con fondo verde
+        for (const ref of ['A10', 'B10', 'C10']) {
+          if (cover[ref]) cover[ref].s = {
+            font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+            fill: { fgColor: { rgb: 'FF10B981' } },
+            alignment: { horizontal: 'center' },
           }
+        }
+        XLSX.utils.book_append_sheet(wb, cover, '📋 Portada')
+
+        // ─── Hojas de datos por tabla ───────────────────────────────────────
+        Object.entries(backupData).forEach(([tableName, tableData]: [string, any]) => {
+          if (!Array.isArray(tableData)) return
+
+          let ws: XLSX.WorkSheet
+          if (tableData.length === 0) {
+            ws = XLSX.utils.aoa_to_sheet([
+              [`Tabla: ${tableName}`],
+              ['(sin registros)'],
+            ])
+            ws['!cols'] = [{ wch: 40 }]
+          } else {
+            const headers = Object.keys(tableData[0])
+            const prettyHeaders = headers.map(prettifyHeader)
+
+            // Datos con tipado correcto (números reales, fechas como strings ISO)
+            const rows = tableData.map((row: any) =>
+              headers.map(h => {
+                const v = row[h]
+                if (typeof v === 'number') return v
+                if (typeof v === 'boolean') return v ? 'Sí' : 'No'
+                if (v == null) return ''
+                if (typeof v === 'object') return JSON.stringify(v)
+                return String(v)
+              })
+            )
+
+            ws = XLSX.utils.aoa_to_sheet([prettyHeaders, ...rows])
+
+            // Anchos inteligentes
+            ws['!cols'] = headers.map((h, i) => {
+              const maxLen = Math.max(
+                prettyHeaders[i].length,
+                ...tableData.slice(0, 50).map((r: any) => String(r[h] ?? '').length)
+              )
+              return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
+            })
+
+            // Freeze + autofilter
+            ws['!freeze'] = { xSplit: 0, ySplit: 1 }
+            ws['!autofilter'] = {
+              ref: XLSX.utils.encode_range({
+                s: { r: 0, c: 0 },
+                e: { r: rows.length, c: headers.length - 1 },
+              }),
+            }
+
+            // Header bold
+            for (let c = 0; c < headers.length; c++) {
+              const ref = XLSX.utils.encode_cell({ r: 0, c })
+              if (ws[ref]) ws[ref].s = {
+                font: { bold: true, color: { rgb: 'FFFFFFFF' } },
+                fill: { fgColor: { rgb: 'FF374151' } },
+                alignment: { horizontal: 'center', vertical: 'center' },
+              }
+            }
+
+            // Formato numérico para columnas conocidas
+            for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+              const key = headers[colIdx]
+              if (typeof tableData[0]?.[key] !== 'number') continue
+              const fmt = isCurrencyKey(key) ? '"S/" #,##0.00' : '#,##0.##'
+              for (let rowIdx = 1; rowIdx <= rows.length; rowIdx++) {
+                const ref = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx })
+                if (ws[ref]) ws[ref].z = fmt
+              }
+            }
+          }
+
+          XLSX.utils.book_append_sheet(wb, ws, tableName.substring(0, 31))
+          tablesExported++
         })
 
-        // Hoja de índice con metadata
-        const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
-        const indexData = [
-          ['BACKUP — ADICTION BOUTIQUE'],
-          [`Fecha: ${fecha}`],
-          [`Versión: ${(result.data as any).version || '2.0'}`],
-          [`Tablas exportadas: ${tablesExported}`],
-          [],
-          ['TABLA', 'REGISTROS', 'ESTADO'],
-          ...Object.entries(backupData).map(([t, d]: [string, any]) => [
-            t,
-            Array.isArray(d) ? d.length : 0,
-            errors.some((e: string) => e.startsWith(t)) ? '⚠ Error' : '✓ OK'
-          ])
-        ]
-        const wsIdx = XLSX.utils.aoa_to_sheet(indexData)
-        wsIdx['!cols'] = [{ wch: 30 }, { wch: 12 }, { wch: 10 }]
-        XLSX.utils.book_append_sheet(wb, wsIdx, '_INDICE')
-
-        const fileName = `backup-adiction-${new Date().toISOString().split('T')[0]}.xlsx`
+        const fileName = `backup-adiction-${dateStr}.xlsx`
         XLSX.writeFile(wb, fileName)
 
         if (errors.length > 0) {
-          toast.warning(`Backup generado con advertencias (${errors.length} tablas con error)`, { id: toastId })
+          toast.warning(`Backup generado con ${errors.length} advertencias`, { id: toastId })
         } else {
-          toast.success(`Backup completo: ${tablesExported} tablas exportadas`, { id: toastId })
+          toast.success(`Backup completo · ${tablesExported} tablas · ${totalRecords.toLocaleString()} registros`, { id: toastId })
         }
       } else {
         toast.error(`Error al crear backup: ${result.error || 'Error'}`)
@@ -813,7 +1036,46 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
 
         {/* Filtros */}
         {showFilters && selectedReport && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t space-y-3">
+            {/* Quick presets */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-medium mr-1">Rango rápido:</span>
+              {[
+                { label: 'Hoy', days: 0 },
+                { label: '7 días', days: 7 },
+                { label: '30 días', days: 30 },
+                { label: '90 días', days: 90 },
+                { label: 'Este año', days: -1 }, // sentinel for first-of-year
+              ].map(preset => {
+                const today = getTodayPeru()
+                let start: string
+                if (preset.days === -1) {
+                  const now = new Date()
+                  start = new Date(now.getFullYear(), 0, 1)
+                    .toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+                } else if (preset.days === 0) {
+                  start = today
+                } else {
+                  start = daysAgoLima(preset.days)
+                }
+                const isActive = filters.startDate === start && filters.endDate === today
+                return (
+                  <button
+                    key={preset.label}
+                    onClick={() => setFilters({ ...filters, startDate: start, endDate: today })}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-card text-foreground/70 border-border hover:bg-accent'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                )
+              })}
+            </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label className="text-xs">Fecha Inicio</Label>
               <Input
@@ -871,6 +1133,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
                 />
               </div>
             )}
+          </div>
           </div>
         )}
       </Card>

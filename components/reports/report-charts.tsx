@@ -28,21 +28,52 @@ const fK = (v: any) => {
 const fPct = (v: any) => `${Number(v || 0).toFixed(1)}%`
 const truncate = (s: string, n = 18) => s?.length > n ? s.slice(0, n) + '…' : (s || 'N/A')
 
+// ─── Theme-aware constants for charts ─────────────────────────────────────────
+// Recharts elements use direct color props (not CSS classes), so we resolve the
+// theme color at runtime. Falls back to slate/gray hex if window is undefined (SSR).
+const CHART_GRID = 'var(--border, #e5e7eb)'
+const CHART_TICK_COLOR = 'var(--muted-foreground, #6b7280)'
+
 // ─── Sub-componentes comunes ──────────────────────────────────────────────────
-function StatCard({ label, value, sub, color = C.emerald }: { label: string; value: string; sub?: string; color?: string }) {
+function StatCard({ label, value, sub, color = C.emerald, accent }: {
+  label: string
+  value: string
+  sub?: string
+  color?: string
+  accent?: 'emerald' | 'blue' | 'violet' | 'amber' | 'rose'
+}) {
+  const accentClass: Record<string, string> = {
+    emerald: 'from-emerald-500/10 to-transparent border-l-emerald-500',
+    blue: 'from-blue-500/10 to-transparent border-l-blue-500',
+    violet: 'from-violet-500/10 to-transparent border-l-violet-500',
+    amber: 'from-amber-500/10 to-transparent border-l-amber-500',
+    rose: 'from-rose-500/10 to-transparent border-l-rose-500',
+  }
+  const accentClassName = accent ? `bg-gradient-to-r ${accentClass[accent]} border-l-2` : ''
+
   return (
-    <div className="bg-card border border-border rounded-lg p-3 flex flex-col gap-0.5">
+    <div className={`bg-card border border-border rounded-lg p-3.5 flex flex-col gap-1 transition-shadow hover:shadow-sm ${accentClassName}`}>
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className="text-lg font-bold tabular-nums text-foreground" style={{ color }}>{value}</span>
-      {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
+      <span className="text-xl font-bold tabular-nums" style={{ color }}>{value}</span>
+      {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
     </div>
   )
 }
 
-function ChartCard({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
+function ChartCard({ title, subtitle, children, className = '' }: {
+  title: string
+  subtitle?: string
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <Card className={`p-5 ${className}`}>
-      <h3 className="text-sm font-semibold text-foreground mb-4">{title}</h3>
+    <Card className={`p-5 shadow-sm hover:shadow transition-shadow ${className}`}>
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">{title}</h3>
+          {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
       {children}
     </Card>
   )
@@ -52,10 +83,16 @@ function ChartCard({ title, children, className = '' }: { title: string; childre
 const CustomTooltipCur = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-popover text-popover-foreground border border-border rounded-lg shadow-lg p-3 text-xs">
-      <p className="font-semibold mb-1">{label}</p>
+    <div className="bg-popover/95 backdrop-blur text-popover-foreground border border-border rounded-lg shadow-lg p-3 text-xs min-w-[140px]">
+      {label && <p className="font-semibold mb-1.5 pb-1.5 border-b border-border/60">{label}</p>}
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }}>{p.name}: {fCur(p.value)}</p>
+        <div key={i} className="flex items-center justify-between gap-3 py-0.5">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-sm" style={{ background: p.color }} />
+            <span className="text-muted-foreground">{p.name}</span>
+          </span>
+          <span className="font-semibold tabular-nums" style={{ color: p.color }}>{fCur(p.value)}</span>
+        </div>
       ))}
     </div>
   )
@@ -166,9 +203,9 @@ function InventoryRotationCharts({ data }: { data: any[] }) {
       <ChartCard title="Top 15 — Productos Mas Vendidos (Unidades)">
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={top15} layout="vertical" margin={{ left: 10, right: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 10 }} />
-            <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 10 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <Tooltip formatter={(v, n) => [fNum(v), n === 'vendidos' ? 'Vendidos' : 'Stock']} />
             <Legend />
             <Bar dataKey="vendidos" fill={C.emerald} name="Vendidos" radius={[0, 4, 4, 0]} />
@@ -181,9 +218,9 @@ function InventoryRotationCharts({ data }: { data: any[] }) {
         <ChartCard title="Top 10 — Productos con Mayor Indice de Rotacion">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={top10Rot} layout="vertical" margin={{ left: 10, right: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${v}x`} />
-              <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => `${v}x`} />
+              <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip formatter={(v, n) => [n === 'rotacion' ? `${Number(v).toFixed(2)}x` : fNum(v), n === 'rotacion' ? 'Indice Rotacion' : 'Vendidos']} />
               <Legend />
               <Bar dataKey="rotacion" fill={C.teal} name="Indice Rotacion" radius={[0, 4, 4, 0]} />
@@ -226,9 +263,9 @@ function InventoryValuationCharts({ data }: { data: any[] }) {
         <ChartCard title="Valor por Categoria — Costo vs Precio Venta">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={byCategory} layout="vertical" margin={{ left: 5, right: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fK} />
-              <YAxis type="category" dataKey="categoria" width={110} tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="categoria" width={110} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip content={<CustomTooltipCur />} />
               <Legend />
               <Bar dataKey="costo" fill={C.amber} name="Costo" radius={[0, 3, 3, 0]} />
@@ -293,8 +330,8 @@ function LowStockCharts({ data }: { data: any[] }) {
         <ChartCard title="Productos Criticos — Stock Actual">
           <ResponsiveContainer width="100%" height={340}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 5, right: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
               <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 9 }} />
               <Tooltip formatter={(v) => [fNum(v), 'Unidades']} />
               <Bar dataKey="stock" name="Stock Actual" radius={[0, 4, 4, 0]}>
@@ -370,9 +407,9 @@ function KardexCharts({ data }: { data: any[] }) {
                 <stop offset="95%" stopColor={C.rose} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
             <XAxis dataKey="fecha" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <Tooltip formatter={(v, n) => [fNum(v), n]} />
             <Legend />
             <Area type="monotone" dataKey="entradas" stroke={C.emerald} fill={`url(#${GRADIENT_ID('ent')})`} name="Entradas" strokeWidth={2} />
@@ -420,9 +457,9 @@ function SalesByPeriodCharts({ data }: { data: any[] }) {
                 <stop offset="95%" stopColor={C.emerald} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
             <XAxis dataKey="fecha" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
             <Area type="monotone" dataKey="total" stroke={C.emerald} fill={`url(#${GRADIENT_ID('tot')})`} strokeWidth={2} name="Total" />
@@ -433,9 +470,9 @@ function SalesByPeriodCharts({ data }: { data: any[] }) {
       <ChartCard title="Contado vs Credito por Dia">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={byDate}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
             <XAxis dataKey="fecha" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
             <Bar dataKey="contado" fill={C.emerald} name="Contado" stackId="a" radius={[0, 0, 0, 0]} />
@@ -499,7 +536,7 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
                 <stop offset="95%" stopColor={C.amber} stopOpacity={0.05} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
             <XAxis
               dataKey="mes"
               tick={{ fontSize: 11, fill: '#6b7280' }}
@@ -576,7 +613,7 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
                 <stop offset="95%" stopColor={C.blue} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
             <XAxis
               dataKey="mes"
               tick={{ fontSize: 11, fill: '#6b7280' }}
@@ -671,9 +708,9 @@ function SalesSummaryCharts({ data }: { data: any[] }) {
       <ChartCard title="Comparativa de Montos">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="concepto" tick={{ fontSize: 10 }} angle={-10} textAnchor="end" height={55} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+            <XAxis dataKey="concepto" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} angle={-10} textAnchor="end" height={55} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
             <Tooltip content={<CustomTooltipCur />} />
             <Bar dataKey="monto" name="Monto" radius={[4, 4, 0, 0]}>
               {chartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
@@ -709,9 +746,9 @@ function SalesByProductCharts({ data }: { data: any[] }) {
       <ChartCard title="Top 10 — Ingresos por Producto">
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={top10Rev} layout="vertical" margin={{ left: 10, right: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fK} />
-            <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 10 }} />
+            <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
             <Bar dataKey="ingresos" fill={C.blue} name="Ingresos" radius={[0, 4, 4, 0]} />
@@ -747,9 +784,9 @@ function SalesByCategoryCharts({ data }: { data: any[] }) {
         <ChartCard title="Ingresos por Categoria">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 5, right: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fK} />
-              <YAxis type="category" dataKey="categoria" width={120} tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="categoria" width={120} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip content={<CustomTooltipCur />} />
               <Bar dataKey="ingresos" name="Ingresos" radius={[0, 4, 4, 0]}>
                 {chartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
@@ -829,10 +866,10 @@ function CreditVsCashCharts({ data }: { data: any[] }) {
         <ChartCard title="Comparativa Monto vs Cantidad">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={countData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="tipo" tick={{ fontSize: 11 }} />
-              <YAxis yAxisId="left" tick={{ fontSize: 10 }} tickFormatter={fK} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+              <XAxis dataKey="tipo" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip />
               <Legend />
               <Bar yAxisId="left" dataKey="total" fill={C.emerald} name="Monto (S/)" radius={[4, 4, 0, 0]} />
@@ -874,9 +911,9 @@ function SalesByStoreCharts({ data }: { data: any[] }) {
         <ChartCard title="Ventas por Tienda — Contado y Credito">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="tienda" tick={{ fontSize: 10 }} angle={-10} textAnchor="end" height={50} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+              <XAxis dataKey="tienda" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} angle={-10} textAnchor="end" height={50} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
               <Tooltip content={<CustomTooltipCur />} />
               <Legend />
               <Bar dataKey="contado" fill={C.emerald} name="Contado" stackId="a" />
@@ -911,9 +948,9 @@ function SalesByStoreCharts({ data }: { data: any[] }) {
       <ChartCard title="Cantidad de Transacciones por Tienda">
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="tienda" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+            <XAxis dataKey="tienda" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
             <Tooltip formatter={(v) => [fNum(v), 'Ventas']} />
             <Bar dataKey="ventas" name="Transacciones" radius={[4, 4, 0, 0]}>
               {chartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
@@ -950,7 +987,7 @@ function PurchasesBySupplierCharts({ data }: { data: any[] }) {
       <ChartCard title="Top 12 — Costo Total por Producto Comprado">
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fK} />
             <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 9 }} />
             <Tooltip content={<CustomTooltipCur />} />
@@ -1019,9 +1056,9 @@ function PurchasesByPeriodCharts({ data }: { data: any[] }) {
                 <stop offset="95%" stopColor={C.violet} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
             <XAxis dataKey="fecha" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
             <Area type="monotone" dataKey="costo" stroke={C.violet} fill={`url(#${GRADIENT_ID('comp')})`} strokeWidth={2} name="Costo Total" />
@@ -1032,9 +1069,9 @@ function PurchasesByPeriodCharts({ data }: { data: any[] }) {
       <ChartCard title="Unidades Recibidas por Fecha">
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={byDate}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
             <XAxis dataKey="fecha" tick={{ fontSize: 9 }} angle={-30} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
             <Tooltip formatter={(v) => [fNum(v), 'Unidades']} />
             <Bar dataKey="cantidad" fill={C.blue} name="Unidades" radius={[3, 3, 0, 0]} />
           </BarChart>
@@ -1090,9 +1127,9 @@ function ClientsDebtCharts({ data }: { data: any[] }) {
       <ChartCard title="Top 10 — Deuda Total vs Monto Vencido por Cliente">
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={top10} layout="vertical" margin={{ left: 10, right: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fK} />
-            <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 10 }} />
+            <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
             <Bar dataKey="deuda" fill={C.amber} name="Deuda Total" radius={[0, 4, 4, 0]} />
@@ -1104,9 +1141,9 @@ function ClientsDebtCharts({ data }: { data: any[] }) {
       <ChartCard title="Distribucion por Nivel de Utilizacion del Credito">
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={buckets}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="rango" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+            <XAxis dataKey="rango" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
             <Tooltip formatter={(v) => [fNum(v), 'Clientes']} />
             <Bar dataKey="count" name="Clientes" radius={[4, 4, 0, 0]}>
               {buckets.map((_, i) => <Cell key={i} fill={[C.emerald, C.blue, C.amber, C.orange, C.rose][i]} />)}
@@ -1161,9 +1198,9 @@ function OverdueInstallmentsCharts({ data }: { data: any[] }) {
       <ChartCard title="Deuda Vencida por Cliente (Top 10)">
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={byClient} layout="vertical" margin={{ left: 10, right: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fK} />
-            <YAxis type="category" dataKey="cliente" width={150} tick={{ fontSize: 10 }} />
+            <YAxis type="category" dataKey="cliente" width={150} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
             <Bar dataKey="monto" fill={C.rose} name="Monto Vencido" radius={[0, 4, 4, 0]} />
@@ -1175,9 +1212,9 @@ function OverdueInstallmentsCharts({ data }: { data: any[] }) {
         <ChartCard title="Vencimiento por Antiguedad — Monto (S/)">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={aging}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="rango" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+              <XAxis dataKey="rango" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
               <Tooltip content={<CustomTooltipCur />} />
               <Bar dataKey="monto" name="Monto Vencido" radius={[4, 4, 0, 0]}>
                 {aging.map((_, i) => <Cell key={i} fill={[C.amber, C.orange, C.rose, '#7f1d1d'][i]} />)}
@@ -1189,9 +1226,9 @@ function OverdueInstallmentsCharts({ data }: { data: any[] }) {
         <ChartCard title="Cantidad de Cuotas por Tramo de Atraso">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={aging}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="rango" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+              <XAxis dataKey="rango" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
               <Tooltip formatter={(v) => [fNum(v), 'Cuotas']} />
               <Bar dataKey="cuotas" name="Cuotas Vencidas" radius={[4, 4, 0, 0]}>
                 {aging.map((_, i) => <Cell key={i} fill={[C.amber, C.orange, C.rose, '#7f1d1d'][i]} />)}
@@ -1232,7 +1269,7 @@ function CollectionEffectivenessCharts({ data }: { data: any[] }) {
           <div className="flex flex-col items-center justify-center h-52 gap-3">
             <div className="relative w-36 h-36">
               <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#f0f0f0" strokeWidth="10" />
+                <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--border))" strokeOpacity={0.5} strokeWidth="10" />
                 <circle
                   cx="50" cy="50" r="40" fill="none"
                   stroke={efectividad >= 70 ? C.emerald : efectividad >= 40 ? C.amber : C.rose}
@@ -1254,9 +1291,9 @@ function CollectionEffectivenessCharts({ data }: { data: any[] }) {
         <ChartCard title="Cobrado vs Deuda Vencida">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={barData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="concepto" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+              <XAxis dataKey="concepto" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
               <Tooltip content={<CustomTooltipCur />} />
               <Bar dataKey="monto" name="Monto (S/)" radius={[4, 4, 0, 0]}>
                 <Cell fill={C.emerald} />
@@ -1307,7 +1344,7 @@ function ProfitMarginCharts({ data }: { data: any[] }) {
       <ChartCard title="Top 15 — Ganancia en S/ por Producto">
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={top15Ganancia} layout="vertical" margin={{ left: 10, right: 30 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fK} />
             <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 9 }} />
             <Tooltip content={<CustomTooltipCur />} />
@@ -1321,7 +1358,7 @@ function ProfitMarginCharts({ data }: { data: any[] }) {
       <ChartCard title="Top 15 — Margen % por Producto">
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={top15Margen} layout="vertical" margin={{ left: 10, right: 30 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`} />
             <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 9 }} />
             <Tooltip formatter={(v, n) => [n === 'margen' ? `${Number(v).toFixed(2)}%` : fCur(v), n === 'margen' ? 'Margen %' : 'Ganancia S/']} />
@@ -1375,9 +1412,9 @@ function CashFlowCharts({ data }: { data: any[] }) {
       <ChartCard title="Desglose del Flujo de Caja — Ingresos y Egresos">
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={barData} margin={{ left: 10, right: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
             <XAxis dataKey="concepto" tick={{ fontSize: 9 }} angle={-10} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
             <Bar dataKey="ingreso" fill={C.emerald} name="Ingreso" radius={[4, 4, 0, 0]} />
@@ -1389,9 +1426,9 @@ function CashFlowCharts({ data }: { data: any[] }) {
       <ChartCard title="Neto por Concepto">
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={barData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
             <XAxis dataKey="concepto" tick={{ fontSize: 9 }} angle={-10} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={fK} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
             <Tooltip content={<CustomTooltipCur />} />
             <ReferenceLine y={0} stroke="#475569" strokeDasharray="4 2" />
             <Bar dataKey="neto" name="Neto" radius={[4, 4, 0, 0]}>

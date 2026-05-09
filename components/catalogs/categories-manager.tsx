@@ -17,6 +17,7 @@ import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
 import { ActiveInactiveToggle, InactiveBanner } from './active-inactive-toggle'
 import { CategoryForm } from './category-form'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createCategory, updateCategory, deleteCategory, restoreCategory } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 import { useStore } from '@/contexts/store-context'
@@ -177,19 +178,20 @@ export function CategoriesManager({ initialCategories, lines: initialLines }: Ca
       {/* Filters */}
       <div className="flex gap-3">
         <div className="w-64">
-          <label className="text-xs font-medium text-gray-700 mb-1 block">
+          <label className="text-xs font-medium text-foreground/80 mb-1 block">
             Filtrar por Línea
           </label>
-          <select
+          <SearchableSelect
+            options={[
+              { value: '', label: 'Todas las líneas' },
+              ...lines.map(l => ({ value: l.id, label: l.name })),
+            ]}
             value={lineFilter}
-            onChange={(e) => setLineFilter(e.target.value)}
-            className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Todas las líneas</option>
-            {lines.map(line => (
-              <option key={line.id} value={line.id}>{line.name}</option>
-            ))}
-          </select>
+            onChange={setLineFilter}
+            placeholder="Todas las líneas"
+            searchPlaceholder="Buscar línea…"
+            emptyMessage="Sin coincidencias"
+          />
         </div>
       </div>
 

@@ -17,6 +17,7 @@ import { CatalogFormDialog } from './catalog-form-dialog'
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog'
 import { ActiveInactiveToggle, InactiveBanner } from './active-inactive-toggle'
 import { SizeForm } from './size-form'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createSize, updateSize, deleteSize, restoreSize } from '@/actions/catalogs'
 import { formatSafeDate } from '@/lib/utils/date'
 import { useStore } from '@/contexts/store-context'
@@ -209,39 +210,38 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
       {/* Filters */}
       <div className="flex gap-3">
         <div className="w-64">
-          <label className="text-xs font-medium text-gray-700 mb-1 block">
+          <label className="text-xs font-medium text-foreground/80 mb-1 block">
             Filtrar por Línea
           </label>
-          <select
+          <SearchableSelect
+            options={[
+              { value: '', label: 'Todas las líneas' },
+              ...lines.map(l => ({ value: l.id, label: l.name })),
+            ]}
             value={lineFilter}
-            onChange={(e) => { setLineFilter(e.target.value); setCategoryFilter('') }}
-            className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Todas las líneas</option>
-            {lines.map(l => (
-              <option key={l.id} value={l.id}>{l.name}</option>
-            ))}
-          </select>
+            onChange={(v) => { setLineFilter(v); setCategoryFilter('') }}
+            placeholder="Todas las líneas"
+            searchPlaceholder="Buscar línea…"
+          />
         </div>
 
         <div className="w-64">
-          <label className="text-xs font-medium text-gray-700 mb-1 block">
+          <label className="text-xs font-medium text-foreground/80 mb-1 block">
             Filtrar por Categoría
           </label>
-          <select
+          <SearchableSelect
+            options={[
+              { value: '', label: lineFilter ? 'Todas las categorías' : 'Elige línea primero' },
+              ...categories
+                .filter(c => !lineFilter || c.line_id === lineFilter)
+                .map(c => ({ value: c.id, label: c.name })),
+            ]}
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={setCategoryFilter}
+            placeholder={lineFilter ? 'Todas las categorías' : 'Elige línea primero'}
+            searchPlaceholder="Buscar categoría…"
             disabled={!lineFilter}
-            title={!lineFilter ? 'Elige una línea primero' : ''}
-            className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <option value="">{lineFilter ? 'Todas las categorías' : 'Elige línea primero'}</option>
-            {categories
-              .filter(c => !lineFilter || c.line_id === lineFilter)
-              .map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-          </select>
+          />
         </div>
       </div>
 
