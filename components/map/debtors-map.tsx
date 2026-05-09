@@ -26,7 +26,7 @@ import { VisitPanel, type VisitEntry } from './visit-panel'
 import { useStore } from '@/contexts/store-context'
 import { PERU_TZ } from '@/lib/utils/timezone'
 
-type FilterType = 'overdue' | 'upcoming' | 'up-to-date' | 'all' | 'activation'
+type FilterType = 'overdue' | 'upcoming' | 'up-to-date' | 'all'
 type RouteType = 'Cobranza' | 'Delivery'
 
 interface Client {
@@ -59,37 +59,39 @@ const center = {
   lng: -79.0288
 }
 
-const filterConfig = {
+// Colores fijos para cada filtro (no dependen de Tailwind JIT)
+const FILTER_HEX: Record<FilterType, string> = {
+  overdue:      '#EF4444', // rojo — se intensifica por días
+  upcoming:     '#D97706', // mostaza/ámbar
+  'up-to-date': '#16A34A', // verde
+  all:          '#2563EB', // azul
+}
+
+const filterConfig: Record<FilterType, { label: string; api: string; hex: string; description: string }> = {
   overdue: {
     label: 'Atrasados',
     api: '/api/clients/with-overdue',
-    color: 'red',
-    description: 'Clientes con pagos vencidos'
+    hex: FILTER_HEX.overdue,
+    description: 'Clientes con cuotas vencidas — rojo leve < 90 días · rojo intenso ≥ 90 días'
   },
   upcoming: {
     label: 'Próximos a Vencer',
     api: '/api/clients/with-upcoming',
-    color: 'yellow',
-    description: 'Clientes con cuotas en los próximos 7 días'
+    hex: FILTER_HEX.upcoming,
+    description: 'Clientes con cuotas que vencen en los próximos 7 días'
   },
   'up-to-date': {
     label: 'Al Día',
     api: '/api/clients/up-to-date',
-    color: 'green',
-    description: 'Mejores clientes - sin atrasos'
+    hex: FILTER_HEX['up-to-date'],
+    description: 'Clientes al corriente — sin ningún atraso'
   },
   all: {
     label: 'Todos con Crédito',
     api: '/api/clients/with-debt',
-    color: 'blue',
+    hex: FILTER_HEX.all,
     description: 'Todos los clientes con crédito activo'
   },
-  activation: {
-    label: 'Activación',
-    api: '/api/clients/all',
-    color: 'purple',
-    description: 'Todos los clientes activos — para visitas de activación o prospección'
-  }
 }
 
 // ── Haversine distance (km) ────────────────────────────────────────────────────
@@ -129,13 +131,8 @@ const MAX_ROUTE_STOPS = 20 // Google Maps supports up to ~25 waypoints in URL
 const MAPS_LIBRARIES: ['places'] = ['places']
 
 const ROUTE_TYPES: RouteType[] = ['Cobranza', 'Delivery']
-const DAYS_FILTERS = [
-  { label: 'Todos',   value: 0   },
-  { label: '+15 días', value: 15 },
-  { label: '+30 días', value: 30 },
-  { label: '+60 días', value: 60 },
-  { label: '+90 días', value: 90 },
-]
+// Para atrasados: toggle entre ver todos o solo los críticos (≥ 90 días)
+const OVERDUE_90_THRESHOLD = 90
 
 export function DebtorsMap() {
   const searchParams = useSearchParams()
@@ -352,42 +349,27 @@ export function DebtorsMap() {
     setRouteActive(false)
   }
 
-  // Determinar color del marcador según filtro
-  const getMarkerColor = (client: Client) => {
-    if (filter === 'overdue') {
-      const overdueAmount = client.overdue_amount || 0
-      if (overdueAmount >= 500) return '#EF4444' // red-500
-      if (overdueAmount >= 300) return '#F97316' // orange-500
-      if (overdueAmount >= 100) return '#EAB308' // yellow-500
-      return '#22C55E' // green-500
+  // ── Color del pin según filtro activo ─────────────────────────────────────
+  // Atrasados: rojo leve (< 90 días) / rojo intenso (≥ 90 días)
+  // Próximos:  mostaza uniforme
+  // Al día:    verde uniforme
+  // Todos:     azul uniforme
+  const getMarkerColor = (client: Client): string => {
+    switch (filter) {
+      case 'overdue': {
+        const days = (client as any).max_days_overdue ?? 0
+        return days >= 90
+          ? '#991B1B'  // rojo intenso — crítico (≥ 90 días)
+          : '#EF4444'  // rojo leve    — atraso reciente (< 90 días)
+      }
+      case 'upcoming':
+        return '#D97706'  // mostaza
+      case 'up-to-date':
+        return '#16A34A'  // verde
+      case 'all':
+      default:
+        return '#2563EB'  // azul
     }
-    
-    if (filter === 'upcoming') {
-      const upcomingAmount = client.upcoming_amount || 0
-      if (upcomingAmount >= 300) return '#F97316' // orange-500
-      if (upcomingAmount >= 150) return '#EAB308' // yellow-500
-      return '#22C55E' // green-500
-    }
-    
-    if (filter === 'up-to-date') {
-      return '#22C55E' // green-500
-    }
-    
-    // activation - por calificación del cliente
-    if (filter === 'activation') {
-      const rating = (client as any).rating || 'C'
-      if (rating === 'A') return '#8B5CF6' // violet-500
-      if (rating === 'B') return '#A78BFA' // violet-400
-      if (rating === 'C') return '#C4B5FD' // violet-300
-      return '#DDD6FE'                      // violet-200
-    }
-
-    // all - por nivel de uso de crédito
-    const usage = (client.credit_used / client.credit_limit) * 100
-    if (usage >= 80) return '#EF4444' // red-500
-    if (usage >= 60) return '#F97316' // orange-500
-    if (usage >= 40) return '#EAB308' // yellow-500
-    return '#3B82F6' // blue-500
   }
 
   // Crear ícono de ubicación (pin) personalizado con color
@@ -464,7 +446,10 @@ export function DebtorsMap() {
               onClick={() => { setFilter(key); setMinDays(0) }}
               className="gap-2"
             >
-              <div className={`w-3 h-3 rounded-full bg-${filterConfig[key].color}-500`}></div>
+              <div
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ backgroundColor: filterConfig[key].hex }}
+              />
               {filterConfig[key].label}
               {filter === key && (
                 <Badge variant="secondary" className="ml-1">
@@ -549,30 +534,36 @@ export function DebtorsMap() {
           </div>
         </div>
 
-        {/* Days-overdue sub-filter (only for 'overdue') */}
+        {/* Sub-filtro atrasados: solo críticos ≥ 90 días */}
         {filter === 'overdue' && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-            <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Días de atraso:</span>
-            <div className="flex gap-1 flex-wrap">
-              {DAYS_FILTERS.map(df => (
-                <button
-                  key={df.value}
-                  onClick={() => setMinDays(df.value)}
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors ${
-                    minDays === df.value
-                      ? 'bg-red-600 text-white border-red-600'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-red-400'
-                  }`}
-                >
-                  {df.label}
-                </button>
-              ))}
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+            <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Mostrar:</span>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setMinDays(0)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                  minDays === 0
+                    ? 'text-white border-red-500'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-red-400'
+                }`}
+                style={minDays === 0 ? { backgroundColor: '#EF4444', borderColor: '#EF4444' } : {}}
+              >
+                <span className="inline-block w-2 h-2 rounded-full bg-red-400 opacity-80" />
+                Todos ({clients.length})
+              </button>
+              <button
+                onClick={() => setMinDays(OVERDUE_90_THRESHOLD)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                  minDays === OVERDUE_90_THRESHOLD
+                    ? 'text-white border-red-900'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-red-700'
+                }`}
+                style={minDays === OVERDUE_90_THRESHOLD ? { backgroundColor: '#991B1B', borderColor: '#991B1B' } : {}}
+              >
+                <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#991B1B' }} />
+                Críticos ≥ 90 días ({clients.filter(c => ((c as any).max_days_overdue ?? 0) >= OVERDUE_90_THRESHOLD).length})
+              </button>
             </div>
-            {minDays > 0 && (
-              <span className="text-xs text-red-600 font-medium">
-                {displayedClients.length} cliente{displayedClients.length !== 1 ? 's' : ''} con +{minDays} días
-              </span>
-            )}
           </div>
         )}
 
@@ -596,85 +587,49 @@ export function DebtorsMap() {
 
       {/* Leyenda */}
       <Card className="p-4">
-        <h3 className="text-sm font-semibold mb-2">
-          {currentFilter.label}
-        </h3>
+        <h3 className="text-sm font-semibold mb-2">{currentFilter.label}</h3>
         <div className="flex gap-4 text-sm flex-wrap">
           {filter === 'overdue' && (
             <>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span>Bajo (&lt;S/ 100)</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EF4444' }}></div>
+                <span>Atrasado &lt; 90 días</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span>Medio (S/ 100-300)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span>Alto (S/ 300-500)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span>Crítico (&gt;S/ 500)</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#991B1B' }}></div>
+                <span>Atrasado ≥ 90 días (crítico)</span>
               </div>
             </>
           )}
           {filter === 'upcoming' && (
-            <>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span>Bajo (&lt;S/ 150)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span>Medio (S/ 150-300)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span>Alto (&gt;S/ 300)</span>
-              </div>
-            </>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#D97706' }}></div>
+              <span>Próximo a vencer</span>
+            </div>
           )}
           {filter === 'up-to-date' && (
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span>Clientes al día - Sin atrasos</span>
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#16A34A' }}></div>
+              <span>Al día — sin atrasos</span>
             </div>
           )}
           {filter === 'all' && (
             <>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span>Bajo (&lt;40%)</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EF4444' }}></div>
+                <span>Atrasado &lt; 90 días</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span>Medio (40-60%)</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#991B1B' }}></div>
+                <span>Atrasado ≥ 90 días (crítico)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span>Alto (60-80%)</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#D97706' }}></div>
+                <span>Próximo a vencer</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span>Crítico (&gt;80%)</span>
-              </div>
-            </>
-          )}
-          {filter === 'activation' && (
-            <>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-violet-500"></div>
-                <span>Calificación A</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-violet-400"></div>
-                <span>Calificación B</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-violet-300"></div>
-                <span>Calificación C / D</span>
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#2563EB' }}></div>
+                <span>Con crédito activo</span>
               </div>
             </>
           )}
