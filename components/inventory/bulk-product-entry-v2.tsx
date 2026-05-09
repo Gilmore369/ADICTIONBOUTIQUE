@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2 } from 'lucide-react'
+import { Plus, Trash2, Save, Package, ChevronDown, ChevronUp, Wand2, Palette } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -43,12 +43,17 @@ interface Size {
   name: string
 }
 
+interface ColorEntry {
+  id: string        // local UUID (React key + update target)
+  color: string
+  quantity: number
+  barcode: string
+}
+
 interface SizeVariant {
   sizeId: string
   sizeName: string
-  quantity: number
-  color?: string // Color específico para esta variante (opcional)
-  barcode?: string // Código de barras único por variante (manual o lector)
+  colorEntries: ColorEntry[] // one row per color — each becomes one product
 }
 
 interface ProductModel {
@@ -404,75 +409,89 @@ export function BulkProductEntryV2() {
   }
 
   const toggleSize = (modelId: string, size: Size) => {
-    setModels(models.map(m => {
-      if (m.id === modelId) {
-        const existingIndex = m.variants.findIndex(v => v.sizeId === size.id)
-        
-        if (existingIndex >= 0) {
-          // Remover talla
+    setModels(prev => prev.map(m => {
+      if (m.id !== modelId) return m
+      const exists = m.variants.findIndex(v => v.sizeId === size.id)
+      if (exists >= 0) {
+        return { ...m, variants: m.variants.filter(v => v.sizeId !== size.id) }
+      }
+      return {
+        ...m,
+        variants: [
+          ...m.variants,
+          {
+            sizeId: size.id,
+            sizeName: size.name,
+            colorEntries: [{
+              id: crypto.randomUUID(),
+              color: m.color || '',
+              quantity: 0,
+              barcode: '',
+            }],
+          },
+        ],
+      }
+    }))
+  }
+
+  // ── Color-entry CRUD ────────────────────────────────────────────────────────
+  const addColorEntry = (modelId: string, sizeId: string) => {
+    const model = models.find(m => m.id === modelId)
+    setModels(prev => prev.map(m => {
+      if (m.id !== modelId) return m
+      return {
+        ...m,
+        variants: m.variants.map(v => {
+          if (v.sizeId !== sizeId) return v
           return {
-            ...m,
-            variants: m.variants.filter(v => v.sizeId !== size.id)
+            ...v,
+            colorEntries: [
+              ...v.colorEntries,
+              { id: crypto.randomUUID(), color: '', quantity: 0, barcode: '' },
+            ],
           }
-        } else {
-          // Agregar talla con color del modelo base
+        }),
+      }
+    }))
+  }
+
+  const removeColorEntry = (modelId: string, sizeId: string, entryId: string) => {
+    setModels(prev => prev.map(m => {
+      if (m.id !== modelId) return m
+      return {
+        ...m,
+        variants: m.variants.map(v => {
+          if (v.sizeId !== sizeId) return v
+          const remaining = v.colorEntries.filter(e => e.id !== entryId)
+          // Last entry removed → uncheck size entirely
+          if (remaining.length === 0) return null as any
+          return { ...v, colorEntries: remaining }
+        }).filter(Boolean),
+      }
+    }))
+  }
+
+  const updateColorEntry = (
+    modelId: string,
+    sizeId: string,
+    entryId: string,
+    field: 'color' | 'quantity' | 'barcode',
+    value: string | number,
+  ) => {
+    setModels(prev => prev.map(m => {
+      if (m.id !== modelId) return m
+      return {
+        ...m,
+        variants: m.variants.map(v => {
+          if (v.sizeId !== sizeId) return v
           return {
-            ...m,
-            variants: [
-              ...m.variants,
-              { 
-                sizeId: size.id, 
-                sizeName: size.name, 
-                quantity: 0,
-                color: m.color || '' // Heredar color del modelo
-              }
-            ]
+            ...v,
+            colorEntries: v.colorEntries.map(e =>
+              e.id === entryId ? { ...e, [field]: value } : e
+            ),
           }
-        }
+        }),
       }
-      return m
-    }))
-  }
-
-  const updateVariantQuantity = (modelId: string, sizeId: string, quantity: number) => {
-    setModels(models.map(m => {
-      if (m.id === modelId) {
-        return {
-          ...m,
-          variants: m.variants.map(v =>
-            v.sizeId === sizeId ? { ...v, quantity } : v
-          )
-        }
-      }
-      return m
-    }))
-  }
-
-  const updateVariantColor = (modelId: string, sizeId: string, color: string) => {
-    setModels(models.map(m => {
-      if (m.id === modelId) {
-        return {
-          ...m,
-          variants: m.variants.map(v =>
-            v.sizeId === sizeId ? { ...v, color } : v
-          )
-        }
-      }
-      return m
-    }))
-  }
-
-  const updateVariantBarcode = (modelId: string, sizeId: string, barcode: string) => {
-    setModels(models.map(m => {
-      if (m.id === modelId) {
-        return {
-          ...m,
-          variants: m.variants.map(v =>
-            v.sizeId === sizeId ? { ...v, barcode } : v
-          )
-        }
-      }
-      return m
     }))
   }
 
@@ -483,7 +502,10 @@ export function BulkProductEntryV2() {
   }
 
   const getTotalUnits = (model: ProductModel) => {
-    return model.variants.reduce((sum, v) => sum + v.quantity, 0)
+    return model.variants.reduce(
+      (sum, v) => sum + v.colorEntries.reduce((s, e) => s + (e.quantity || 0), 0),
+      0
+    )
   }
 
   // Función para resetear formulario después de guardar
@@ -553,9 +575,12 @@ export function BulkProductEntryV2() {
     const allBarcodes: string[] = []
     for (const m of validModels) {
       for (const v of m.variants) {
-        if (v.quantity <= 0) continue
-        const code = (v.barcode || '').trim() || `${m.baseCode}-${v.sizeName}`
-        allBarcodes.push(code)
+        for (const entry of v.colorEntries) {
+          if ((entry.quantity || 0) <= 0) continue
+          const colorSlug = (entry.color || '').replace(/\s+/g, '-').toUpperCase() || 'SIN-COLOR'
+          const code = entry.barcode.trim() || `${m.baseCode}-${v.sizeName}-${colorSlug}`
+          allBarcodes.push(code)
+        }
       }
     }
     const dup = allBarcodes.find((b, i) => allBarcodes.indexOf(b) !== i)
@@ -569,26 +594,32 @@ export function BulkProductEntryV2() {
 
     try {
       const productsToCreate = validModels.flatMap(model =>
-        model.variants
-          .filter(v => v.quantity > 0)
-          .map(variant => ({
-            barcode: (variant.barcode || '').trim() || `${model.baseCode}-${variant.sizeName}`,
-            name: `${model.baseName} - ${variant.sizeName}`,
-            base_code: model.baseCode,        // Clave de agrupación para Catálogo Visual
-            base_name: model.baseName,        // Nombre del modelo sin sufijo de talla
-            description: `${model.baseName} talla ${variant.sizeName}`,
-            size: variant.sizeName,
-            color: variant.color || model.color, // Usar color de variante o color base
-            image_url: model.imageUrl || null, // Imagen del modelo (compartida)
-            line_id: model.lineId,
-            category_id: model.categoryId,
-            brand_id: model.brandId,
-            supplier_id: supplier,
-            purchase_price: model.purchasePrice,
-            price: model.salePrice,
-            quantity: variant.quantity,
-            warehouse_id: warehouse
-          }))
+        model.variants.flatMap(variant =>
+          variant.colorEntries
+            .filter(entry => (entry.quantity || 0) > 0)
+            .map(entry => {
+              const colorSlug = (entry.color || '').replace(/\s+/g, '-').toUpperCase() || 'SIN-COLOR'
+              const autoBarcode = `${model.baseCode}-${variant.sizeName}-${colorSlug}`
+              return {
+                barcode: entry.barcode.trim() || autoBarcode,
+                name: `${model.baseName} - ${variant.sizeName}`,
+                base_code: model.baseCode,
+                base_name: model.baseName,
+                description: `${model.baseName} talla ${variant.sizeName}${entry.color ? ` color ${entry.color}` : ''}`,
+                size: variant.sizeName,
+                color: entry.color || model.color,
+                image_url: model.imageUrl || null,
+                line_id: model.lineId,
+                category_id: model.categoryId,
+                brand_id: model.brandId,
+                supplier_id: supplier,
+                purchase_price: model.purchasePrice,
+                price: model.salePrice,
+                quantity: entry.quantity,
+                warehouse_id: warehouse,
+              }
+            })
+        )
       )
 
       const result = await createBulkProducts(productsToCreate)
@@ -783,7 +814,7 @@ export function BulkProductEntryV2() {
                   </h3>
                   {getTotalUnits(model) > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      {getTotalUnits(model)} unidades en {model.variants.length} tallas
+                      {getTotalUnits(model)} unidades · {model.variants.length} talla{model.variants.length !== 1 ? 's' : ''} · {model.variants.reduce((s, v) => s + v.colorEntries.length, 0)} color{model.variants.reduce((s, v) => s + v.colorEntries.length, 0) !== 1 ? 'es' : ''}
                     </p>
                   )}
                 </div>
@@ -1082,81 +1113,119 @@ export function BulkProductEntryV2() {
                   </div>
                 )}
 
-                {/* Variants Table */}
+                {/* Variants Table — grouped by size, multiple colors per size */}
                 {model.variants.length > 0 && (
                   <div className="border-t pt-4">
-                    <Label className="text-sm font-semibold mb-3 block">
-                      Variantes por Talla
-                    </Label>
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-sm font-semibold">
+                        Variantes por Talla y Color
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        {model.variants.reduce((s, v) => s + v.colorEntries.length, 0)} fila(s) ·{' '}
+                        {getTotalUnits(model)} unidades
+                      </span>
+                    </div>
+
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-sm">
                         <thead className="bg-muted/30 border-b">
                           <tr>
-                            <th className="text-left p-3 font-semibold">Talla</th>
-                            <th className="text-left p-3 font-semibold">Código de Barras *</th>
-                            <th className="text-left p-3 font-semibold">Color</th>
-                            <th className="text-center p-3 font-semibold">Cantidad</th>
+                            <th className="text-left p-2.5 font-semibold w-20">Talla</th>
+                            <th className="text-left p-2.5 font-semibold">Color</th>
+                            <th className="text-left p-2.5 font-semibold">Código de Barras</th>
+                            <th className="text-center p-2.5 font-semibold w-24">Cantidad</th>
+                            <th className="w-8" />
                           </tr>
                         </thead>
-                        <tbody>
-                          {model.variants.map((variant, idx) => {
-                            const hasCustomColor = variant.color && variant.color !== model.color
-                            return (
-                              <tr key={variant.sizeId} className={idx % 2 === 0 ? 'bg-card' : 'bg-muted/30'}>
-                                <td className="p-3">
-                                  <span className="font-semibold text-foreground/85">
-                                    {variant.sizeName}
-                                  </span>
-                                </td>
-                                <td className="p-3 min-w-[200px]">
-                                  <Input
-                                    type="text"
-                                    placeholder={`Ej: ${model.baseCode || 'COD'}-${variant.sizeName}`}
-                                    value={variant.barcode || ''}
-                                    onChange={e =>
-                                      updateVariantBarcode(
-                                        model.id,
-                                        variant.sizeId,
-                                        e.target.value
-                                      )
-                                    }
-                                    className="font-mono text-xs"
-                                    autoComplete="off"
-                                  />
-                                </td>
-                                <td className="p-3 min-w-[150px]">
+
+                        {model.variants.map((variant, vIdx) => (
+                          <tbody key={variant.sizeId} className={vIdx > 0 ? 'border-t-2 border-border' : ''}>
+                            {variant.colorEntries.map((entry, eIdx) => (
+                              <tr
+                                key={entry.id}
+                                className={eIdx % 2 === 0 ? 'bg-card' : 'bg-muted/20'}
+                              >
+                                {/* Size cell — only on first color row */}
+                                {eIdx === 0 ? (
+                                  <td className="p-2.5 align-top">
+                                    <span className="inline-flex items-center gap-1 font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                      {variant.sizeName}
+                                    </span>
+                                  </td>
+                                ) : (
+                                  <td className="p-2.5">
+                                    <span className="pl-2 text-xs text-muted-foreground">↳</span>
+                                  </td>
+                                )}
+
+                                {/* Color picker */}
+                                <td className="p-2.5 min-w-[150px]">
                                   <CompactColorPicker
-                                    value={variant.color || model.color || ''}
-                                    onChange={value =>
-                                      updateVariantColor(model.id, variant.sizeId, value)
-                                    }
+                                    value={entry.color}
+                                    onChange={v => updateColorEntry(model.id, variant.sizeId, entry.id, 'color', v)}
                                     placeholder={model.color || 'Color'}
                                   />
                                 </td>
-                                <td className="p-3">
+
+                                {/* Barcode */}
+                                <td className="p-2.5 min-w-[180px]">
+                                  <Input
+                                    type="text"
+                                    placeholder={`${model.baseCode || 'COD'}-${variant.sizeName}-${(entry.color || 'COLOR').replace(/\s+/g,'-').toUpperCase()}`}
+                                    value={entry.barcode}
+                                    onChange={e => updateColorEntry(model.id, variant.sizeId, entry.id, 'barcode', e.target.value)}
+                                    className="font-mono text-xs h-8"
+                                    autoComplete="off"
+                                  />
+                                </td>
+
+                                {/* Quantity */}
+                                <td className="p-2.5">
                                   <Input
                                     type="number"
                                     min="0"
                                     placeholder="0"
-                                    value={variant.quantity || ''}
-                                    onChange={e =>
-                                      updateVariantQuantity(
-                                        model.id,
-                                        variant.sizeId,
-                                        Number(e.target.value) || 0
-                                      )
-                                    }
-                                    className="text-center font-mono"
+                                    value={entry.quantity || ''}
+                                    onChange={e => updateColorEntry(model.id, variant.sizeId, entry.id, 'quantity', Number(e.target.value) || 0)}
+                                    className="text-center font-mono h-8"
                                   />
                                 </td>
+
+                                {/* Delete color entry */}
+                                <td className="p-2.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeColorEntry(model.id, variant.sizeId, entry.id)}
+                                    className="p-1 text-muted-foreground hover:text-red-500 transition-colors rounded"
+                                    title="Quitar este color"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </td>
                               </tr>
-                            )
-                          })}
-                        </tbody>
+                            ))}
+
+                            {/* "+ Agregar color" row */}
+                            <tr className="bg-muted/10">
+                              <td />
+                              <td colSpan={4} className="px-2.5 py-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => addColorEntry(model.id, variant.sizeId)}
+                                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                                >
+                                  <Palette className="h-3.5 w-3.5" />
+                                  + Agregar color a talla {variant.sizeName}
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        ))}
                       </table>
                     </div>
+
                     <p className="text-xs text-muted-foreground mt-2">
-                      💡 Tip: Escribe el código de barras o escanéalo con un lector. Si lo dejas vacío, se generará automáticamente como <code className="bg-muted px-1 rounded">CODIGO-TALLA</code>. El color y código son personalizables por talla.
+                      💡 Cada fila de color genera un producto independiente. El código de barras se auto-genera si lo dejas vacío. Puedes escanear con lector de barras.
                     </p>
                   </div>
                 )}
