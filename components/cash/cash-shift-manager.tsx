@@ -33,6 +33,7 @@ import {
   ChevronUp,
   Search,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import { openCashShift, closeCashShift, addCashExpense, getClosedShiftBreakdown } from '@/actions/cash'
 import { toast } from 'sonner'
@@ -62,6 +63,7 @@ interface ShiftBreakdown {
   expensesList: { id: string; amount: number; category: string; description?: string; created_at: string }[]
   refundsList: { id: string; amount: number; category: string; description?: string; created_at: string }[]
   otherExpensesList: { id: string; amount: number; category: string; description?: string; created_at: string }[]
+  paymentsList?: { id: string; amount: number; clientName: string; notes: string; created_at: string }[]
 }
 
 interface CuadreResult {
@@ -240,11 +242,31 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
   const router = useRouter()
   const { selectedStore } = useStore()
   const [isOpening, setIsOpening] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
 
   // Re-fetch server data when store filter changes
   useEffect(() => {
     router.refresh()
   }, [selectedStore]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refresh every 60 seconds when there are open shifts
+  useEffect(() => {
+    if (openShifts.length === 0) return
+    const interval = setInterval(() => {
+      router.refresh()
+      setLastRefreshed(new Date())
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [openShifts.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true)
+    router.refresh()
+    setLastRefreshed(new Date())
+    // Small delay so the spinner is visible
+    setTimeout(() => setIsRefreshing(false), 800)
+  }
   const [isClosing, setIsClosing] = useState<string | null>(null)
   const [openingAmount, setOpeningAmount] = useState('')
   const [closingAmounts, setClosingAmounts] = useState<Record<string, string>>({})
@@ -499,9 +521,20 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
                   {/* Cuadre en vivo */}
                   {bd && (
                     <div className="rounded-lg border bg-muted/30 p-4 space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                        Cuadre en vivo
-                      </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Cuadre en vivo
+                        </p>
+                        <button
+                          onClick={handleManualRefresh}
+                          disabled={isRefreshing}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                          title="Actualizar cobros y ventas"
+                        >
+                          <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                          <span>{isRefreshing ? 'Actualizando...' : `Actualizar · ${lastRefreshed.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`}</span>
+                        </button>
+                      </div>
                       <CuadreRow
                         label="Apertura"
                         value={shift.opening_amount}
@@ -559,6 +592,23 @@ export function CashShiftManager({ openShifts, recentShifts, breakdowns, userId,
                           highlight="total"
                         />
                       </div>
+
+                      {/* Lista de cobros del turno */}
+                      {(bd.paymentsList ?? []).length > 0 && (
+                        <div className="mt-3 space-y-1 border-t pt-2">
+                          <p className="text-xs font-semibold text-emerald-600 mb-1">
+                            💰 Cobros recibidos ({bd.paymentsList!.length})
+                          </p>
+                          {bd.paymentsList!.map(pmt => (
+                            <div key={pmt.id} className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground truncate max-w-[60%]">
+                                {pmt.clientName}
+                              </span>
+                              <span className="text-emerald-600 font-medium">+S/ {pmt.amount.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Toggle gastos del turno */}
                       {expensesList.length > 0 && (

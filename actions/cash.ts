@@ -29,9 +29,10 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
     // Cobros (pagos de crédito) durante el turno
     const { data: collectionPayments } = await supabase
       .from('payments')
-      .select('amount')
+      .select('id, amount, notes, created_at, clients(name)')
       .gte('created_at', openedAt)
       .lte('created_at', now)
+      .order('created_at', { ascending: false })
 
     const totalCollections = (collectionPayments || []).reduce(
       (sum, p) => sum + parseFloat(p.amount?.toString() || '0'), 0
@@ -56,6 +57,15 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
     )
     const totalExpenses = totalRefunds + totalOtherExpenses
 
+    // Build paymentsList with client names for display
+    const paymentsList = (collectionPayments || []).map((p: any) => ({
+      id: p.id,
+      amount: parseFloat(p.amount?.toString() || '0'),
+      clientName: p.clients?.name || 'Cliente',
+      notes: p.notes || '',
+      created_at: p.created_at,
+    }))
+
     return {
       success: true,
       data: {
@@ -68,6 +78,7 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
         expensesList: allExpenses,
         refundsList,
         otherExpensesList,
+        paymentsList,
       }
     }
   } catch (error) {
