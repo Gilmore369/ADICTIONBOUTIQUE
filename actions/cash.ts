@@ -5,37 +5,14 @@ import { createServerClient } from '@/lib/supabase/server'
 import { logCashShiftOpened, logCashShiftClosed } from '@/lib/utils/audit'
 
 /**
- * Retorna el inicio del día (Lima UTC-5) en UTC, dado el timestamp de apertura del turno.
- * Si el turno abre a las 20:15 UTC (15:15 Lima), el día Lima empieza a las 05:00 UTC.
- */
-function shiftDayStartUTC(openedAt: string): string {
-  // Convertir openedAt a hora Lima (UTC-5)
-  const opened = new Date(openedAt)
-  const limaOffsetMs = -5 * 60 * 60 * 1000
-  const limaTime = new Date(opened.getTime() + limaOffsetMs)
-  // Inicio del día Lima (medianoche Lima) → volver a UTC
-  const limaStartOfDay = new Date(
-    Date.UTC(limaTime.getUTCFullYear(), limaTime.getUTCMonth(), limaTime.getUTCDate())
-  )
-  const startUTC = new Date(limaStartOfDay.getTime() - limaOffsetMs)
-  return startUTC.toISOString()
-}
-
-/**
  * Get live breakdown of an open shift (ventas, cobros, gastos)
- *
- * IMPORTANTE: Las ventas se cuentan desde la apertura del turno.
- * Los cobros se cuentan desde el inicio del día Lima (para capturar
- * cobros hechos antes de que el turno fuera abierto en caja).
  */
 export async function getCashShiftBreakdown(shiftId: string, storeId: string, openedAt: string) {
   try {
     const supabase = await createServerClient()
     const now = new Date().toISOString()
-    // Día completo Lima — para cobros del día aunque sean previos a apertura del turno
-    const dayStart = shiftDayStartUTC(openedAt)
 
-    // Ventas CONTADO durante el turno (desde apertura)
+    // Ventas CONTADO durante el turno
     const { data: sales } = await supabase
       .from('sales')
       .select('total, sale_type')
@@ -49,13 +26,11 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
     const creditSales = (sales || []).filter(s => s.sale_type === 'CREDITO')
     const totalCreditSales = creditSales.reduce((sum, s) => sum + parseFloat(s.total?.toString() || '0'), 0)
 
-    // Cobros (pagos de crédito) del DÍA completo Lima
-    // (no solo desde apertura del turno — el cobrador puede traer dinero
-    //  antes de que la cajera abra el turno)
+    // Cobros (pagos de crédito) desde apertura del turno
     const { data: collectionPayments } = await supabase
       .from('payments')
       .select('id, amount, notes, created_at, clients(name)')
-      .gte('created_at', dayStart)
+      .gte('created_at', openedAt)
       .lte('created_at', now)
       .order('created_at', { ascending: false })
 
@@ -137,12 +112,10 @@ export async function getClosedShiftBreakdown(
     const creditSales      = (sales || []).filter(s => s.sale_type === 'CREDITO')
     const totalCreditSales = creditSales.reduce((s, x) => s + parseFloat(x.total?.toString() || '0'), 0)
 
-    // Cobros del día completo Lima (mismo criterio que getCashShiftBreakdown)
-    const dayStartClosed = shiftDayStartUTC(openedAt)
     const { data: collectionPayments } = await supabase
       .from('payments')
       .select('amount')
-      .gte('created_at', dayStartClosed)
+      .gte('created_at', openedAt)
       .lte('created_at', closedAt)
 
     const totalCollections = (collectionPayments || []).reduce(
@@ -283,13 +256,10 @@ export async function closeCashShift(shiftId: string, closingAmount: number) {
     const cashSales = sales?.filter(s => s.sale_type === 'CONTADO') || []
     const totalCashSales = cashSales.reduce((sum, sale) => sum + parseFloat(sale.total?.toString() || '0'), 0)
 
-    // Cobros del día completo Lima (no solo desde apertura del turno).
-    // El cobrador puede traer dinero cobrado antes de que la cajera abra el turno.
-    const shiftDayStart = shiftDayStartUTC(shift.opened_at)
     const { data: collectionPayments } = await supabase
       .from('payments')
       .select('amount')
-      .gte('created_at', shiftDayStart)
+      .gte('created_at', shift.opened_at)
       .lte('created_at', now)
 
     const totalCollections = collectionPayments?.reduce(
