@@ -57,6 +57,14 @@ interface SizeVariant {
   colorEntries: ColorEntry[] // one row per color — each becomes one product
 }
 
+interface ExistingVariant {
+  productId: string
+  barcode: string | null
+  size: string | null
+  color: string | null
+  price: number | null
+}
+
 interface ProductModel {
   id: string
   // Campos del modelo base
@@ -69,8 +77,10 @@ interface ProductModel {
   imageUrl?: string // Imagen del modelo (compartida por todas las tallas)
   purchasePrice: number
   salePrice: number
-  // Variantes por talla
+  // Variantes por talla (NUEVAS, las que va a crear)
   variants: SizeVariant[]
+  // Variantes que YA existen en BD para este base_code (read-only, para mostrar al usuario)
+  existingVariants?: ExistingVariant[]
   // UI state
   expanded: boolean
 }
@@ -281,25 +291,24 @@ export function BulkProductEntryV2() {
 
   // Cargar modelo existente en el formulario
   const loadExistingModel = async (existingModel: any) => {
-    // MANTENER el mismo base_code para que se agrupe en el catálogo visual
     const baseCode = existingModel.baseCode
 
     const newModel: ProductModel = {
       id: crypto.randomUUID(),
-      baseCode: baseCode, // MISMO código para agrupar todos los colores
-      baseName: existingModel.baseName, // Mismo nombre base
+      baseCode: baseCode,
+      baseName: existingModel.baseName,
       lineId: existingModel.lineId || '',
       categoryId: existingModel.categoryId || '',
       brandId: existingModel.brandId || '',
-      color: '', // Vacío para que el usuario ingrese el nuevo color
+      color: '',
       imageUrl: existingModel.imageUrl || '',
       purchasePrice: existingModel.purchasePrice || 0,
       salePrice: existingModel.salePrice || 0,
       variants: [],
-      expanded: true
+      existingVariants: existingModel.variants || [],
+      expanded: true,
     }
 
-    // Cargar tallas para la categoría
     if (newModel.categoryId) {
       await loadSizesForCategory(newModel.categoryId)
     }
@@ -307,7 +316,11 @@ export function BulkProductEntryV2() {
     setModels([...models, newModel])
     setSearchQuery('')
     setSearchResults([])
-    toast.success(`Modelo "${existingModel.baseName}" cargado con código ${baseCode}. Agrega el nuevo color.`)
+    const existingCount = existingModel.variants?.length || 0
+    toast.success(
+      `Modelo "${existingModel.baseName}" cargado`,
+      `${existingCount} variante(s) ya existen en BD · Agrega tallas/colores nuevos`
+    )
   }
 
   const addModel = () => {
@@ -406,6 +419,26 @@ export function BulkProductEntryV2() {
       ))
     } catch (error) {
       console.error('[generateCodeForModel] Error generating code:', error)
+    }
+  }
+
+  // Detectar variantes existentes cuando el usuario digita un base_code que ya existe
+  const checkExistingByBaseCode = async (modelId: string, baseCode: string) => {
+    if (!baseCode || baseCode.length < 3 || !supplier) return
+    try {
+      const res = await fetch(`/api/products/search-by-name?baseName=${encodeURIComponent(baseCode)}&supplier_id=${supplier}`)
+      const { data } = await res.json()
+      const match = (data || []).find((m: any) => m.baseCode === baseCode)
+      if (match && match.variants?.length > 0) {
+        setModels(prev => prev.map(m => {
+          if (m.id !== modelId) return m
+          // Solo asignar si no fue cargado vía buscador (que ya lo trae)
+          if (m.existingVariants && m.existingVariants.length > 0) return m
+          return { ...m, existingVariants: match.variants }
+        }))
+      }
+    } catch (e) {
+      // Silencioso — solo es un aviso preventivo
     }
   }
 
@@ -793,16 +826,38 @@ export function BulkProductEntryV2() {
                   <button
                     key={idx}
                     onClick={() => loadExistingModel(model)}
-                    className="w-full p-3 text-left bg-card border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                    className="w-full p-3 text-left bg-card border border-blue-200 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm">{model.baseName}</p>
                         <p className="text-xs text-muted-foreground">
-                          Código: {model.baseCode} • {model.variants?.length || 0} variantes
+                          Código: <span className="font-mono">{model.baseCode}</span> · {model.variants?.length || 0} variante(s) en BD
                         </p>
+                        {/* Tallas existentes */}
+                        {model.sizes && model.sizes.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <span className="text-[10px] text-muted-foreground">Tallas:</span>
+                            {model.sizes.map((s: string) => (
+                              <span key={s} className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded font-medium dark:bg-blue-950 dark:text-blue-300">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {/* Colores existentes */}
+                        {model.colors && model.colors.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className="text-[10px] text-muted-foreground">Colores:</span>
+                            {model.colors.map((c: string) => (
+                              <span key={c} className="text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-800 rounded font-medium dark:bg-violet-950 dark:text-violet-300">
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium flex-shrink-0 dark:bg-blue-900 dark:text-blue-200">
                         Cargar
                       </span>
                     </div>
@@ -874,10 +929,10 @@ export function BulkProductEntryV2() {
               <div className="p-4 space-y-4">
                 {/* Info banner - always show to explain base_code */}
                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-900 font-medium mb-1">
+                  <p className="text-sm text-blue-900 dark:text-blue-200 font-medium mb-1">
                     📦 Código Base: {model.baseCode || 'Se generará automáticamente'}
                   </p>
-                  <p className="text-xs text-blue-700">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
                     {model.baseCode
                       ? 'Este modelo agrupará todos los colores en la misma tarjeta del catálogo visual.'
                       : (
@@ -889,6 +944,41 @@ export function BulkProductEntryV2() {
                       )}
                   </p>
                 </div>
+
+                {/* ⚠ Variantes existentes en BD (cuando se cargó un modelo existente) */}
+                {model.existingVariants && model.existingVariants.length > 0 && (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 rounded-lg p-3">
+                    <p className="text-sm text-amber-900 dark:text-amber-200 font-semibold mb-2 flex items-center gap-1">
+                      ⚠ Este modelo ya tiene {model.existingVariants.length} variante(s) registrada(s) en BD
+                    </p>
+                    <p className="text-xs text-amber-800 dark:text-amber-300 mb-2">
+                      Estas variantes ya existen y aparecen en el catálogo visual junto con las nuevas que agregues.
+                      Si una de estas combinaciones <strong>(talla + color)</strong> se repite abajo, se actualizará el stock en vez de crear duplicado.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="text-amber-900 dark:text-amber-300">
+                            <th className="text-left py-1 pr-3">Código de Barras</th>
+                            <th className="text-left py-1 pr-3">Talla</th>
+                            <th className="text-left py-1 pr-3">Color</th>
+                            <th className="text-right py-1">Precio</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {model.existingVariants.map((v) => (
+                            <tr key={v.productId} className="border-t border-amber-200 dark:border-amber-900">
+                              <td className="py-1 pr-3 font-mono">{v.barcode || '—'}</td>
+                              <td className="py-1 pr-3 font-semibold">{v.size || '—'}</td>
+                              <td className="py-1 pr-3">{v.color || '—'}</td>
+                              <td className="py-1 text-right tabular-nums">{v.price != null ? `S/ ${Number(v.price).toFixed(2)}` : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Base Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -901,6 +991,7 @@ export function BulkProductEntryV2() {
                         placeholder="Se genera al seleccionar categoría"
                         value={model.baseCode}
                         onChange={e => updateModel(model.id, 'baseCode', e.target.value.toUpperCase())}
+                        onBlur={e => checkExistingByBaseCode(model.id, e.target.value.toUpperCase().trim())}
                         className={`flex-1 font-mono ${!model.baseCode ? 'border-red-300' : ''}`}
                       />
                       <Button

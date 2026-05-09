@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
         id,
         barcode,
         name,
+        base_code,
+        base_name,
         line_id,
         category_id,
         brand_id,
@@ -51,21 +53,14 @@ export async function GET(request: NextRequest) {
         brands:brand_id(id, name)
       `)
       .eq('supplier_id', supplierId)
-      .ilike('name', `%${baseName}%`)
+      .or(`name.ilike.%${baseName}%,base_name.ilike.%${baseName}%,base_code.ilike.%${baseName}%`)
       .eq('active', true)
-    
-    // Filtrar por talla si se proporciona
-    if (size) {
-      query = query.eq('size', size)
-    }
-    
-    // Filtrar por color si se proporciona
-    if (color) {
-      query = query.ilike('color', `%${color}%`)
-    }
-    
+
+    if (size) query = query.eq('size', size)
+    if (color) query = query.ilike('color', `%${color}%`)
+
     const { data: products, error } = await query.order('name')
-    
+
     if (error) {
       console.error('Product search error:', error)
       return NextResponse.json(
@@ -73,51 +68,55 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       )
     }
-    
-    // Agrupar por modelo base (nombre sin talla)
-    // Usar nombre + color como clave para agrupar productos idénticos con diferentes códigos
+
+    // ── Agrupar por base_code (clave canónica) ─────────────────────────────
+    // Si base_code es null (productos viejos), usar base_name como fallback
     const models = new Map<string, any>()
-    
+
     if (products) {
-      products.forEach(product => {
-        // Extraer nombre base (sin la talla al final)
-        const nameParts = product.name.split(' - ')
-        const baseNameKey = nameParts[0] // Nombre sin talla
-        
-        // Crear clave única: nombre base + color (para agrupar productos idénticos)
-        const modelKey = `${baseNameKey}|${product.color || 'sin-color'}`
-        
-        if (!models.has(modelKey)) {
-          models.set(modelKey, {
-            baseName: baseNameKey,
-            baseCode: product.barcode?.split('-')[0] || '', // Extraer código base del primer producto
+      for (const product of products as any[]) {
+        const groupKey = product.base_code || product.base_name || product.name.split(' - ')[0]
+
+        if (!models.has(groupKey)) {
+          models.set(groupKey, {
+            baseCode: product.base_code || groupKey,
+            baseName: product.base_name || product.name.split(' - ')[0],
             lineId: product.line_id,
             categoryId: product.category_id,
             brandId: product.brand_id,
-            color: product.color,
             imageUrl: product.image_url,
             purchasePrice: product.purchase_price,
             salePrice: product.price,
-            variants: []
+            // Lista completa de variantes existentes para que el usuario las VEA
+            variants: [],
+            // Listas únicas para preview rápido
+            sizes: new Set<string>(),
+            colors: new Set<string>(),
           })
         }
-        
-        // Agregar variante (talla)
-        const model = models.get(modelKey)
-        if (product.size) {
-          model.variants.push({
-            size: product.size,
-            color: product.color,
-            barcode: product.barcode,
-            productId: product.id
-          })
-        }
-      })
+
+        const model = models.get(groupKey)
+        model.variants.push({
+          productId: product.id,
+          barcode: product.barcode,
+          size: product.size,
+          color: product.color,
+          price: product.price,
+          purchase_price: product.purchase_price,
+        })
+        if (product.size) model.sizes.add(product.size)
+        if (product.color) model.colors.add(product.color)
+      }
     }
-    
-    return NextResponse.json({ 
-      data: Array.from(models.values())
-    })
+
+    // Convertir Sets a arrays para JSON
+    const result = Array.from(models.values()).map(m => ({
+      ...m,
+      sizes: Array.from(m.sizes),
+      colors: Array.from(m.colors),
+    }))
+
+    return NextResponse.json({ data: result })
   } catch (error) {
     console.error('Unexpected error in product search:', error)
     return NextResponse.json(
