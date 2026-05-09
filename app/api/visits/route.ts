@@ -186,19 +186,23 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Payment processing ──────────────────────────────────────────────────
-    // When the cobrador registered a real payment ("Pagó" / "Abono parcial")
-    // we must apply it to the client's installments (oldest-due-first) so that:
-    //   • Installment statuses update (PENDING/OVERDUE → PAID/PARTIAL)
-    //   • credit_used decrements on the client
-    //   • A row is created in the `payments` table (visible in caja)
-    //   • Cache for /cash, /dashboard, /map is invalidated
+    // When the cobrador registers a real payment ("Pagó" / "Abono parcial"):
+    //   1. ALWAYS insert a row in `payments` (visible in caja) — regardless of
+    //      whether the client has credit plans or pending installments.
+    //   2. IF the client has unpaid installments, apply oldest-due-first and
+    //      update installment statuses + credit_used.
     let paymentProcessed = false
     if (PAYMENT_REQUIRED_RESULTS.includes(result) && payment_amount && Number(payment_amount) > 0) {
       try {
         const serviceClient = createServiceClient()
         const amount = Number(payment_amount)
+        const method = payment_method || 'EFECTIVO'
+        const paymentNote = `Cobro via visita - ${result} - Método: ${method}`
 
-        // Fetch active credit plans for this client
+        // ── Step 1: Try to apply to installments (optional) ────────────────
+        let linkedPlanId: string | null = null
+        let linkedInstallmentId: string | null = null
+
         const { data: clientPlans } = await serviceClient
           .from('credit_plans')
           .select('id')
@@ -208,7 +212,6 @@ export async function POST(request: NextRequest) {
         if (clientPlans && clientPlans.length > 0) {
           const planIds = clientPlans.map((p: any) => p.id)
 
-          // Fetch unpaid installments (PENDING, PARTIAL, OVERDUE)
           const { data: rawInstallments } = await serviceClient
             .from('installments')
             .select('id, plan_id, installment_number, amount, due_date, paid_amount, status, paid_at')
@@ -227,94 +230,94 @@ export async function POST(request: NextRequest) {
               paid_at: inst.paid_at,
             }))
 
-            // Snapshot original paid amounts before modification
             const originalPaid: Record<string, number> = {}
             for (const orig of unpaidInstallments) {
               originalPaid[orig.id] = Number(orig.paid_amount)
             }
 
-            // Apply oldest-due-first algorithm
             const { updatedInstallments } = applyPaymentToInstallments(amount, unpaidInstallments)
 
-            // Persist updated installments
             for (const updated of updatedInstallments) {
               const updateData: any = { paid_amount: updated.paid_amount, status: updated.status }
               if (updated.paid_at) updateData.paid_at = updated.paid_at
               await serviceClient.from('installments').update(updateData).eq('id', updated.id)
             }
 
-            // Recalculate credit_used on the client (RPC; ignore if not deployed)
             await serviceClient.rpc('recalculate_client_credit_used', { p_client_id: client_id }).catch(() => {})
 
-            // Build note that includes payment method (visible in caja logs)
-            const method = payment_method || 'EFECTIVO'
-            const paymentNote = `Cobro via visita - ${result} - Método: ${method}`
-            const firstInstallment = unpaidInstallments.find(i =>
-              updatedInstallments.some(u => u.id === i.id)
-            )
+            linkedPlanId = updatedInstallments[0]?.plan_id || null
+            linkedInstallmentId = updatedInstallments[0]?.id || null
 
-            // Insert payment record
-            let insertResult = await serviceClient
-              .from('payments')
-              .insert({
-                client_id,
-                amount,
-                payment_date: new Date().toISOString(),
-                user_id: user.id,
-                receipt_url: payment_proof_url || null,
-                notes: paymentNote,
-                plan_id: firstInstallment?.plan_id || null,
-                installment_id: updatedInstallments[0]?.id || null,
-              })
-              .select('id')
-              .single()
+            // payment_allocations (best-effort)
+            const allocations = updatedInstallments
+              .map(u => ({
+                installment_id: u.id,
+                amount_applied: Number(u.paid_amount) - (originalPaid[u.id] ?? 0),
+              }))
+              .filter(a => a.amount_applied > 0)
 
-            // Fallback: if optional columns don't exist yet (migration pending)
-            if (insertResult.error && insertResult.error.code === '42703') {
-              insertResult = await serviceClient
-                .from('payments')
-                .insert({
-                  client_id,
-                  amount,
-                  payment_date: new Date().toISOString(),
-                  user_id: user.id,
-                  receipt_url: payment_proof_url || null,
-                  notes: paymentNote,
-                })
-                .select('id')
-                .single()
-            }
-
-            if (!insertResult.error && insertResult.data) {
-              // Insert payment_allocations (one row per installment touched)
-              const allocations = updatedInstallments
-                .map(u => ({
-                  payment_id: insertResult.data!.id,
-                  installment_id: u.id,
-                  amount_applied: Number(u.paid_amount) - (originalPaid[u.id] ?? 0),
-                }))
-                .filter(a => a.amount_applied > 0)
-
-              if (allocations.length > 0) {
-                await serviceClient.from('payment_allocations').insert(allocations).catch(() => {})
-              }
-
-              paymentProcessed = true
-              console.log(`[visits] Payment processed: S/ ${amount} for client ${client_id} via ${method}`)
-            } else if (insertResult.error) {
-              console.error('[visits] Payment insert error:', insertResult.error.message)
+            // Will attach payment_id after insert below
+            if (allocations.length > 0) {
+              // stored for later
+              (serviceClient as any).__pendingAllocations = allocations
             }
           }
         }
 
-        // Invalidate Next.js caches so caja, dashboard, and map reflect payment
+        // ── Step 2: ALWAYS insert payment record ───────────────────────────
+        let insertResult = await serviceClient
+          .from('payments')
+          .insert({
+            client_id,
+            amount,
+            payment_date: new Date().toISOString(),
+            user_id: user.id,
+            receipt_url: payment_proof_url || null,
+            notes: paymentNote,
+            plan_id: linkedPlanId,
+            installment_id: linkedInstallmentId,
+          })
+          .select('id')
+          .single()
+
+        // Fallback: column not yet migrated
+        if (insertResult.error && insertResult.error.code === '42703') {
+          insertResult = await serviceClient
+            .from('payments')
+            .insert({
+              client_id,
+              amount,
+              payment_date: new Date().toISOString(),
+              user_id: user.id,
+              receipt_url: payment_proof_url || null,
+              notes: paymentNote,
+            })
+            .select('id')
+            .single()
+        }
+
+        if (!insertResult.error && insertResult.data) {
+          paymentProcessed = true
+          console.log(`[visits] Payment inserted: S/ ${amount} for client ${client_id} via ${method}`)
+
+          // Attach allocations if any
+          const pendingAllocs = (serviceClient as any).__pendingAllocations as any[] | undefined
+          if (pendingAllocs && pendingAllocs.length > 0) {
+            await serviceClient.from('payment_allocations').insert(
+              pendingAllocs.map(a => ({ ...a, payment_id: insertResult.data!.id }))
+            ).catch(() => {})
+          }
+        } else if (insertResult.error) {
+          console.error('[visits] Payment insert error:', insertResult.error.message)
+        }
+
+        // Invalidate caches
         revalidatePath('/cash')
         revalidatePath('/dashboard')
         revalidatePath('/collections/payments')
         revalidatePath('/debt/plans')
         revalidatePath('/map')
       } catch (paymentError) {
-        // Never fail the visit creation because of a payment error — log and continue
         console.error('[visits] Payment processing error:', paymentError)
       }
     }
