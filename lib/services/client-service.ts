@@ -59,14 +59,13 @@ export async function fetchClientProfile(
     .order('created_at', { ascending: false })
   if (storeFilter) salesQuery = salesQuery.eq('store_id', storeFilter)
 
-  // Build credit_plans query — LEFT join on sales so legacy plans (sale_id = null) are included
-  let creditPlansQuery = service
+  // Build credit_plans query — LEFT join on sales so legacy plans (sale_id = null) are included.
+  // Do NOT filter by store here; filter client-side so legacy plans always appear.
+  const creditPlansQuery = service
     .from('credit_plans')
     .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, sales(sale_number, store_id)')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
-  // Store filter: only apply to plans that have an associated sale (legacy plans are always shown)
-  if (storeFilter) creditPlansQuery = creditPlansQuery.or(`sale_id.is.null,sales.store_id.eq.${storeFilter}`)
 
   // Fetch all related data in parallel using Promise.all for performance
   // NOTE: purchases, installments, collection_actions use service client to bypass RLS
@@ -120,7 +119,11 @@ export async function fetchClientProfile(
 
   const client = clientResult.data as any
   const purchases = (purchasesResult.data || []) as any[]
-  const creditPlans = (creditPlansResult.data || []) as any[]
+  // Filter credit plans by store client-side: always include legacy plans (sale_id=null)
+  const allCreditPlans = (creditPlansResult.data || []) as any[]
+  const creditPlans = storeFilter
+    ? allCreditPlans.filter((p: any) => !p.sale_id || p.sales?.store_id === storeFilter)
+    : allCreditPlans
 
   // Fetch installments for the resolved plan IDs (already store-filtered via credit_plans)
   const planIds = creditPlans.map((p: any) => p.id)
