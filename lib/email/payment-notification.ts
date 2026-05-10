@@ -25,6 +25,7 @@ export interface PaymentNotificationData {
   nextDueDate?: string         // Próxima fecha de pago (ISO date YYYY-MM-DD)
   receiptProofUrl?: string     // URL foto del voucher (opcional)
   notes?: string
+  pdfBuffer?: Buffer           // PDF adjunto generado externamente
 }
 
 // ── Formateadores ─────────────────────────────────────────────────────────────
@@ -282,11 +283,21 @@ export async function sendPaymentNotificationEmail(
       ? `✅ Pago completado — Deuda cancelada — Adiction Boutique`
       : `✅ Pago registrado S/ ${data.amountPaid.toFixed(2)} — Saldo: S/ ${data.remainingBalance.toFixed(2)}`
 
+    // Adjuntar PDF si viene en los datos
+    const attachments: Array<{ filename: string; content: Buffer }> = []
+    if (data.pdfBuffer) {
+      attachments.push({
+        filename: `Estado_Cuenta_${data.clientName.replace(/\s+/g, '_')}.pdf`,
+        content: data.pdfBuffer,
+      })
+    }
+
     const { error } = await resend.emails.send({
       from: `Adiction Boutique <${fromEmail}>`,
       to: data.clientEmail,
       subject,
       html,
+      attachments: attachments.length > 0 ? attachments : undefined,
     })
 
     if (error) {

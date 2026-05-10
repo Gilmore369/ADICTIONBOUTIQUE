@@ -19,6 +19,7 @@ import { applyPaymentToInstallments } from '@/lib/payments/oldest-due-first'
 import type { Installment } from '@/lib/payments/oldest-due-first'
 import { revalidatePath } from 'next/cache'
 import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
+import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
 
 /** Results from the visit dialog that imply a payment was collected */
 const PAYMENT_REQUIRED_RESULTS = ['Pagó', 'Abono parcial']
@@ -312,21 +313,19 @@ export async function POST(request: NextRequest) {
             ).catch(() => {})
           }
 
-          // ── Send payment notification email (fire-and-forget) ──────────────
+          // ── Send payment notification email with PDF (fire-and-forget) ───
           try {
-            // Fetch client email + remaining balance + plan description
             const { data: clientFull } = await serviceClient
               .from('clients')
-              .select('email, credit_used, name')
+              .select('email, credit_used, name, dni, phone')
               .eq('id', client_id)
               .single()
 
             const clientEmail = clientFull?.email
             if (clientEmail) {
-              // Get purchase description from linked plan (if any)
               let purchaseDescription: string | undefined
-              let originalTotal: number | undefined
-              let totalPaid: number | undefined
+              let originalTotal = 0
+              let allInstallments: Array<{ number: number; dueDate: string; amount: number; paidAmount: number; status: string }> = []
 
               if (linkedPlanId) {
                 const { data: planData } = await serviceClient
@@ -337,22 +336,63 @@ export async function POST(request: NextRequest) {
                 if (planData) {
                   originalTotal = Number(planData.legacy_original_total ?? planData.total_amount)
                   purchaseDescription = planData.legacy_purchase_description || undefined
-                  // Calculate total paid = original - remaining
-                  totalPaid = originalTotal - Number(clientFull?.credit_used ?? 0)
+                }
+
+                const { data: allInsts } = await serviceClient
+                  .from('installments')
+                  .select('installment_number, due_date, amount, paid_amount, status')
+                  .eq('plan_id', linkedPlanId)
+                  .order('installment_number', { ascending: true })
+
+                if (allInsts) {
+                  allInstallments = allInsts.map((i: any) => ({
+                    number: i.installment_number ?? 1,
+                    dueDate: i.due_date,
+                    amount: Number(i.amount),
+                    paidAmount: Number(i.paid_amount ?? 0),
+                    status: i.status,
+                  }))
                 }
               }
 
-              // Estimate next due date from installment
-              let nextDueDate: string | undefined
-              if (linkedInstallmentId) {
-                const { data: instData } = await serviceClient
-                  .from('installments')
-                  .select('due_date')
-                  .eq('id', linkedInstallmentId)
-                  .single()
-                nextDueDate = instData?.due_date || estimateNextPaymentDate()
+              const remainingBalance = Math.max(0, Number(clientFull?.credit_used ?? 0))
+              const totalPaid = Math.max(0, originalTotal - remainingBalance)
+
+              // Próxima cuota pendiente
+              const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
+              let nextDueDate: string
+              if (nextInst) {
+                nextDueDate = nextInst.dueDate
               } else {
-                nextDueDate = estimateNextPaymentDate()
+                // 1 mes desde hoy
+                const base = new Date()
+                const next = new Date(base.getFullYear(), base.getMonth() + 1, base.getDate())
+                nextDueDate = next.toISOString().split('T')[0]
+              }
+
+              const paymentDateISO = new Date().toISOString()
+
+              // Generar PDF
+              let pdfBuffer: Buffer | undefined
+              try {
+                pdfBuffer = await generatePaymentStatementPDF({
+                  clientName: clientFull?.name ?? client.name,
+                  clientDni: clientFull?.dni || undefined,
+                  clientPhone: clientFull?.phone || undefined,
+                  clientEmail,
+                  amountPaid: amount,
+                  paymentMethod: method,
+                  paymentDate: paymentDateISO,
+                  originalTotal: originalTotal || amount,
+                  totalPaid: totalPaid || amount,
+                  remainingBalance,
+                  purchaseDescription,
+                  installments: allInstallments,
+                  nextDueDate,
+                  notes: body.comment ? `Nota del cobrador: ${body.comment}` : undefined,
+                })
+              } catch (pdfErr) {
+                console.warn('[visits] PDF generation failed:', pdfErr)
               }
 
               sendPaymentNotificationEmail({
@@ -360,13 +400,14 @@ export async function POST(request: NextRequest) {
                 clientEmail,
                 amountPaid: amount,
                 paymentMethod: method,
-                paymentDate: new Date().toISOString(),
+                paymentDate: paymentDateISO,
                 purchaseDescription,
-                originalTotal,
-                totalPaid,
-                remainingBalance: Math.max(0, Number(clientFull?.credit_used ?? 0)),
+                originalTotal: originalTotal || undefined,
+                totalPaid: totalPaid || undefined,
+                remainingBalance,
                 nextDueDate,
                 notes: body.comment ? `Nota del cobrador: ${body.comment}` : undefined,
+                pdfBuffer,
               }).catch(err => console.warn('[visits] Email notification failed:', err))
             }
           } catch (emailErr) {
