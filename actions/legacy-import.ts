@@ -154,7 +154,8 @@ export async function importLegacyDebts(
 
   const service = createServiceClient()
 
-  // 1. Crear el batch (auditoría)
+  // 1. Crear el batch (auditoría) — si la tabla no existe aún, continuar sin batch
+  let batchId: string | null = null
   const { data: batch, error: batchError } = await service
     .from('legacy_import_batches')
     .insert({
@@ -170,19 +171,25 @@ export async function importLegacyDebts(
     .select('id')
     .single()
 
-  if (batchError || !batch) {
-    return {
-      success: false,
-      total_rows: rawRows.length,
-      successful_rows: 0,
-      failed_rows: rawRows.length,
-      total_debt_amount: 0,
-      results: [],
-      error: `Error al crear batch: ${batchError?.message ?? 'unknown'}`,
+  if (batchError) {
+    // Si la tabla no existe (42P01) o hay RLS (42501), continuamos sin batch
+    // Casos comunes: migración no ejecutada todavía
+    if (!['42P01', '42501', '23514'].includes(batchError.code ?? '')) {
+      // Error inesperado — fallar
+      return {
+        success: false,
+        total_rows: rawRows.length,
+        successful_rows: 0,
+        failed_rows: rawRows.length,
+        total_debt_amount: 0,
+        results: [],
+        error: `Error al crear batch: ${batchError.message}`,
+      }
     }
+    console.warn('[legacy-import] Batch table not available, importing without audit batch:', batchError.code)
+  } else {
+    batchId = batch?.id ?? null
   }
-
-  const batchId = batch.id
   const results: LegacyImportRowResult[] = []
   let totalDebt = 0
   let successCount = 0
@@ -220,15 +227,17 @@ export async function importLegacyDebts(
     }
   }
 
-  // 3. Actualizar resumen del batch
-  await service
-    .from('legacy_import_batches')
-    .update({
-      successful_rows: successCount,
-      failed_rows: failCount,
-      total_debt_amount: totalDebt,
-    })
-    .eq('id', batchId)
+  // 3. Actualizar resumen del batch (si existe)
+  if (batchId) {
+    await service
+      .from('legacy_import_batches')
+      .update({
+        successful_rows: successCount,
+        failed_rows: failCount,
+        total_debt_amount: totalDebt,
+      })
+      .eq('id', batchId)
+  }
 
   revalidatePath('/clients')
   revalidatePath('/debt')
@@ -252,7 +261,7 @@ async function processRow(
   service: ReturnType<typeof createServiceClient>,
   row: LegacyDebtRow,
   historicalPayments: HistoricalPayment[],
-  batchId: string,
+  batchId: string | null,
   userId: string,
   rowIndex: number,
   sourceLabel?: string,
@@ -263,7 +272,7 @@ async function processRow(
 
   const { data: existingClient } = await service
     .from('clients')
-    .select('id, name, address, lat, lng')
+    .select('id, name, address, email, lat, lng')
     .eq('dni', row.dni)
     .maybeSingle()
 
@@ -275,6 +284,7 @@ async function processRow(
     // Si tiene datos faltantes, actualízalos sin sobrescribir
     const updates: any = {}
     if (!existingClient.address && fullAddress) updates.address = fullAddress
+    if (!existingClient.email && row.email) updates.email = row.email
     if (coords && (existingClient.lat == null || existingClient.lng == null)) {
       updates.lat = coords.lat
       updates.lng = coords.lng
@@ -288,6 +298,7 @@ async function processRow(
       .insert({
         dni: row.dni,
         name: row.name,
+        email: row.email || null,
         phone: row.phone || null,
         address: fullAddress,
         lat: coords?.lat ?? null,
@@ -351,7 +362,7 @@ async function processRow(
       legacy_imported_at: new Date().toISOString(),
       legacy_imported_by: userId,
       legacy_notes: row.notes || null,
-      legacy_batch_id: batchId,
+      legacy_batch_id: batchId || null,
     })
     .select('id')
     .single()
@@ -394,7 +405,7 @@ async function processRow(
       installment_id: installment.id,
       imported_from_legacy: true,
       legacy_source: sourceLabel || 'Importación legacy',
-      legacy_batch_id: batchId,
+      legacy_batch_id: batchId || null,
     }))
 
     const { data: insertedPayments, error: payError } = await service
@@ -418,7 +429,7 @@ async function processRow(
       installment_id: installment.id,
       imported_from_legacy: true,
       legacy_source: sourceLabel || 'Importación legacy',
-      legacy_batch_id: batchId,
+      legacy_batch_id: batchId || null,
     })
     if (!payError) paymentsCreated = 1
   }

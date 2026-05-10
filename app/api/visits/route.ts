@@ -18,6 +18,7 @@ import { peruMidnightUTC, peruEndOfDayUTC } from '@/lib/utils/timezone'
 import { applyPaymentToInstallments } from '@/lib/payments/oldest-due-first'
 import type { Installment } from '@/lib/payments/oldest-due-first'
 import { revalidatePath } from 'next/cache'
+import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
 
 /** Results from the visit dialog that imply a payment was collected */
 const PAYMENT_REQUIRED_RESULTS = ['Pagó', 'Abono parcial']
@@ -309,6 +310,67 @@ export async function POST(request: NextRequest) {
             await serviceClient.from('payment_allocations').insert(
               pendingAllocs.map(a => ({ ...a, payment_id: insertResult.data!.id }))
             ).catch(() => {})
+          }
+
+          // ── Send payment notification email (fire-and-forget) ──────────────
+          try {
+            // Fetch client email + remaining balance + plan description
+            const { data: clientFull } = await serviceClient
+              .from('clients')
+              .select('email, credit_used, name')
+              .eq('id', client_id)
+              .single()
+
+            const clientEmail = clientFull?.email
+            if (clientEmail) {
+              // Get purchase description from linked plan (if any)
+              let purchaseDescription: string | undefined
+              let originalTotal: number | undefined
+              let totalPaid: number | undefined
+
+              if (linkedPlanId) {
+                const { data: planData } = await serviceClient
+                  .from('credit_plans')
+                  .select('total_amount, legacy_purchase_description, legacy_original_total')
+                  .eq('id', linkedPlanId)
+                  .single()
+                if (planData) {
+                  originalTotal = Number(planData.legacy_original_total ?? planData.total_amount)
+                  purchaseDescription = planData.legacy_purchase_description || undefined
+                  // Calculate total paid = original - remaining
+                  totalPaid = originalTotal - Number(clientFull?.credit_used ?? 0)
+                }
+              }
+
+              // Estimate next due date from installment
+              let nextDueDate: string | undefined
+              if (linkedInstallmentId) {
+                const { data: instData } = await serviceClient
+                  .from('installments')
+                  .select('due_date')
+                  .eq('id', linkedInstallmentId)
+                  .single()
+                nextDueDate = instData?.due_date || estimateNextPaymentDate()
+              } else {
+                nextDueDate = estimateNextPaymentDate()
+              }
+
+              sendPaymentNotificationEmail({
+                clientName: clientFull?.name ?? client.name,
+                clientEmail,
+                amountPaid: amount,
+                paymentMethod: method,
+                paymentDate: new Date().toISOString(),
+                purchaseDescription,
+                originalTotal,
+                totalPaid,
+                remainingBalance: Math.max(0, Number(clientFull?.credit_used ?? 0)),
+                nextDueDate,
+                notes: body.comment ? `Nota del cobrador: ${body.comment}` : undefined,
+              }).catch(err => console.warn('[visits] Email notification failed:', err))
+            }
+          } catch (emailErr) {
+            console.warn('[visits] Could not send payment email:', emailErr)
           }
         } else if (insertResult.error) {
           console.error('[visits] Payment insert error:', insertResult.error.message)

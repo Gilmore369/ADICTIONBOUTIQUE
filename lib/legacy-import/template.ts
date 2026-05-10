@@ -49,6 +49,7 @@ export function generateLegacyImportTemplate(): Blob {
   const headers = [
     'dni*',
     'nombre*',
+    'email',
     'telefono',
     'direccion',
     'distrito',
@@ -65,6 +66,7 @@ export function generateLegacyImportTemplate(): Blob {
     [
       '12345678',
       'María García López',
+      'maria.garcia@gmail.com',
       '987654321',
       'Av. España 123',
       'Trujillo',
@@ -80,6 +82,7 @@ export function generateLegacyImportTemplate(): Blob {
     [
       '87654321',
       'Carlos Mendoza',
+      'cmendoza@hotmail.com',
       '912345678',
       'Jr. Bolognesi 456',
       'La Esperanza',
@@ -95,6 +98,7 @@ export function generateLegacyImportTemplate(): Blob {
     [
       '11223344',
       'Ana Sofía Torres',
+      '',
       '999888777',
       'Calle Las Flores 789',
       'Víctor Larco',
@@ -115,6 +119,7 @@ export function generateLegacyImportTemplate(): Blob {
   ws['!cols'] = [
     { wch: 12 }, // dni
     { wch: 28 }, // nombre
+    { wch: 28 }, // email
     { wch: 14 }, // telefono
     { wch: 28 }, // direccion
     { wch: 14 }, // distrito
@@ -140,10 +145,10 @@ export function generateLegacyImportTemplate(): Blob {
     }
   }
 
-  // Format moneda en col 8 (monto_total) y 9 (monto_pagado) para todas las filas
+  // Format moneda en col 9 (monto_total) y 10 (monto_pagado) para todas las filas
   for (let row = 1; row <= exampleRows.length; row++) {
-    const totalRef = XLSX.utils.encode_cell({ r: row, c: 8 })
-    const pagadoRef = XLSX.utils.encode_cell({ r: row, c: 9 })
+    const totalRef = XLSX.utils.encode_cell({ r: row, c: 9 })
+    const pagadoRef = XLSX.utils.encode_cell({ r: row, c: 10 })
     if (ws[totalRef]) ws[totalRef].z = '"S/" #,##0.00'
     if (ws[pagadoRef]) ws[pagadoRef].z = '"S/" #,##0.00'
   }
@@ -172,6 +177,7 @@ export function generateLegacyImportTemplate(): Blob {
     ['Columna', 'Obligatoria', 'Tipo', 'Descripción', 'Ejemplo'],
     ['dni', 'Sí', 'Texto', 'Documento de identidad. Si ya existe, se reutiliza el cliente.', '12345678'],
     ['nombre', 'Sí', 'Texto', 'Nombre completo del cliente.', 'María García López'],
+    ['email', 'No', 'Texto', 'Correo electrónico. Se usa para enviar notificaciones de cobro.', 'maria@gmail.com'],
     ['telefono', 'No', 'Texto', 'Número de contacto.', '987654321'],
     ['direccion', 'No', 'Texto', 'Dirección de domicilio.', 'Av. España 123'],
     ['distrito', 'No', 'Texto', 'Distrito (se concatena en dirección).', 'Trujillo'],

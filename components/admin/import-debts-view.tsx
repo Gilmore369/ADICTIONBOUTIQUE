@@ -57,6 +57,7 @@ interface EditableRow {
   id: string
   dni: string
   name: string
+  email: string
   phone: string
   address: string
   district: string
@@ -74,6 +75,7 @@ const emptyRow = (): EditableRow => ({
   id: crypto.randomUUID(),
   dni: '',
   name: '',
+  email: '',
   phone: '',
   address: '',
   district: '',
@@ -92,6 +94,7 @@ function rowToPayload(r: EditableRow) {
   return {
     dni: r.dni,
     name: r.name,
+    email: r.email || undefined,
     phone: r.phone || undefined,
     address: r.address || undefined,
     district: r.district || undefined,
@@ -224,9 +227,12 @@ function ManualMode() {
           <Field label="DNI *" value={row.dni} onChange={v => update('dni', v)} placeholder="12345678" />
           <Field label="Nombre completo *" value={row.name} onChange={v => update('name', v)} placeholder="María García" className="md:col-span-2" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Correo electrónico" type="email" value={row.email} onChange={v => update('email', v)} placeholder="cliente@gmail.com" />
           <Field label="Teléfono" value={row.phone} onChange={v => update('phone', v)} placeholder="987654321" />
-          <Field label="Dirección" value={row.address} onChange={v => update('address', v)} placeholder="Av. España 123" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label="Dirección" value={row.address} onChange={v => update('address', v)} placeholder="Av. España 123" className="md:col-span-2" />
           <Field label="Distrito" value={row.district} onChange={v => update('district', v)} placeholder="Trujillo" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

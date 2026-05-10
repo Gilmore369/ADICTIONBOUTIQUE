@@ -65,6 +65,7 @@ export const LegacyDebtRowSchema = z.object({
   // ── Cliente ──
   dni: z.string().trim().min(8, 'DNI debe tener al menos 8 caracteres').max(20),
   name: z.string().trim().min(2, 'Nombre requerido'),
+  email: optionalString.optional(),
   phone: optionalString.optional(),
   address: optionalString.optional(),
   district: optionalString.optional(),  // se concatena en address si llega
@@ -161,6 +162,13 @@ export const EXCEL_COLUMN_ALIASES: Record<string, keyof LegacyDebtRow> = {
   'nombres': 'name',
   'nombre completo': 'name',
   'cliente': 'name',
+  // Email
+  'email': 'email',
+  'correo': 'email',
+  'correo electronico': 'email',
+  'correo electrónico': 'email',
+  'e-mail': 'email',
+  'mail': 'email',
   // Phone
   'telefono': 'phone',
   'teléfono': 'phone',
