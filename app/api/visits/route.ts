@@ -20,6 +20,7 @@ import type { Installment } from '@/lib/payments/oldest-due-first'
 import { revalidatePath } from 'next/cache'
 import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
+import { getStoreLogo } from '@/lib/utils/get-store-logo'
 
 /** Results from the visit dialog that imply a payment was collected */
 const PAYMENT_REQUIRED_RESULTS = ['Pagó', 'Abono parcial']
@@ -375,6 +376,7 @@ export async function POST(request: NextRequest) {
               // Generar PDF
               let pdfBuffer: Buffer | undefined
               try {
+                const logoBase64 = await getStoreLogo()
                 pdfBuffer = await generatePaymentStatementPDF({
                   clientName: clientFull?.name ?? client.name,
                   clientDni: clientFull?.dni || undefined,
@@ -390,6 +392,7 @@ export async function POST(request: NextRequest) {
                   installments: allInstallments,
                   nextDueDate,
                   notes: body.comment ? `Nota del cobrador: ${body.comment}` : undefined,
+                  logoBase64: logoBase64 || undefined,
                 })
               } catch (pdfErr) {
                 console.warn('[visits] PDF generation failed:', pdfErr)

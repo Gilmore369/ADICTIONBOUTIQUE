@@ -41,6 +41,8 @@ export interface PaymentStatementData {
   // Próxima fecha de pago (ISO YYYY-MM-DD o undefined)
   nextDueDate?: string
   notes?: string
+  // Logo de la tienda: base64 data-URL o URL https (opcional)
+  logoBase64?: string
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -97,36 +99,73 @@ export async function generatePaymentStatementPDF(data: PaymentStatementData): P
 
   // ── LOGO ────────────────────────────────────────────────────────────────────
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'images', 'logo.png')
-    if (fs.existsSync(logoPath)) {
-      const logoData = fs.readFileSync(logoPath)
-      const logoB64 = logoData.toString('base64')
-      const logoH = 18
-      const logoW = 18
-      doc.addImage(logoB64, 'PNG', margin, y, logoW, logoH)
+    let logoB64: string | null = null
+    let logoMime = 'PNG'
+
+    if (data.logoBase64) {
+      // Viene de Supabase system_config (data-URL base64 o URL https)
+      if (data.logoBase64.startsWith('data:')) {
+        // data:image/png;base64,XXXXX
+        const match = data.logoBase64.match(/^data:(image\/\w+);base64,(.+)$/)
+        if (match) {
+          logoMime = match[1].split('/')[1].toUpperCase().replace('JPEG', 'JPEG')
+          logoB64 = match[2]
+        }
+      } else if (data.logoBase64.startsWith('http')) {
+        // URL remota — descargar como buffer
+        const https = await import('https')
+        const http = await import('http')
+        const fetcher = data.logoBase64.startsWith('https') ? https : http
+        logoB64 = await new Promise<string>((resolve, reject) => {
+          fetcher.get(data.logoBase64!, (res) => {
+            const chunks: Buffer[] = []
+            res.on('data', (c: Buffer) => chunks.push(c))
+            res.on('end', () => resolve(Buffer.concat(chunks).toString('base64')))
+            res.on('error', reject)
+          }).on('error', reject)
+        })
+        logoMime = 'PNG'
+      }
+    } else {
+      // Fallback: logo estático de public/images/logo.png
+      const logoPath = path.join(process.cwd(), 'public', 'images', 'logo.png')
+      if (fs.existsSync(logoPath)) {
+        logoB64 = fs.readFileSync(logoPath).toString('base64')
+        logoMime = 'PNG'
+      }
     }
-  } catch { /* logo opcional */ }
+
+    if (logoB64) {
+      // Logo centrado en la cabecera oscura (18x18mm)
+      const logoSize = 20
+      const logoX = (pageW - logoSize) / 2
+      doc.addImage(logoB64, logoMime, logoX, y + 2, logoSize, logoSize)
+    }
+  } catch { /* logo opcional — no bloquear generación */ }
 
   // ── HEADER TEXT ────────────────────────────────────────────────────────────
+  const headerH = data.logoBase64 ? 52 : 38
   doc.setFillColor(17, 24, 39)
-  doc.rect(0, 0, pageW, 36, 'F')
+  doc.rect(0, 0, pageW, headerH, 'F')
   // Gold accent line
   doc.setFillColor(212, 165, 116)
-  doc.rect(0, 36, pageW, 1.2, 'F')
+  doc.rect(0, headerH, pageW, 1.2, 'F')
 
+  // Si hay logo, el texto va debajo del logo; si no, centrado solo
+  const textOffsetY = data.logoBase64 ? 28 : 14
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text('ADICTION BOUTIQUE', pageW / 2, 14, { align: 'center' })
+  doc.setFontSize(15)
+  doc.text('ADICTION BOUTIQUE', pageW / 2, textOffsetY, { align: 'center' })
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
+  doc.setFontSize(8.5)
   doc.setTextColor(212, 165, 116)
-  doc.text('ESTADO DE CUENTA — CONFIRMACIÓN DE PAGO', pageW / 2, 21, { align: 'center' })
+  doc.text('ESTADO DE CUENTA — CONFIRMACIÓN DE PAGO', pageW / 2, textOffsetY + 7, { align: 'center' })
   doc.setTextColor(156, 163, 175)
-  doc.setFontSize(8)
-  doc.text(`Fecha de emisión: ${fmtDateTime(data.paymentDate)}`, pageW / 2, 28, { align: 'center' })
+  doc.setFontSize(7.5)
+  doc.text(`Fecha de emisión: ${fmtDateTime(data.paymentDate)}`, pageW / 2, textOffsetY + 14, { align: 'center' })
 
-  y = 44
+  y = headerH + 8
 
   // ── DATOS DEL CLIENTE ──────────────────────────────────────────────────────
   doc.setFillColor(249, 250, 251)

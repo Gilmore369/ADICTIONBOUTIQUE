@@ -10,6 +10,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
+import { getStoreLogo } from '@/lib/utils/get-store-logo'
 
 export async function POST(request: NextRequest) {
   try {
@@ -193,6 +194,7 @@ export async function POST(request: NextRequest) {
         // Generate PDF
         let pdfBuffer: Buffer | undefined
         try {
+          const logoBase64 = await getStoreLogo()
           pdfBuffer = await generatePaymentStatementPDF({
             clientName: clientFull?.name ?? 'Cliente',
             clientDni: clientFull?.dni || undefined,
@@ -208,6 +210,7 @@ export async function POST(request: NextRequest) {
             installments: allInstallments,
             nextDueDate,
             notes: notes || undefined,
+            logoBase64: logoBase64 || undefined,
           })
         } catch (pdfErr) {
           console.warn('[payments/register] PDF generation failed:', pdfErr)

@@ -23,6 +23,7 @@ import type { Installment } from '@/lib/payments/oldest-due-first'
 import { STORE_DISPLAY_NAMES } from '@/lib/utils/store-filter'
 import { sendPaymentNotificationEmail } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
+import { getStoreLogo } from '@/lib/utils/get-store-logo'
 
 /**
  * Standard response type for server actions
@@ -427,6 +428,7 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
         // Generar PDF
         let pdfBuffer: Buffer | undefined
         try {
+          const logoBase64 = await getStoreLogo()
           pdfBuffer = await generatePaymentStatementPDF({
             clientName: clientFull?.name ?? 'Cliente',
             clientDni: clientFull?.dni || undefined,
@@ -442,6 +444,7 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
             installments: allInstallments,
             nextDueDate,
             notes: capturedNotes || undefined,
+            logoBase64: logoBase64 || undefined,
           })
         } catch (pdfErr) {
           console.warn('[payments] PDF generation failed:', pdfErr)
