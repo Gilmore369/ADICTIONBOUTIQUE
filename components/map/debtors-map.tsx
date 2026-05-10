@@ -34,8 +34,8 @@ interface Client {
   name: string
   phone: string
   address: string
-  lat: number
-  lng: number
+  lat: number | null
+  lng: number | null
   credit_used: number
   credit_limit: number
   client_photo_url?: string
@@ -105,9 +105,13 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+function hasCoordinates(client: Client): client is Client & { lat: number; lng: number } {
+  return Number.isFinite(Number(client.lat)) && Number.isFinite(Number(client.lng))
+}
+
 // ── Nearest-neighbor TSP approximation ────────────────────────────────────────
 function optimizeRoute(origin: { lat: number; lng: number }, clients: Client[], maxStops = 9): Client[] {
-  const valid = clients.filter(c => c.lat && c.lng && !isNaN(c.lat) && !isNaN(c.lng))
+  const valid = clients.filter(hasCoordinates)
   const remaining = [...valid]
   const route: Client[] = []
   let current = origin
@@ -273,7 +277,7 @@ export function DebtorsMap() {
       sourceClients = displayedClients
     }
 
-    const validClients = sourceClients.filter(c => c.lat && c.lng && !isNaN(c.lat) && !isNaN(c.lng))
+    const validClients = sourceClients.filter(hasCoordinates)
     if (validClients.length === 0) {
       toast.error('Sin datos', 'Todos los clientes ya fueron visitados o no tienen GPS.')
       return
@@ -418,6 +422,8 @@ export function DebtorsMap() {
   }
 
   const currentFilter = filterConfig[filter]
+  const clientsWithCoordinates = displayedClients.filter(hasCoordinates)
+  const clientsWithoutCoordinates = displayedClients.filter(c => !hasCoordinates(c))
 
   return (
     <div className={`space-y-4 transition-all duration-300 ${panelOpen ? 'pr-[320px]' : ''}`}>
@@ -521,7 +527,7 @@ export function DebtorsMap() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleGenerateRoute(false)}
-                disabled={generatingRoute || displayedClients.length === 0 || loading}
+                disabled={generatingRoute || clientsWithCoordinates.length === 0 || loading}
                 className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
                 title={`Generar ruta de ${routeType} (máx. ${MAX_ROUTE_STOPS} paradas — solo pendientes si hay lista activa)`}
               >
@@ -676,7 +682,7 @@ export function DebtorsMap() {
           )}
 
           {/* Hide individual markers when route is drawn — DirectionsRenderer shows its own */}
-          {!routeActive && displayedClients.map((client) => {
+          {!routeActive && clientsWithCoordinates.map((client) => {
             const selected = isSelected(client.id)
             const iconColor = selected ? '#10B981' : getMarkerColor(client)
             return (
@@ -690,7 +696,7 @@ export function DebtorsMap() {
             )
           })}
 
-          {selectedClient && !selectionMode && (
+          {selectedClient && hasCoordinates(selectedClient) && !selectionMode && (
             <InfoWindow
               position={{ lat: selectedClient.lat, lng: selectedClient.lng }}
               onCloseClick={() => setSelectedClient(null)}
@@ -774,6 +780,33 @@ export function DebtorsMap() {
           )}
         </GoogleMap>
       </Card>
+
+      {clientsWithoutCoordinates.length > 0 && (
+        <Card className="p-4 border-amber-200 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                {clientsWithoutCoordinates.length} deudor{clientsWithoutCoordinates.length !== 1 ? 'es' : ''} sin GPS
+              </h3>
+              <p className="text-xs text-amber-800/80 dark:text-amber-200/75">
+                Tienen deuda activa, pero no se pueden fijar en el mapa hasta guardar coordenadas.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {clientsWithoutCoordinates.slice(0, 8).map(client => (
+                <span key={client.id} className="rounded border border-amber-300 bg-background px-2 py-1 text-foreground dark:border-amber-800">
+                  {client.name}
+                </span>
+              ))}
+              {clientsWithoutCoordinates.length > 8 && (
+                <span className="rounded border border-amber-300 bg-background px-2 py-1 text-muted-foreground dark:border-amber-800">
+                  +{clientsWithoutCoordinates.length - 8}
+                </span>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Estadísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

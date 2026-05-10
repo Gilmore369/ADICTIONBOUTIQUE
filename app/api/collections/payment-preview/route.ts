@@ -22,6 +22,7 @@ import {
   applyPaymentToInstallments,
   type Installment,
 } from '@/lib/payments/oldest-due-first'
+import { STORE_DISPLAY_NAMES } from '@/lib/utils/store-filter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,6 +37,10 @@ export async function GET(request: NextRequest) {
     const params    = request.nextUrl.searchParams
     const clientId  = params.get('client_id')
     const amountRaw = params.get('amount')
+    const rawStoreFilter = params.get('store_id')?.trim() || ''
+    const storeFilter = rawStoreFilter
+      ? (STORE_DISPLAY_NAMES[rawStoreFilter.toUpperCase()] || rawStoreFilter)
+      : null
 
     if (!clientId) {
       return NextResponse.json({ error: 'client_id requerido' }, { status: 400 })
@@ -58,7 +63,7 @@ export async function GET(request: NextRequest) {
         paid_amount,
         status,
         paid_at,
-        credit_plans!inner ( client_id )
+        credit_plans!inner ( client_id, sale_id, imported_from_legacy, sales(store_id) )
       `)
       .eq('credit_plans.client_id', clientId)
       .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
@@ -69,7 +74,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    if (!rows || rows.length === 0) {
+    const visibleRows = storeFilter
+      ? (rows || []).filter((row: any) => {
+        const plan = row.credit_plans
+        const saleStore = Array.isArray(plan?.sales) ? plan.sales[0]?.store_id : plan?.sales?.store_id
+        return saleStore === storeFilter || (plan?.imported_from_legacy && !plan?.sale_id)
+      })
+      : (rows || [])
+
+    if (visibleRows.length === 0) {
       return NextResponse.json({
         data: { installments: [], remaining_amount: 0 },
       })
@@ -77,7 +90,7 @@ export async function GET(request: NextRequest) {
 
     // Shape into the Installment interface expected by the algorithm
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const installments: Installment[] = rows.map((r: Record<string, any>) => ({
+    const installments: Installment[] = visibleRows.map((r: Record<string, any>) => ({
       id:                 r.id,
       plan_id:            r.plan_id,
       installment_number: r.installment_number,

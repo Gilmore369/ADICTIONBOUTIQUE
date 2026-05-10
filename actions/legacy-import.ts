@@ -47,6 +47,32 @@ async function requireAdmin() {
   return { userId: user.id }
 }
 
+async function geocodeLegacyAddress(address: string | null | undefined): Promise<{ lat: number; lng: number } | null> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const cleanAddress = address?.trim()
+  if (!apiKey || !cleanAddress) return null
+
+  const query = /per[uú]|la libertad|trujillo/i.test(cleanAddress)
+    ? cleanAddress
+    : `${cleanAddress}, Trujillo, La Libertad, Peru`
+
+  try {
+    const url = new URL('https://maps.googleapis.com/maps/api/geocode/json')
+    url.searchParams.set('address', query)
+    url.searchParams.set('key', apiKey)
+    url.searchParams.set('region', 'pe')
+
+    const response = await fetch(url.toString(), { cache: 'no-store' })
+    if (!response.ok) return null
+    const payload = await response.json()
+    const location = payload?.results?.[0]?.geometry?.location
+    if (typeof location?.lat !== 'number' || typeof location?.lng !== 'number') return null
+    return { lat: location.lat, lng: location.lng }
+  } catch {
+    return null
+  }
+}
+
 // ── Validar (dry-run) ──────────────────────────────────────────────────────
 export async function validateLegacyDebtRows(
   rawRows: Array<Record<string, any>>,
@@ -207,6 +233,7 @@ export async function importLegacyDebts(
   revalidatePath('/clients')
   revalidatePath('/debt')
   revalidatePath('/dashboard')
+  revalidatePath('/map')
   revalidatePath('/admin/import-debts')
 
   return {
@@ -236,17 +263,22 @@ async function processRow(
 
   const { data: existingClient } = await service
     .from('clients')
-    .select('id, name, address')
+    .select('id, name, address, lat, lng')
     .eq('dni', row.dni)
     .maybeSingle()
 
   const fullAddress = [row.address, row.district].filter(Boolean).join(', ') || null
+  const coords = await geocodeLegacyAddress(fullAddress)
 
   if (existingClient) {
     clientId = existingClient.id
     // Si tiene datos faltantes, actualízalos sin sobrescribir
     const updates: any = {}
     if (!existingClient.address && fullAddress) updates.address = fullAddress
+    if (coords && (existingClient.lat == null || existingClient.lng == null)) {
+      updates.lat = coords.lat
+      updates.lng = coords.lng
+    }
     if (Object.keys(updates).length > 0) {
       await service.from('clients').update(updates).eq('id', clientId)
     }
@@ -258,6 +290,8 @@ async function processRow(
         name: row.name,
         phone: row.phone || null,
         address: fullAddress,
+        lat: coords?.lat ?? null,
+        lng: coords?.lng ?? null,
         birthday: row.birthday || null,
         active: true,
         imported_from_legacy: true,
@@ -390,7 +424,8 @@ async function processRow(
   }
 
   // ── Paso 5: actualizar credit_used del cliente ──────────────────────────
-  await service.rpc('recalculate_client_credit_used', { p_client_id: clientId }).catch(async () => {
+  const { error: recalcError } = await service.rpc('recalculate_client_credit_used', { p_client_id: clientId })
+  if (recalcError) {
     // Si el RPC no existe, calcular manualmente
     const { data: allInst } = await service
       .from('installments')
@@ -401,7 +436,7 @@ async function processRow(
       0,
     )
     await service.from('clients').update({ credit_used: used }).eq('id', clientId)
-  })
+  }
 
   return {
     row_index: rowIndex,

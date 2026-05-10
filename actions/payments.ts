@@ -19,6 +19,7 @@ import { Permission } from '@/lib/auth/permissions'
 import { paymentSchema } from '@/lib/validations/debt'
 import { applyPaymentToInstallments, calculateOutstandingDebt } from '@/lib/payments/oldest-due-first'
 import type { Installment } from '@/lib/payments/oldest-due-first'
+import { STORE_DISPLAY_NAMES } from '@/lib/utils/store-filter'
 
 /**
  * Standard response type for server actions
@@ -69,6 +70,10 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   const receiptUrl = formData.get('receipt_url')
   const notes = formData.get('notes')
   const idempotencyKey = (formData.get('idempotency_key') || '').toString().trim() || null
+  const rawStoreFilter = (formData.get('store_id') || '').toString().trim()
+  const storeFilter = rawStoreFilter
+    ? (STORE_DISPLAY_NAMES[rawStoreFilter.toUpperCase()] || rawStoreFilter)
+    : null
 
   const validated = paymentSchema.safeParse({
     client_id: formData.get('client_id'),
@@ -123,7 +128,7 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   // First get active plan IDs for this client (more reliable than cross-table filter)
   const { data: clientPlans, error: plansError } = await supabase
     .from('credit_plans')
-    .select('id')
+    .select('id, sale_id, imported_from_legacy, sales(store_id)')
     .eq('client_id', client_id)
     .in('status', ['ACTIVE'])
 
@@ -131,11 +136,18 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
     return { success: false, error: `Failed to fetch credit plans: ${plansError.message}` }
   }
 
-  if (!clientPlans || clientPlans.length === 0) {
+  const visiblePlans = storeFilter
+    ? (clientPlans || []).filter((plan: any) => {
+      const saleStore = Array.isArray(plan.sales) ? plan.sales[0]?.store_id : plan.sales?.store_id
+      return saleStore === storeFilter || (plan.imported_from_legacy && !plan.sale_id)
+    })
+    : (clientPlans || [])
+
+  if (visiblePlans.length === 0) {
     return { success: false, error: 'Este cliente no tiene planes de crédito activos' }
   }
 
-  const planIds = clientPlans.map(p => p.id)
+  const planIds = visiblePlans.map(p => p.id)
 
   const { data: clientInstallments, error: fetchError } = await supabase
     .from('installments')

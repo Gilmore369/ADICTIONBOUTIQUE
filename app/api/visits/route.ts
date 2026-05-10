@@ -243,7 +243,10 @@ export async function POST(request: NextRequest) {
               await serviceClient.from('installments').update(updateData).eq('id', updated.id)
             }
 
-            await serviceClient.rpc('recalculate_client_credit_used', { p_client_id: client_id }).catch(() => {})
+            const { error: recalcError } = await serviceClient.rpc('recalculate_client_credit_used', { p_client_id: client_id })
+            if (recalcError) {
+              console.warn('[visits] recalculate_client_credit_used:', recalcError.message)
+            }
 
             linkedPlanId = updatedInstallments[0]?.plan_id || null
             linkedInstallmentId = updatedInstallments[0]?.id || null

@@ -40,8 +40,6 @@ export async function GET(request: Request) {
         )
       `)
       .eq('status', 'ACTIVE')
-      .not('clients.lat', 'is', null)
-      .not('clients.lng', 'is', null)
       .limit(100)
 
     if (planIdFilter !== null) {

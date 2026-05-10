@@ -4,6 +4,57 @@ import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { logCashShiftOpened, logCashShiftClosed } from '@/lib/utils/audit'
 
+async function getPaymentPlanIdsForStore(supabase: Awaited<ReturnType<typeof createServerClient>>, storeId: string) {
+  const { data: storeSales } = await supabase
+    .from('sales')
+    .select('id')
+    .eq('store_id', storeId)
+
+  const saleIds = (storeSales || []).map((sale: { id: string }) => sale.id)
+  const { data: salePlans } = saleIds.length > 0
+    ? await supabase
+      .from('credit_plans')
+      .select('id')
+      .in('sale_id', saleIds)
+    : { data: [] }
+
+  const { data: legacyPlans } = await supabase
+    .from('credit_plans')
+    .select('id')
+    .eq('imported_from_legacy', true)
+    .eq('status', 'ACTIVE')
+
+  return [...new Set([
+    ...(salePlans || []).map((plan: { id: string }) => plan.id),
+    ...(legacyPlans || []).map((plan: { id: string }) => plan.id),
+  ])]
+}
+
+async function getCollectionPaymentsForStoreWindow(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  storeId: string,
+  startAt: string,
+  endAt: string,
+  includeClient = false,
+) {
+  const planIds = await getPaymentPlanIdsForStore(supabase, storeId)
+  if (planIds.length === 0) return []
+
+  const selectFields = includeClient
+    ? 'id, amount, notes, created_at, clients(name)'
+    : 'id, amount'
+
+  const { data } = await supabase
+    .from('payments')
+    .select(selectFields)
+    .in('plan_id', planIds)
+    .gte('created_at', startAt)
+    .lte('created_at', endAt)
+    .order('created_at', { ascending: false })
+
+  return data || []
+}
+
 /**
  * Get live breakdown of an open shift (ventas, cobros, gastos)
  */
@@ -27,12 +78,7 @@ export async function getCashShiftBreakdown(shiftId: string, storeId: string, op
     const totalCreditSales = creditSales.reduce((sum, s) => sum + parseFloat(s.total?.toString() || '0'), 0)
 
     // Cobros (pagos de crédito) desde apertura del turno
-    const { data: collectionPayments } = await supabase
-      .from('payments')
-      .select('id, amount, notes, created_at, clients(name)')
-      .gte('created_at', openedAt)
-      .lte('created_at', now)
-      .order('created_at', { ascending: false })
+    const collectionPayments = await getCollectionPaymentsForStoreWindow(supabase, storeId, openedAt, now, true)
 
     const totalCollections = (collectionPayments || []).reduce(
       (sum, p) => sum + parseFloat(p.amount?.toString() || '0'), 0
@@ -112,11 +158,7 @@ export async function getClosedShiftBreakdown(
     const creditSales      = (sales || []).filter(s => s.sale_type === 'CREDITO')
     const totalCreditSales = creditSales.reduce((s, x) => s + parseFloat(x.total?.toString() || '0'), 0)
 
-    const { data: collectionPayments } = await supabase
-      .from('payments')
-      .select('amount')
-      .gte('created_at', openedAt)
-      .lte('created_at', closedAt)
+    const collectionPayments = await getCollectionPaymentsForStoreWindow(supabase, storeId, openedAt, closedAt)
 
     const totalCollections = (collectionPayments || []).reduce(
       (s, p) => s + parseFloat(p.amount?.toString() || '0'), 0
@@ -256,15 +298,11 @@ export async function closeCashShift(shiftId: string, closingAmount: number) {
     const cashSales = sales?.filter(s => s.sale_type === 'CONTADO') || []
     const totalCashSales = cashSales.reduce((sum, sale) => sum + parseFloat(sale.total?.toString() || '0'), 0)
 
-    const { data: collectionPayments } = await supabase
-      .from('payments')
-      .select('amount')
-      .gte('created_at', shift.opened_at)
-      .lte('created_at', now)
+    const collectionPayments = await getCollectionPaymentsForStoreWindow(supabase, shift.store_id, shift.opened_at, now)
 
-    const totalCollections = collectionPayments?.reduce(
+    const totalCollections = collectionPayments.reduce(
       (sum, p) => sum + parseFloat(p.amount?.toString() || '0'), 0
-    ) || 0
+    )
 
     // Get total expenses for this shift (split refunds vs other)
     const { data: expenses } = await supabase

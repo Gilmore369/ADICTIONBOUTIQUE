@@ -70,14 +70,24 @@ export async function getAllowedPlanIds(
     .in('store_id', storeNames)
 
   const saleIds = (storeSales || []).map((s: any) => s.id)
-  if (saleIds.length === 0) return []
 
-  const { data: plans } = await supabase
+  const { data: plans } = saleIds.length > 0
+    ? await supabase
+      .from('credit_plans')
+      .select('id')
+      .in('sale_id', saleIds)
+    : { data: [] }
+
+  const { data: legacyPlans } = await supabase
     .from('credit_plans')
     .select('id')
-    .in('sale_id', saleIds)
+    .eq('imported_from_legacy', true)
+    .eq('status', 'ACTIVE')
 
-  return (plans || []).map((p: any) => p.id)
+  return [...new Set([
+    ...(plans || []).map((p: any) => p.id),
+    ...(legacyPlans || []).map((p: any) => p.id),
+  ])]
 }
 
 /**
@@ -94,12 +104,22 @@ export async function getAllowedClientIds(
     .in('store_id', storeNames)
 
   const saleIds = (storeSales || []).map((s: any) => s.id)
-  if (saleIds.length === 0) return []
 
-  const { data: plans } = await supabase
+  const { data: plans } = saleIds.length > 0
+    ? await supabase
+      .from('credit_plans')
+      .select('client_id')
+      .in('sale_id', saleIds)
+    : { data: [] }
+
+  const { data: legacyPlans } = await supabase
     .from('credit_plans')
     .select('client_id')
-    .in('sale_id', saleIds)
+    .eq('imported_from_legacy', true)
+    .eq('status', 'ACTIVE')
 
-  return [...new Set((plans || []).map((p: any) => p.client_id).filter(Boolean))] as string[]
+  return [...new Set([
+    ...(plans || []).map((p: any) => p.client_id).filter(Boolean),
+    ...(legacyPlans || []).map((p: any) => p.client_id).filter(Boolean),
+  ])] as string[]
 }

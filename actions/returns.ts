@@ -4,6 +4,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { logAudit } from '@/lib/audit'
+import { checkAnyPermission } from '@/lib/auth/check-permission'
+import { Permission } from '@/lib/auth/permissions'
 
 const STORE_DISPLAY: Record<string, string> = {
   MUJERES: 'Tienda Mujeres',
@@ -89,6 +91,131 @@ async function getReturnSaleType(
     .maybeSingle()
 
   return sale?.sale_type === 'CREDITO' ? 'CREDITO' : 'CONTADO'
+}
+
+function normalizeQty(value: unknown) {
+  const qty = Number(value)
+  return Number.isFinite(qty) ? qty : 0
+}
+
+async function validateAndNormalizeReturnItems(
+  service: ReturnType<typeof createServiceClient>,
+  formData: {
+    saleId: string
+    totalAmount: number
+    returnedItems: any[]
+  }
+): Promise<{ success: true; returnedItems: any[]; totalAmount: number } | { success: false; error: string }> {
+  const requestedItems = Array.isArray(formData.returnedItems) ? formData.returnedItems : []
+  if (requestedItems.length === 0) {
+    return { success: false, error: 'Selecciona al menos un producto para la devolución' }
+  }
+
+  const { data: saleItems, error: saleItemsError } = await service
+    .from('sale_items')
+    .select('id, sale_id, product_id, quantity, unit_price, subtotal, products(id, name, barcode, base_name, base_code, size, color, purchase_price, price)')
+    .eq('sale_id', formData.saleId)
+
+  if (saleItemsError) {
+    return { success: false, error: `No se pudo validar la venta: ${saleItemsError.message}` }
+  }
+
+  const saleItemById = new Map((saleItems || []).map((item: any) => [item.id, item]))
+  const saleItemIds = requestedItems
+    .map((item: any) => item?.sale_item_id)
+    .filter(Boolean)
+
+  if (saleItemIds.length !== requestedItems.length) {
+    return { success: false, error: 'Cada producto devuelto debe estar asociado a una línea de venta' }
+  }
+
+  const { data: existingReturns, error: existingError } = await service
+    .from('returns')
+    .select('id, return_number, status, returned_items')
+    .eq('sale_id', formData.saleId)
+    .in('status', ['PENDIENTE', 'APROBADA', 'COMPLETADA'])
+
+  if (existingError) {
+    return { success: false, error: `No se pudo validar devoluciones existentes: ${existingError.message}` }
+  }
+
+  const alreadyReturned = new Map<string, number>()
+  for (const ret of existingReturns || []) {
+    const items = Array.isArray(ret.returned_items) ? ret.returned_items : []
+    for (const item of items) {
+      const saleItemId = item?.sale_item_id
+      if (!saleItemId) continue
+      alreadyReturned.set(saleItemId, (alreadyReturned.get(saleItemId) || 0) + normalizeQty(item.quantity))
+    }
+  }
+
+  const requestedBySaleItem = new Map<string, number>()
+  for (const item of requestedItems) {
+    const saleItemId = item.sale_item_id
+    const qty = normalizeQty(item.quantity)
+    if (!saleItemById.has(saleItemId)) {
+      return { success: false, error: 'Uno de los productos no pertenece a la venta seleccionada' }
+    }
+    if (qty <= 0) {
+      return { success: false, error: 'La cantidad a devolver debe ser mayor que cero' }
+    }
+    requestedBySaleItem.set(saleItemId, (requestedBySaleItem.get(saleItemId) || 0) + qty)
+  }
+
+  for (const [saleItemId, requestedQty] of requestedBySaleItem.entries()) {
+    const saleItem = saleItemById.get(saleItemId)
+    const soldQty = normalizeQty(saleItem.quantity)
+    const previousQty = alreadyReturned.get(saleItemId) || 0
+    if (previousQty + requestedQty > soldQty + 0.0001) {
+      const productName = saleItem.products?.base_name || saleItem.products?.name || 'Producto'
+      return {
+        success: false,
+        error: `${productName}: vendido ${soldQty}, ya devuelto ${previousQty}, nuevo ${requestedQty}. No se puede devolver más de lo vendido.`,
+      }
+    }
+  }
+
+  const normalizedItems = requestedItems.map((item: any) => {
+    const saleItem = saleItemById.get(item.sale_item_id)
+    const product = saleItem.products
+    const qty = normalizeQty(item.quantity)
+    const unitPrice = Number(saleItem.unit_price)
+    const requestedSubtotal = Number(item.subtotal ?? item.refund_subtotal ?? unitPrice * qty)
+    return {
+      ...item,
+      sale_item_id: saleItem.id,
+      product_id: saleItem.product_id,
+      product_name: product?.base_name || product?.name || item.product_name || 'Producto',
+      product_barcode: product?.barcode || item.product_barcode || null,
+      base_name: product?.base_name || item.base_name || null,
+      base_code: product?.base_code || item.base_code || null,
+      size: product?.size || item.size || null,
+      color: product?.color || item.color || null,
+      purchase_price: product?.purchase_price ?? item.purchase_price ?? null,
+      catalog_price: product?.price ?? item.catalog_price ?? null,
+      quantity: qty,
+      unit_price: unitPrice,
+      original_subtotal: Math.round(unitPrice * qty * 100) / 100,
+      subtotal: Math.round(requestedSubtotal * 100) / 100,
+      refund_subtotal: Math.round(requestedSubtotal * 100) / 100,
+    }
+  })
+
+  const normalizedTotal = Math.round(normalizedItems.reduce((sum: number, item: any) => sum + Number(item.subtotal || 0), 0) * 100) / 100
+  const clientTotal = Math.round(Number(formData.totalAmount || 0) * 100) / 100
+
+  if (!Number.isFinite(clientTotal) || clientTotal <= 0) {
+    return { success: false, error: 'El monto de devolución debe ser mayor que cero' }
+  }
+
+  if (Math.abs(clientTotal - normalizedTotal) > 0.05) {
+    return {
+      success: false,
+      error: `El monto enviado no coincide con el detalle de productos. Detalle: S/ ${normalizedTotal.toFixed(2)}, recibido: S/ ${clientTotal.toFixed(2)}.`,
+    }
+  }
+
+  return { success: true, returnedItems: normalizedItems, totalAmount: normalizedTotal }
 }
 
 async function ensureCashRefundExpenseForReturn(
@@ -177,6 +304,102 @@ async function ensureCashRefundExpenseForReturn(
   return { success: true, cashExpenseId: insertedExpense.id, reused: false }
 }
 
+async function adjustCreditForCompletedReturnFallback(
+  service: ReturnType<typeof createServiceClient>,
+  saleId: string,
+  returnAmount: number
+) {
+  const { data: creditPlan } = await service
+    .from('credit_plans')
+    .select('id, client_id, total_amount')
+    .eq('sale_id', saleId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!creditPlan || returnAmount <= 0) return { refundDue: 0, planId: null }
+
+  const { data: payments } = await service
+    .from('payments')
+    .select('amount')
+    .eq('plan_id', creditPlan.id)
+
+  const paidTotal = (payments || []).reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0)
+  let remainingReturn = returnAmount
+
+  const { data: installments } = await service
+    .from('installments')
+    .select('id, amount, paid_amount, status, installment_number')
+    .eq('plan_id', creditPlan.id)
+    .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+    .order('installment_number', { ascending: false })
+
+  for (const installment of installments || []) {
+    if (remainingReturn <= 0.005) break
+    const amount = Number(installment.amount || 0)
+    const paid = Number(installment.paid_amount || 0)
+    const outstanding = Math.max(0, amount - paid)
+
+    if (remainingReturn >= outstanding - 0.005) {
+      remainingReturn -= outstanding
+      if (paid > 0) {
+        await service
+          .from('installments')
+          .update({ amount: paid, status: 'PAID', paid_at: new Date().toISOString() })
+          .eq('id', installment.id)
+      } else {
+        await service
+          .from('installments')
+          .update({ amount: 0, paid_amount: 0, status: 'VOIDED', paid_at: null })
+          .eq('id', installment.id)
+      }
+    } else {
+      const newAmount = Math.round((amount - remainingReturn) * 100) / 100
+      await service
+        .from('installments')
+        .update({
+          amount: newAmount,
+          status: paid >= newAmount - 0.005 ? 'PAID' : paid > 0 ? 'PARTIAL' : installment.status,
+          ...(paid >= newAmount - 0.005 ? { paid_at: new Date().toISOString() } : {}),
+        })
+        .eq('id', installment.id)
+      remainingReturn = 0
+    }
+  }
+
+  const { data: allInstallments } = await service
+    .from('installments')
+    .select('amount, status')
+    .eq('plan_id', creditPlan.id)
+
+  const newPlanTotal = Math.round((allInstallments || [])
+    .filter((installment: any) => installment.status !== 'VOIDED')
+    .reduce((sum: number, installment: any) => sum + Number(installment.amount || 0), 0) * 100) / 100
+  const hasOpenInstallments = (allInstallments || []).some((installment: any) =>
+    ['PENDING', 'PARTIAL', 'OVERDUE'].includes(installment.status)
+  )
+
+  await service
+    .from('credit_plans')
+    .update({
+      total_amount: newPlanTotal,
+      status: newPlanTotal <= 0.005 ? 'CANCELLED' : hasOpenInstallments ? 'ACTIVE' : 'COMPLETED',
+    })
+    .eq('id', creditPlan.id)
+
+  await service.rpc('recalculate_client_credit_used', { p_client_id: creditPlan.client_id })
+    .then(({ error }: any) => {
+      if (error) console.warn('[returns] recalculate_client_credit_used:', error.message)
+    })
+
+  return {
+    planId: creditPlan.id,
+    newPlanTotal,
+    paidTotal,
+    refundDue: Math.max(0, Math.round((paidTotal - newPlanTotal) * 100) / 100),
+  }
+}
+
 export async function getReturnsAction(userStores?: string[], selectedStore?: string) {
   const service = createServiceClient()
 
@@ -221,12 +444,19 @@ export async function createReturnAction(formData: {
   notes?: string
 }) {
   const supabase = await createServerClient()
+  const service = createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
 
+  const canCreateReturn = await checkAnyPermission([Permission.CREATE_SALE, Permission.MANAGE_CASH, Permission.MANAGE_USERS])
+  if (!canCreateReturn) return { success: false, error: 'No tienes permisos para registrar devoluciones' }
+
+  const validatedReturn = await validateAndNormalizeReturnItems(service, formData)
+  if (!validatedReturn.success) return validatedReturn
+
   const { data: returnNumber } = await supabase.rpc('generate_return_number')
 
-  const { data, error } = await supabase
+  const { data, error } = await service
     .from('returns')
     .insert({
       sale_id:        formData.saleId,
@@ -238,8 +468,8 @@ export async function createReturnAction(formData: {
       reason:         formData.reason,
       reason_type:    formData.reasonType,
       return_type:    'REEMBOLSO',   // Solo reembolso — sin opción de cambio
-      total_amount:   formData.totalAmount,
-      returned_items: formData.returnedItems,
+      total_amount:   validatedReturn.totalAmount,
+      returned_items: validatedReturn.returnedItems,
       exchange_items: [],
       notes:          formData.notes,
       status:         'PENDIENTE',
@@ -258,14 +488,14 @@ export async function createReturnAction(formData: {
     entityType: 'return',
     entityId: data.id,
     entityName: data.return_number,
-    detail: `Devolucion creada para venta ${formData.saleNumber}. Productos: ${summarizeReturnedItemsForAudit(formData.returnedItems)}.`,
+      detail: `Devolucion creada para venta ${formData.saleNumber}. Productos: ${summarizeReturnedItemsForAudit(validatedReturn.returnedItems)}.`,
     store: formData.storeId,
     oldValues: null,
     newValues: {
       status: 'PENDIENTE',
       sale_number: formData.saleNumber,
-      total_amount: formData.totalAmount,
-      returned_items: formData.returnedItems,
+      total_amount: validatedReturn.totalAmount,
+      returned_items: validatedReturn.returnedItems,
     },
   })
 
@@ -281,6 +511,8 @@ export async function approveReturnAction(returnId: string) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
+  const canApproveReturn = await checkAnyPermission([Permission.MANAGE_CASH, Permission.MANAGE_USERS])
+  if (!canApproveReturn) return { success: false, error: 'No tienes permisos para aprobar devoluciones' }
 
   // ── 1. Fetch devolución ───────────────────────────────────────────────────
   const { data: ret, error: fetchErr } = await service
@@ -318,7 +550,8 @@ export async function approveReturnAction(returnId: string) {
   // junto con el ingreso de stock.
 
   // ── 5b. CREDITO → Ajustar plan, cuotas y restaurar crédito ──────────────
-  if (saleType === 'CREDITO' && ret.client_id && ret.sale_id) {
+  // Legacy path disabled by default: credit/cash/stock adjustments now belong to completion.
+  if (process.env.NEXT_PUBLIC_ENABLE_LEGACY_APPROVE_RETURN_CREDIT === 'true' && saleType === 'CREDITO' && ret.client_id && ret.sale_id) {
     try {
       const { data: creditPlan } = await service
         .from('credit_plans')
@@ -491,6 +724,38 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
 
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
+  const canCompleteReturn = await checkAnyPermission([Permission.MANAGE_CASH, Permission.MANAGE_USERS])
+  if (!canCompleteReturn) return { success: false, error: 'No tienes permisos para completar devoluciones' }
+
+  const atomicResult = await service.rpc('complete_return_atomic', {
+    p_return_id: returnId,
+    p_user_id: user.id,
+    p_refund_amount: refundAmount ?? null,
+  })
+
+  if (!atomicResult.error) {
+    revalidatePath('/returns')
+    revalidatePath('/inventory/stock')
+    revalidatePath('/inventory/movements')
+    revalidatePath('/admin/logs')
+    revalidatePath('/reports')
+    revalidatePath('/cash')
+    revalidatePath('/clients')
+    revalidatePath('/debt')
+    return {
+      success: true,
+      data: atomicResult.data,
+      saleType: (atomicResult.data as any)?.sale_type,
+      cashRefundExpenseId: (atomicResult.data as any)?.cash_expense_id ?? null,
+      cashRefundReused: false,
+    }
+  }
+
+  const missingAtomicRpc = ['42883', 'PGRST202'].includes(String((atomicResult.error as any).code))
+    || String(atomicResult.error.message || '').includes('complete_return_atomic')
+  if (!missingAtomicRpc) {
+    return { success: false, error: atomicResult.error.message }
+  }
 
   const { data: returnRecord, error: fetchError } = await service
     .from('returns')
@@ -538,6 +803,27 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
   for (const item of returnedItems) {
     const quantity = Number(item.quantity)
     if (!item.product_id || !quantity || quantity <= 0) continue
+    const movementReference = `DevoluciÃ³n ${returnRecord.return_number}`
+    const canonicalMovementReference = `Devolucion ${returnRecord.return_number}`
+    const legacyMovementReference = `Devoluci\u00f3n ${returnRecord.return_number}`
+    const { data: existingMovement, error: existingMovementError } = await service
+      .from('movements')
+      .select('id')
+      .eq('warehouse_id', warehouseId)
+      .eq('product_id', item.product_id)
+      .eq('type', 'ENTRADA')
+      .in('reference', [movementReference, canonicalMovementReference, legacyMovementReference])
+      .maybeSingle()
+
+    if (existingMovementError) {
+      return { success: false, error: `No se pudo validar movimiento existente: ${existingMovementError.message}` }
+    }
+
+    if (existingMovement) {
+      restoredItems.push({ ...item, quantity })
+      continue
+    }
+
     const { error: stockError } = await service.rpc('increment_stock', {
       p_warehouse_id: warehouseId,
       p_product_id: item.product_id,
@@ -579,7 +865,7 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
       product_id: item.product_id,
       type: 'ENTRADA',
       quantity,
-      reference: `Devolución ${returnRecord.return_number}`,
+      reference: canonicalMovementReference,
       notes: `Ingreso por devolucion completada de venta ${returnRecord.sale_number}`,
       user_id: user.id,
     })
@@ -591,10 +877,36 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     restoredItems.push({ ...item, quantity })
   }
 
+  if (saleType === 'CREDITO' && returnRecord.sale_id) {
+    const creditAdjustment = await adjustCreditForCompletedReturnFallback(service, returnRecord.sale_id, finalRefundAmount)
+    if (!creditAdjustment.success) {
+      return { success: false, error: creditAdjustment.error }
+    }
+
+    const refundDue = Math.min(finalRefundAmount, Number(creditAdjustment.refundDue || 0))
+    if (refundDue > 0.005) {
+      const cashRefund = await ensureCashRefundExpenseForReturn(service, {
+        returnNumber: returnRecord.return_number,
+        saleNumber: returnRecord.sale_number,
+        storeId: returnRecord.store_id,
+        amount: Math.round(refundDue * 100) / 100,
+        userId: user.id,
+      })
+
+      if (!cashRefund.success) {
+        return { success: false, error: cashRefund.error }
+      }
+
+      cashRefundExpenseId = cashRefund.cashExpenseId
+      cashRefundReused = cashRefund.reused
+    }
+  }
+
   const { data, error } = await service
     .from('returns')
     .update({ status: 'COMPLETADA', refund_amount: finalRefundAmount })
     .eq('id', returnId)
+    .eq('status', 'APROBADA')
     .select()
     .single()
 
@@ -633,6 +945,8 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
   revalidatePath('/admin/logs')
   revalidatePath('/reports')
   revalidatePath('/cash')
+  revalidatePath('/clients')
+  revalidatePath('/debt')
   return { success: true, data, saleType, cashRefundExpenseId, cashRefundReused }
 }
 

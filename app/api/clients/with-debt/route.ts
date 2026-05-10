@@ -24,8 +24,6 @@ export async function GET(request: Request) {
       .from('clients')
       .select('id, name, phone, address, lat, lng, credit_used, credit_limit, client_photo_url')
       .gt('credit_used', 0)
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
       .order('credit_used', { ascending: false })
       .limit(100)
 

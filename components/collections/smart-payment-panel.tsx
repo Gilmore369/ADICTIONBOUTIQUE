@@ -168,7 +168,8 @@ export function SmartPaymentPanel() {
     const t = setTimeout(async () => {
       setSimLoading(true)
       try {
-        const res = await fetch(`/api/collections/payment-preview?client_id=${selectedClient.id}&amount=${amt}`)
+        const storeParam = activeStoreText ? `&store_id=${encodeURIComponent(activeStoreText)}` : ''
+        const res = await fetch(`/api/collections/payment-preview?client_id=${selectedClient.id}&amount=${amt}${storeParam}`)
         const { data } = await res.json()
         if (data) setSimulation({ installments: data.installments || [], remaining: data.remaining_amount || 0 })
       } catch { setSimulation(null) }
@@ -223,6 +224,7 @@ export function SmartPaymentPanel() {
       formData.append('client_id', selectedClient.id)
       formData.append('amount', String(amt))
       formData.append('payment_date', new Date(paymentDate).toISOString())
+      if (activeStoreText) formData.append('store_id', activeStoreText)
       // Idempotency: dedupes double-click / network retry on the server side.
       formData.append('idempotency_key', crypto.randomUUID())
       if (receiptUrl) formData.append('receipt_url', receiptUrl)

@@ -49,8 +49,6 @@ export async function GET(request: Request) {
       `)
       .lt('due_date', today)
       .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-      .not('credit_plans.clients.lat', 'is', null)
-      .not('credit_plans.clients.lng', 'is', null)
       .limit(100)
 
     // Apply store filter if needed

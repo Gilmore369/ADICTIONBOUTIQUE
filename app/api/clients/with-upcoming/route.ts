@@ -53,8 +53,6 @@ export async function GET(request: Request) {
       .gte('due_date', todayStr)
       .lte('due_date', sevenDaysStr)
       .in('status', ['PENDING', 'PARTIAL'])
-      .not('credit_plans.clients.lat', 'is', null)
-      .not('credit_plans.clients.lng', 'is', null)
       .limit(100)
 
     if (planIdFilter !== null) {
