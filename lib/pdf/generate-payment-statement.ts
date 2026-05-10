@@ -117,27 +117,52 @@ export async function generatePaymentStatementPDF(data: PaymentStatementData): P
   let y = margin
 
   // ── LOGO ──────────────────────────────────────────────────────────────────
+  // Detecta MIME real desde magic bytes del buffer
+  function detectMime(buf: Buffer): 'JPEG' | 'PNG' | 'WEBP' {
+    if (buf[0] === 0xFF && buf[1] === 0xD8) return 'JPEG'
+    if (buf[0] === 0x89 && buf[1] === 0x50) return 'PNG'
+    if (buf[4] === 0x57 && buf[5] === 0x45) return 'WEBP'
+    return 'JPEG' // fallback seguro
+  }
+
   let logoB64: string | null = null
-  let logoMime = 'PNG'
+  let logoMime: 'JPEG' | 'PNG' | 'WEBP' = 'JPEG'
   try {
     if (data.logoBase64?.startsWith('data:')) {
-      const match = data.logoBase64.match(/^data:(image\/\w+);base64,(.+)$/)
-      if (match) { logoMime = match[1].split('/')[1].toUpperCase(); logoB64 = match[2] }
+      // data-URL desde Supabase: data:image/jpeg;base64,XXXX
+      const match = data.logoBase64.match(/^data:(image\/[\w+]+);base64,(.+)$/)
+      if (match) {
+        const rawMime = match[1].replace('image/', '').toUpperCase()
+        logoMime = rawMime === 'PNG' ? 'PNG' : rawMime === 'WEBP' ? 'WEBP' : 'JPEG'
+        logoB64 = match[2]
+      }
     } else if (data.logoBase64?.startsWith('http')) {
       const mod = data.logoBase64.startsWith('https') ? await import('https') : await import('http')
-      logoB64 = await new Promise<string>((res, rej) => {
+      const imgBuf = await new Promise<Buffer>((res, rej) => {
         (mod as any).get(data.logoBase64!, (r: any) => {
           const c: Buffer[] = []
           r.on('data', (d: Buffer) => c.push(d))
-          r.on('end', () => res(Buffer.concat(c).toString('base64')))
+          r.on('end', () => res(Buffer.concat(c)))
           r.on('error', rej)
         }).on('error', rej)
       })
+      logoMime = detectMime(imgBuf)
+      logoB64 = imgBuf.toString('base64')
     } else {
+      // Fallback: logo estático del filesystem (puede ser JPEG renombrado como .png)
       const p = path.join(process.cwd(), 'public', 'images', 'logo.png')
-      if (fs.existsSync(p)) logoB64 = fs.readFileSync(p).toString('base64')
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p)
+        logoMime = detectMime(buf)   // ← detecta JPEG aunque la extensión sea .png
+        logoB64 = buf.toString('base64')
+        console.log(`[pdf-logo] Loaded local logo: ${buf.length} bytes, detected MIME: ${logoMime}`)
+      } else {
+        console.warn('[pdf-logo] No logo found at', p)
+      }
     }
-  } catch { /* logo opcional */ }
+  } catch (e) {
+    console.warn('[pdf-logo] Failed to load logo:', e)
+  }
 
   // ── HEADER ────────────────────────────────────────────────────────────────
   const hasLogo = !!logoB64
