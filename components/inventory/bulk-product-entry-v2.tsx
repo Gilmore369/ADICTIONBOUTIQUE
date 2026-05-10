@@ -318,10 +318,9 @@ export function BulkProductEntryV2() {
     setSearchQuery('')
     setSearchResults([])
     const existingCount = existingModel.variants?.length || 0
-    toast.success(
-      `Modelo "${existingModel.baseName}" cargado`,
-      `${existingCount} variante(s) ya existen en BD · Agrega tallas/colores nuevos`
-    )
+    toast.success(`Modelo "${existingModel.baseName}" cargado`, {
+      description: `${existingCount} variante(s) ya existen en BD · Agrega tallas/colores nuevos`,
+    })
   }
 
   const addModel = () => {
@@ -436,7 +435,7 @@ export function BulkProductEntryV2() {
       })
       const json = await res.json()
       if (!res.ok) {
-        toast.error('No se pudo desactivar', json.error || 'Error desconocido')
+        toast.error('No se pudo desactivar', { description: json.error || 'Error desconocido' })
         return
       }
       // Quitar la variante del listado local
@@ -444,7 +443,7 @@ export function BulkProductEntryV2() {
         if (m.id !== modelId) return m
         return { ...m, existingVariants: (m.existingVariants || []).filter(v => v.productId !== productId) }
       }))
-      toast.success(`Variante "${label}" desactivada`, 'Ya no aparecerá en el catálogo visual')
+      toast.success(`Variante "${label}" desactivada`, { description: 'Ya no aparecerá en el catálogo visual' })
     } catch (e) {
       toast.error('Error de red al desactivar variante')
     } finally {
@@ -627,8 +626,9 @@ export function BulkProductEntryV2() {
     })
 
     if (invalidModels.length > 0) {
-      toast.error('Completa todos los campos requeridos', 
-        'Cada modelo debe tener: Código, Nombre, Categoría, Marca y al menos 1 talla con cantidad')
+      toast.error('Completa todos los campos requeridos', {
+        description: 'Cada modelo debe tener: Código, Nombre, Categoría, Marca y al menos 1 talla con cantidad',
+      })
       return
     }
 
@@ -638,8 +638,9 @@ export function BulkProductEntryV2() {
     )
 
     if (validModels.length === 0) {
-      toast.error('Agrega al menos un modelo completo', 
-        'Debes tener al menos un modelo con todos los campos requeridos y tallas con cantidades')
+      toast.error('Agrega al menos un modelo completo', {
+        description: 'Debes tener al menos un modelo con todos los campos requeridos y tallas con cantidades',
+      })
       return
     }
 
@@ -657,16 +658,22 @@ export function BulkProductEntryV2() {
     }
     const dup = allBarcodes.find((b, i) => allBarcodes.indexOf(b) !== i)
     if (dup) {
-      toast.error('Código de barras duplicado',
-        `"${dup}" se repite — cada variante necesita un código único`)
+      toast.error('Código de barras duplicado', {
+        description: `"${dup}" se repite — cada variante necesita un código único`,
+      })
       return
     }
 
     setSaving(true)
 
     try {
-      const productsToCreate = validModels.flatMap(model =>
-        model.variants.flatMap(variant =>
+      const productsToCreate = validModels.flatMap(model => {
+        // Auto-resolve line_id: use model.lineId if set, else look up from the categories list
+        // This handles the case where user loaded an existing model without re-selecting the line
+        const resolvedCategory = categories.find(c => c.id === model.categoryId)
+        const resolvedLineId = model.lineId || resolvedCategory?.line_id || ''
+
+        return model.variants.flatMap(variant =>
           variant.colorEntries
             .filter(entry => (entry.quantity || 0) > 0)
             .map(entry => {
@@ -681,7 +688,7 @@ export function BulkProductEntryV2() {
                 size: variant.sizeName,
                 color: entry.color || model.color,
                 image_url: model.imageUrl || null,
-                line_id: model.lineId,
+                line_id: resolvedLineId,
                 category_id: model.categoryId,
                 brand_id: model.brandId,
                 supplier_id: supplier,
@@ -692,7 +699,7 @@ export function BulkProductEntryV2() {
               }
             })
         )
-      )
+      })
 
       const result = await createBulkProducts(productsToCreate)
 
@@ -712,30 +719,29 @@ export function BulkProductEntryV2() {
             title: `Adiction Boutique — Lote ${new Date().toLocaleDateString('es-PE')}`,
             showPrice: true,
           })
-          toast.success(
-            'Productos creados · Etiquetas generadas',
-            `${result.data.count} SKUs · ${totalLabels} etiquetas en PDF`
-          )
+          toast.success('Productos creados · Etiquetas generadas', {
+            description: `${result.data.count} SKUs · ${totalLabels} etiquetas en PDF`,
+          })
         } catch (pdfErr) {
           // Si falla el PDF, no bloqueamos el flujo
           console.error('[barcode-pdf] Error:', pdfErr)
-          toast.success(
-            'Productos creados',
-            `${result.data.count} productos registrados (PDF de etiquetas falló)`
-          )
+          toast.success('Productos creados', {
+            description: `${result.data.count} productos registrados (PDF de etiquetas falló)`,
+          })
         }
 
         // Resetear formulario manteniendo proveedor y tienda para carga continua
         resetForm()
       } else {
-        toast.error(
-          'Error al crear productos',
-          typeof result.error === 'string' ? result.error : 'Error desconocido'
-        )
+        const errMsg = typeof result.error === 'string' ? result.error : 'Error desconocido'
+        toast.error('Error al crear productos', { description: errMsg })
+        console.error('[handleSave] createBulkProducts error:', errMsg)
       }
     } catch (error) {
-      console.error('Error saving products:', error)
-      toast.error('Error inesperado', error instanceof Error ? error.message : 'Error al guardar')
+      console.error('[handleSave] Unexpected error:', error)
+      toast.error('Error inesperado al guardar', {
+        description: error instanceof Error ? error.message : 'Error al guardar',
+      })
     } finally {
       setSaving(false)
     }

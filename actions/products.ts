@@ -113,16 +113,20 @@ export async function createBulkProducts(
     return { success: false, error: 'No products provided' }
   }
 
-  // Validate each product
+  // Validate each product (line_id is nullable in DB — only barcode, name, category and warehouse are required)
   for (const product of products) {
-    if (!product.barcode || !product.name || !product.line_id ||
+    if (!product.barcode || !product.name ||
         !product.category_id ||
         !product.warehouse_id || product.quantity < 0) {
-      return { 
-        success: false, 
-        error: `Invalid product data: ${product.name || 'unnamed'}` 
+      return {
+        success: false,
+        error: `Datos incompletos en "${product.name || 'producto sin nombre'}": falta barcode, nombre, categoría o almacén.`
       }
     }
+    // Coerce empty string UUIDs to null so Postgres FK doesn't reject them
+    if (!product.line_id) (product as any).line_id = null
+    if (!product.brand_id) (product as any).brand_id = null
+    if (!product.supplier_id) (product as any).supplier_id = null
   }
 
   // 3. Validate supplier-brand relationships (no auto-create - require explicit setup)
@@ -342,8 +346,8 @@ export async function createBulkProducts(
             base_code: product.base_code || null,
             base_name: product.base_name || null,
             description: product.description || null,
-            line_id: product.line_id,
-            category_id: product.category_id,
+            line_id: product.line_id || null,       // nullable UUID — coerce '' → null
+            category_id: product.category_id || null,
             brand_id: product.brand_id || null,
             supplier_id: product.supplier_id || null,
             size: product.size || null,
