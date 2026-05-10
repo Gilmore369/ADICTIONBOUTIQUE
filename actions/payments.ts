@@ -14,12 +14,15 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { checkPermission } from '@/lib/auth/check-permission'
 import { Permission } from '@/lib/auth/permissions'
 import { paymentSchema } from '@/lib/validations/debt'
 import { applyPaymentToInstallments, calculateOutstandingDebt } from '@/lib/payments/oldest-due-first'
 import type { Installment } from '@/lib/payments/oldest-due-first'
 import { STORE_DISPLAY_NAMES } from '@/lib/utils/store-filter'
+import { sendPaymentNotificationEmail } from '@/lib/email/payment-notification'
+import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
 
 /**
  * Standard response type for server actions
@@ -345,8 +348,123 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
     revalidatePath('/collections/payments')
     revalidatePath('/debt/plans')
     revalidatePath(`/debt/plans/${unpaidInstallments[0]?.plan_id}`)
-    revalidatePath('/dashboard') // Revalidar dashboard para actualizar cobros del día
-    revalidatePath('/cash')      // Cobros recibidos afectan el cuadre de caja
+    revalidatePath('/dashboard')
+    revalidatePath('/cash')
+
+    // 10. Send payment notification email with PDF (after response — fire-and-forget)
+    const capturedPlanIds = [...planIds]
+    const capturedClientId = client_id
+    const capturedAmount = amount
+    const capturedDate = payment_date
+    const capturedNotes = validatedNotes
+    const capturedMethodRaw = (formData.get('payment_method') || formData.get('method') || 'EFECTIVO').toString()
+
+    after(async () => {
+      try {
+        const supa = createServiceClient()
+
+        // Client info
+        const { data: clientFull } = await supa
+          .from('clients')
+          .select('email, credit_used, name, dni, phone')
+          .eq('id', capturedClientId)
+          .single()
+
+        const clientEmail = clientFull?.email
+        if (!clientEmail) return
+
+        // Plan data (first plan — may be multi-plan payment but email covers them all)
+        let purchaseDescription: string | undefined
+        let originalTotal = 0
+        const allInstallments: Array<{ number: number; dueDate: string; amount: number; paidAmount: number; status: string }> = []
+
+        for (const pid of capturedPlanIds) {
+          const { data: planData } = await supa
+            .from('credit_plans')
+            .select('total_amount, legacy_purchase_description, legacy_original_total')
+            .eq('id', pid)
+            .single()
+          if (planData) {
+            originalTotal += Number(planData.legacy_original_total ?? planData.total_amount)
+            if (!purchaseDescription && planData.legacy_purchase_description) {
+              purchaseDescription = planData.legacy_purchase_description
+            }
+          }
+
+          const { data: insts } = await supa
+            .from('installments')
+            .select('installment_number, due_date, amount, paid_amount, status')
+            .eq('plan_id', pid)
+            .order('installment_number', { ascending: true })
+
+          if (insts) {
+            for (const i of insts as any[]) {
+              allInstallments.push({
+                number: i.installment_number ?? allInstallments.length + 1,
+                dueDate: i.due_date,
+                amount: Number(i.amount),
+                paidAmount: Number(i.paid_amount ?? 0),
+                status: i.status,
+              })
+            }
+          }
+        }
+
+        const remainingBalance = Math.max(0, Number(clientFull?.credit_used ?? 0))
+        const totalPaid = Math.max(0, originalTotal - remainingBalance)
+
+        // Próxima cuota pendiente
+        const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
+        let nextDueDate: string
+        if (nextInst) {
+          nextDueDate = nextInst.dueDate
+        } else {
+          const base = new Date()
+          const next = new Date(base.getFullYear(), base.getMonth() + 1, base.getDate())
+          nextDueDate = next.toISOString().split('T')[0]
+        }
+
+        // Generar PDF
+        let pdfBuffer: Buffer | undefined
+        try {
+          pdfBuffer = await generatePaymentStatementPDF({
+            clientName: clientFull?.name ?? 'Cliente',
+            clientDni: clientFull?.dni || undefined,
+            clientPhone: clientFull?.phone || undefined,
+            clientEmail,
+            amountPaid: capturedAmount,
+            paymentMethod: capturedMethodRaw,
+            paymentDate: capturedDate,
+            originalTotal: originalTotal || capturedAmount,
+            totalPaid: totalPaid || capturedAmount,
+            remainingBalance,
+            purchaseDescription,
+            installments: allInstallments,
+            nextDueDate,
+            notes: capturedNotes || undefined,
+          })
+        } catch (pdfErr) {
+          console.warn('[payments] PDF generation failed:', pdfErr)
+        }
+
+        await sendPaymentNotificationEmail({
+          clientName: clientFull?.name ?? 'Cliente',
+          clientEmail,
+          amountPaid: capturedAmount,
+          paymentMethod: capturedMethodRaw,
+          paymentDate: capturedDate,
+          purchaseDescription,
+          originalTotal: originalTotal || undefined,
+          totalPaid: totalPaid || undefined,
+          remainingBalance,
+          nextDueDate,
+          notes: capturedNotes || undefined,
+          pdfBuffer,
+        })
+      } catch (emailErr) {
+        console.warn('[processPayment] Could not send payment email:', emailErr)
+      }
+    })
 
     return {
       success: true,

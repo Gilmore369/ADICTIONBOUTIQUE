@@ -227,6 +227,7 @@ export function SmartPaymentPanel() {
       if (activeStoreText) formData.append('store_id', activeStoreText)
       // Idempotency: dedupes double-click / network retry on the server side.
       formData.append('idempotency_key', crypto.randomUUID())
+      formData.append('payment_method', paymentMethod)
       if (receiptUrl) formData.append('receipt_url', receiptUrl)
       const notesText = [
         `[${paymentMethod}]`,
