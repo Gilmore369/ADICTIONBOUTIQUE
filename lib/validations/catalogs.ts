@@ -141,45 +141,25 @@ export const clientSchema = z.object({
 })
 
 /**
- * Client update schema (without refinements to allow .partial())
- * Used for updating existing clients
+ * Client update schema — ALL fields optional, NO .refine() so .partial() isn't needed.
+ * Zod v4 throws if you call .partial() on a schema that has .refine()/.superRefine().
+ * Lat/lng coupling is validated manually in the updateClient action.
  */
 export const clientUpdateSchema = z.object({
-  dni: z.string().min(1, 'DNI is required').max(20, 'DNI must be less than 20 characters'),
-  name: z.string().min(1, 'Name is required').max(200, 'Name must be less than 200 characters'),
+  dni: z.string().min(1, 'DNI is required').max(20).optional(),
+  name: z.string().min(1, 'Name is required').max(200).optional(),
   referred_by: uuid('Invalid referrer ID').optional(),
-  phone: z.string().max(20, 'Phone must be less than 20 characters').optional(),
+  phone: z.string().max(20).optional(),
   email: email('Invalid email format').optional().or(z.literal('')),
-  address: z.string().max(500, 'Address must be less than 500 characters').optional(),
-  lat: z.number()
-    .min(-90, 'Latitude must be between -90 and 90')
-    .max(90, 'Latitude must be between -90 and 90')
-    .optional(),
-  lng: z.number()
-    .min(-180, 'Longitude must be between -180 and 180')
-    .max(180, 'Longitude must be between -180 and 180')
-    .optional(),
-  credit_limit: z.number()
-    .nonnegative('Credit limit must be non-negative')
-    .default(0),
-  credit_used: z.number()
-    .nonnegative('Credit used must be non-negative')
-    .default(0),
+  address: z.string().max(500).optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+  credit_limit: z.number().nonnegative('Credit limit must be non-negative').optional(),
+  credit_used: z.number().nonnegative('Credit used must be non-negative').optional(),
   rating: z.enum(['S', 'A', 'B', 'C', 'D', 'E']).optional(),
   blacklisted: z.boolean().optional(),
   dni_photo_url: url('Invalid DNI photo URL').optional().or(z.literal('')),
   client_photo_url: url('Invalid client photo URL').optional().or(z.literal('')),
   birthday: z.string().optional(),
-  active: z.boolean().default(true)
-}).refine(data => {
-  // Same lat/lng coupling as create — A9 from the audit: clientUpdateSchema
-  // was missing this refine, so updates could leave a partial coordinate.
-  if ((data.lat !== undefined && data.lng === undefined) ||
-      (data.lng !== undefined && data.lat === undefined)) {
-    return false
-  }
-  return true
-}, {
-  message: 'Both latitude and longitude must be provided together',
-  path: ['lat']
+  active: z.boolean().optional(),
 })

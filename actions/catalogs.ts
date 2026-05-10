@@ -1489,7 +1489,9 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
   const ratingRaw = formData.get('rating')
 
   // Validate input (partial update)
-  const validated = clientUpdateSchema.partial().safeParse({
+  // clientUpdateSchema already has all fields optional — do NOT call .partial()
+  // (Zod v4 throws if .partial() is called on a schema that has .refine())
+  const validated = clientUpdateSchema.safeParse({
     dni: formData.get('dni') || undefined,
     name: formData.get('name') || undefined,
     phone: formData.get('phone') || undefined,
