@@ -59,13 +59,14 @@ export async function fetchClientProfile(
     .order('created_at', { ascending: false })
   if (storeFilter) salesQuery = salesQuery.eq('store_id', storeFilter)
 
-  // Build credit_plans query — optionally filtered by store via inner join on sales
+  // Build credit_plans query — LEFT join on sales so legacy plans (sale_id = null) are included
   let creditPlansQuery = service
     .from('credit_plans')
-    .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, sales!inner(sale_number, store_id)')
+    .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, sales(sale_number, store_id)')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
-  if (storeFilter) creditPlansQuery = creditPlansQuery.eq('sales.store_id', storeFilter)
+  // Store filter: only apply to plans that have an associated sale (legacy plans are always shown)
+  if (storeFilter) creditPlansQuery = creditPlansQuery.or(`sale_id.is.null,sales.store_id.eq.${storeFilter}`)
 
   // Fetch all related data in parallel using Promise.all for performance
   // NOTE: purchases, installments, collection_actions use service client to bypass RLS

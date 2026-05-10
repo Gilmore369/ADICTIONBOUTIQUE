@@ -12,8 +12,6 @@
  *   - Próxima fecha de pago estimada
  */
 
-import nodemailer from 'nodemailer'
-
 export interface PaymentNotificationData {
   clientName: string
   clientEmail: string
@@ -264,42 +262,42 @@ export function generatePaymentNotificationHTML(data: PaymentNotificationData): 
 </html>`
 }
 
-// ── Enviar email vía Gmail/nodemailer ─────────────────────────────────────────
+// ── Enviar email vía Resend ───────────────────────────────────────────────────
 export async function sendPaymentNotificationEmail(
   data: PaymentNotificationData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const gmailPass = process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASSWORD
-    if (!process.env.GMAIL_USER || !gmailPass) {
-      // Graceful degradation: log and continue — don't break the payment flow
-      console.warn('[payment-email] GMAIL_USER / GMAIL_PASSWORD not configured — skipping email')
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      console.warn('[payment-email] RESEND_API_KEY not configured — skipping email')
       return { success: false, error: 'Email not configured' }
     }
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: gmailPass,
-      },
-    })
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'ventas@adictionboutique.agsys.es'
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
 
     const html = generatePaymentNotificationHTML(data)
     const subject = data.remainingBalance <= 0
       ? `✅ Pago completado — Deuda cancelada — Adiction Boutique`
       : `✅ Pago registrado S/ ${data.amountPaid.toFixed(2)} — Saldo: S/ ${data.remainingBalance.toFixed(2)}`
 
-    await transporter.sendMail({
-      from: `"Adiction Boutique" <${process.env.GMAIL_USER}>`,
+    const { error } = await resend.emails.send({
+      from: `Adiction Boutique <${fromEmail}>`,
       to: data.clientEmail,
       subject,
       html,
     })
 
-    console.log(`[payment-email] Sent to ${data.clientEmail} — amount: ${data.amountPaid}`)
+    if (error) {
+      console.error('[payment-email] Resend error:', error)
+      return { success: false, error: String(error) }
+    }
+
+    console.log(`[payment-email] Sent via Resend to ${data.clientEmail} — amount: ${data.amountPaid}`)
     return { success: true }
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Unknown error'
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[payment-email] Error sending notification:', msg)
     return { success: false, error: msg }
   }

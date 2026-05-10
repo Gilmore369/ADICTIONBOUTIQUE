@@ -1472,6 +1472,7 @@ export async function createClient(formData: FormData): Promise<ActionResponse> 
  * @returns ActionResponse with updated client or error
  */
 export async function updateClient(id: string, formData: FormData): Promise<ActionResponse> {
+  try {
   // Check permission
   const hasPermission = await checkPermission(Permission.MANAGE_CLIENTS)
   if (!hasPermission) {
@@ -1605,6 +1606,11 @@ export async function updateClient(id: string, formData: FormData): Promise<Acti
   })
 
   return { success: true, data }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error inesperado al actualizar cliente'
+    console.error('[updateClient] Unhandled error:', msg)
+    return { success: false, error: msg }
+  }
 }
 
 /**
