@@ -1,12 +1,12 @@
 /**
  * Generate Payment Statement PDF — Adiction Boutique
  *
- * Genera un PDF profesional con:
- *   - Logo de la tienda
+ * PDF profesional de estado de cuenta que incluye:
+ *   - Logo + cabecera de la tienda
  *   - Datos del cliente
- *   - Resumen del pago registrado
- *   - Estado de cuenta completo (todas las cuotas)
- *   - Barra de progreso
+ *   - Resumen del pago recibido
+ *   - Por cada plan de crédito: productos comprados + cuotas PENDIENTES/PARCIALES
+ *   - Las cuotas pagadas NO se listan (el cliente las ve en historial de compras)
  *   - Próxima fecha de pago
  */
 
@@ -15,11 +15,28 @@ import fs from 'fs'
 import path from 'path'
 
 export interface InstallmentRow {
-  number: number         // Nro de cuota
+  number: number
   dueDate: string        // YYYY-MM-DD
   amount: number
   paidAmount: number
   status: 'PENDING' | 'PARTIAL' | 'PAID' | 'VOIDED' | string
+}
+
+export interface ProductRow {
+  name: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+}
+
+export interface PlanSection {
+  saleNumber?: string     // 'V-0022'
+  saleDate?: string       // ISO date
+  purchaseDescription?: string  // para planes legacy sin venta
+  products: ProductRow[]
+  originalTotal: number
+  paidSoFar: number
+  installments: InstallmentRow[]   // TODAS — el PDF filtra PAID
 }
 
 export interface PaymentStatementData {
@@ -31,32 +48,29 @@ export interface PaymentStatementData {
   amountPaid: number
   paymentMethod: string
   paymentDate: string     // ISO
-  // Deuda general
+  // Totales globales del cliente
   originalTotal: number
-  totalPaid: number       // acumulado INCLUYENDO este pago
+  totalPaid: number
   remainingBalance: number
-  purchaseDescription?: string
-  // Cuotas (todas, para mostrar tabla completa)
-  installments: InstallmentRow[]
-  // Próxima fecha de pago (ISO YYYY-MM-DD o undefined)
+  // Próxima fecha de pago
   nextDueDate?: string
   notes?: string
-  // Logo de la tienda: base64 data-URL o URL https (opcional)
+  // Logo de la tienda
   logoBase64?: string
+  // Desglose por plan (cada crédito = una sección con sus productos y cuotas)
+  plans: PlanSection[]
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function money(n: number): string {
   return `S/ ${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
 }
-
 function fmtDate(iso: string): string {
   try {
     const d = new Date(iso.includes('T') ? iso : iso + 'T00:00:00-05:00')
     return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Lima' })
   } catch { return iso }
 }
-
 function fmtDateTime(iso: string): string {
   try {
     return new Date(iso).toLocaleString('es-PE', {
@@ -66,116 +80,100 @@ function fmtDateTime(iso: string): string {
     })
   } catch { return iso }
 }
-
 const METHOD_LABEL: Record<string, string> = {
   EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin',
   TRANSFERENCIA: 'Transferencia', TARJETA: 'Tarjeta',
   BCP: 'BCP', INTERBANK: 'Interbank', BBVA: 'BBVA', OTRO: 'Otro',
 }
-
-function statusLabel(s: string): string {
+function statusLabel(s: string) {
   if (s === 'PAID') return 'PAGADA'
   if (s === 'PARTIAL') return 'PARCIAL'
   if (s === 'VOIDED') return 'ANULADA'
   return 'PENDIENTE'
 }
-
 function statusColor(s: string): [number, number, number] {
-  if (s === 'PAID') return [22, 101, 52]       // green
-  if (s === 'PARTIAL') return [180, 83, 9]     // amber
-  if (s === 'VOIDED') return [100, 100, 100]   // gray
-  return [30, 64, 175]                          // blue PENDING
+  if (s === 'PAID') return [22, 101, 52]
+  if (s === 'PARTIAL') return [180, 83, 9]
+  if (s === 'VOIDED') return [100, 100, 100]
+  return [30, 64, 175]
 }
 
-// ── Main generator ─────────────────────────────────────────────────────────────
+// ── Helpers de dibujo ─────────────────────────────────────────────────────────
+function checkPageBreak(doc: jsPDF, y: number, needed: number, pageH: number, margin: number): number {
+  if (y + needed > pageH - 20) {
+    doc.addPage()
+    return margin + 6
+  }
+  return y
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
 export async function generatePaymentStatementPDF(data: PaymentStatementData): Promise<Buffer> {
-  // A4 portrait
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = 210
   const pageH = 297
-  const margin = 16
+  const margin = 14
   const contentW = pageW - margin * 2
   let y = margin
 
-  // ── LOGO ────────────────────────────────────────────────────────────────────
+  // ── LOGO ──────────────────────────────────────────────────────────────────
+  let logoB64: string | null = null
+  let logoMime = 'PNG'
   try {
-    let logoB64: string | null = null
-    let logoMime = 'PNG'
-
-    if (data.logoBase64) {
-      // Viene de Supabase system_config (data-URL base64 o URL https)
-      if (data.logoBase64.startsWith('data:')) {
-        // data:image/png;base64,XXXXX
-        const match = data.logoBase64.match(/^data:(image\/\w+);base64,(.+)$/)
-        if (match) {
-          logoMime = match[1].split('/')[1].toUpperCase().replace('JPEG', 'JPEG')
-          logoB64 = match[2]
-        }
-      } else if (data.logoBase64.startsWith('http')) {
-        // URL remota — descargar como buffer
-        const https = await import('https')
-        const http = await import('http')
-        const fetcher = data.logoBase64.startsWith('https') ? https : http
-        logoB64 = await new Promise<string>((resolve, reject) => {
-          fetcher.get(data.logoBase64!, (res) => {
-            const chunks: Buffer[] = []
-            res.on('data', (c: Buffer) => chunks.push(c))
-            res.on('end', () => resolve(Buffer.concat(chunks).toString('base64')))
-            res.on('error', reject)
-          }).on('error', reject)
-        })
-        logoMime = 'PNG'
-      }
+    if (data.logoBase64?.startsWith('data:')) {
+      const match = data.logoBase64.match(/^data:(image\/\w+);base64,(.+)$/)
+      if (match) { logoMime = match[1].split('/')[1].toUpperCase(); logoB64 = match[2] }
+    } else if (data.logoBase64?.startsWith('http')) {
+      const mod = data.logoBase64.startsWith('https') ? await import('https') : await import('http')
+      logoB64 = await new Promise<string>((res, rej) => {
+        (mod as any).get(data.logoBase64!, (r: any) => {
+          const c: Buffer[] = []
+          r.on('data', (d: Buffer) => c.push(d))
+          r.on('end', () => res(Buffer.concat(c).toString('base64')))
+          r.on('error', rej)
+        }).on('error', rej)
+      })
     } else {
-      // Fallback: logo estático de public/images/logo.png
-      const logoPath = path.join(process.cwd(), 'public', 'images', 'logo.png')
-      if (fs.existsSync(logoPath)) {
-        logoB64 = fs.readFileSync(logoPath).toString('base64')
-        logoMime = 'PNG'
-      }
+      const p = path.join(process.cwd(), 'public', 'images', 'logo.png')
+      if (fs.existsSync(p)) logoB64 = fs.readFileSync(p).toString('base64')
     }
+  } catch { /* logo opcional */ }
 
-    if (logoB64) {
-      // Logo centrado en la cabecera oscura (18x18mm)
-      const logoSize = 20
-      const logoX = (pageW - logoSize) / 2
-      doc.addImage(logoB64, logoMime, logoX, y + 2, logoSize, logoSize)
-    }
-  } catch { /* logo opcional — no bloquear generación */ }
-
-  // ── HEADER TEXT ────────────────────────────────────────────────────────────
-  const headerH = data.logoBase64 ? 52 : 38
+  // ── HEADER ────────────────────────────────────────────────────────────────
+  const hasLogo = !!logoB64
+  const headerH = hasLogo ? 54 : 36
   doc.setFillColor(17, 24, 39)
   doc.rect(0, 0, pageW, headerH, 'F')
-  // Gold accent line
   doc.setFillColor(212, 165, 116)
-  doc.rect(0, headerH, pageW, 1.2, 'F')
+  doc.rect(0, headerH, pageW, 1.5, 'F')
 
-  // Si hay logo, el texto va debajo del logo; si no, centrado solo
-  const textOffsetY = data.logoBase64 ? 28 : 14
+  if (logoB64) {
+    const lSize = 22
+    doc.addImage(logoB64, logoMime, (pageW - lSize) / 2, 4, lSize, lSize)
+  }
+  const tY = hasLogo ? 31 : 12
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(15)
-  doc.text('ADICTION BOUTIQUE', pageW / 2, textOffsetY, { align: 'center' })
+  doc.text('ADICTION BOUTIQUE', pageW / 2, tY, { align: 'center' })
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8.5)
+  doc.setFontSize(8)
   doc.setTextColor(212, 165, 116)
-  doc.text('ESTADO DE CUENTA — CONFIRMACIÓN DE PAGO', pageW / 2, textOffsetY + 7, { align: 'center' })
+  doc.text('ESTADO DE CUENTA — CONFIRMACIÓN DE PAGO', pageW / 2, tY + 7, { align: 'center' })
   doc.setTextColor(156, 163, 175)
   doc.setFontSize(7.5)
-  doc.text(`Fecha de emisión: ${fmtDateTime(data.paymentDate)}`, pageW / 2, textOffsetY + 14, { align: 'center' })
+  doc.text(`Emitido: ${fmtDateTime(data.paymentDate)}`, pageW / 2, tY + 14, { align: 'center' })
 
   y = headerH + 8
 
-  // ── DATOS DEL CLIENTE ──────────────────────────────────────────────────────
+  // ── DATOS DEL CLIENTE ─────────────────────────────────────────────────────
   doc.setFillColor(249, 250, 251)
-  doc.roundedRect(margin, y, contentW, 28, 2, 2, 'F')
   doc.setDrawColor(229, 231, 235)
-  doc.roundedRect(margin, y, contentW, 28, 2, 2, 'S')
+  doc.roundedRect(margin, y, contentW, 26, 2, 2, 'FD')
 
-  doc.setTextColor(107, 114, 128)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
+  doc.setFontSize(6.5)
+  doc.setTextColor(107, 114, 128)
   doc.text('DATOS DEL CLIENTE', margin + 4, y + 6)
 
   doc.setFont('helvetica', 'bold')
@@ -186,212 +184,257 @@ export async function generatePaymentStatementPDF(data: PaymentStatementData): P
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(75, 85, 99)
-  const clientDetails: string[] = []
-  if (data.clientDni) clientDetails.push(`DNI: ${data.clientDni}`)
-  if (data.clientPhone) clientDetails.push(`Tel: ${data.clientPhone}`)
-  if (data.clientEmail) clientDetails.push(data.clientEmail)
-  doc.text(clientDetails.join('   ·   '), margin + 4, y + 20)
+  const clientMeta = [
+    data.clientDni ? `DNI: ${data.clientDni}` : null,
+    data.clientPhone ? `Tel: ${data.clientPhone}` : null,
+    data.clientEmail || null,
+  ].filter(Boolean).join('  ·  ')
+  doc.text(clientMeta, margin + 4, y + 20)
 
-  // Nro de documento en esquina derecha
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(17, 24, 39)
-  const docLabel = 'Estado de Cuenta'
-  doc.text(docLabel, pageW - margin - 4, y + 10, { align: 'right' })
+  y += 32
 
-  y += 34
-
-  // ── PAGO REGISTRADO (highlight box) ────────────────────────────────────────
+  // ── PAGO RECIBIDO ─────────────────────────────────────────────────────────
   doc.setFillColor(240, 253, 244)
-  doc.roundedRect(margin, y, contentW, 30, 2, 2, 'F')
   doc.setDrawColor(187, 247, 208)
-  doc.roundedRect(margin, y, contentW, 30, 2, 2, 'S')
+  doc.roundedRect(margin, y, contentW, 28, 2, 2, 'FD')
 
-  // "PAGO RECIBIDO" label
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7)
   doc.setTextColor(22, 101, 52)
-  doc.text('✓ PAGO RECIBIDO', margin + 4, y + 7)
+  doc.text('✓  PAGO RECIBIDO', margin + 4, y + 7)
 
-  // Monto grande centrado
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(22)
   doc.setTextColor(21, 128, 61)
   doc.text(money(data.amountPaid), pageW / 2, y + 17, { align: 'center' })
 
-  // Método + fecha
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(74, 222, 128)
   const methodDisplay = METHOD_LABEL[data.paymentMethod?.toUpperCase()] ?? data.paymentMethod ?? 'Efectivo'
   doc.text(`${fmtDateTime(data.paymentDate)}  ·  ${methodDisplay}`, pageW / 2, y + 24, { align: 'center' })
 
-  y += 36
+  y += 34
 
-  // ── RESUMEN FINANCIERO (4 cajas) ───────────────────────────────────────────
-  const boxW = (contentW - 6) / 4
+  // ── 4 CAJAS RESUMEN ───────────────────────────────────────────────────────
+  const pct = data.originalTotal > 0
+    ? Math.min(100, Math.round((data.totalPaid / data.originalTotal) * 100))
+    : 0
+  const bW = (contentW - 6) / 4
   const boxes = [
-    { label: 'Monto Original', value: money(data.originalTotal), color: [55, 65, 81] as [number,number,number] },
+    { label: 'Monto Total', value: money(data.originalTotal), color: [55, 65, 81] as [number,number,number] },
     { label: 'Total Pagado', value: money(data.totalPaid), color: [21, 128, 61] as [number,number,number] },
     { label: 'Saldo Pendiente', value: money(data.remainingBalance), color: data.remainingBalance > 0 ? [180, 83, 9] as [number,number,number] : [21, 128, 61] as [number,number,number] },
     { label: 'Próximo Pago', value: data.nextDueDate ? fmtDate(data.nextDueDate) : '—', color: [30, 64, 175] as [number,number,number] },
   ]
-
   boxes.forEach((box, i) => {
-    const bx = margin + i * (boxW + 2)
+    const bx = margin + i * (bW + 2)
     doc.setFillColor(249, 250, 251)
-    doc.roundedRect(bx, y, boxW, 22, 2, 2, 'F')
     doc.setDrawColor(229, 231, 235)
-    doc.roundedRect(bx, y, boxW, 22, 2, 2, 'S')
-
+    doc.roundedRect(bx, y, bW, 21, 2, 2, 'FD')
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(6.5)
     doc.setTextColor(107, 114, 128)
-    doc.text(box.label, bx + boxW / 2, y + 6, { align: 'center' })
-
+    doc.text(box.label, bx + bW / 2, y + 6, { align: 'center' })
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.setTextColor(...box.color)
-    doc.text(box.value, bx + boxW / 2, y + 14, { align: 'center' })
+    doc.text(box.value, bx + bW / 2, y + 14, { align: 'center' })
   })
+  y += 27
 
-  y += 28
-
-  // ── BARRA DE PROGRESO ──────────────────────────────────────────────────────
-  const pct = data.originalTotal > 0
-    ? Math.min(100, Math.round((data.totalPaid / data.originalTotal) * 100))
-    : 0
-  const barW = contentW
-  const barH = 5
-
+  // ── BARRA DE PROGRESO ─────────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(55, 65, 81)
-  doc.text(`Progreso de pago: ${pct}%`, margin, y + 4)
+  doc.text(`Progreso general: ${pct}%`, margin, y + 4)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
   doc.setTextColor(107, 114, 128)
-  doc.text(`${money(data.totalPaid)} de ${money(data.originalTotal)}`, pageW - margin, y + 4, { align: 'right' })
-
+  doc.text(`${money(data.totalPaid)} pagado de ${money(data.originalTotal)}`, pageW - margin, y + 4, { align: 'right' })
   y += 7
-  // Track (gray)
   doc.setFillColor(229, 231, 235)
-  doc.roundedRect(margin, y, barW, barH, 2, 2, 'F')
-  // Fill (green)
+  doc.roundedRect(margin, y, contentW, 4.5, 2, 2, 'F')
   if (pct > 0) {
     doc.setFillColor(21, 128, 61)
-    doc.roundedRect(margin, y, barW * (pct / 100), barH, 2, 2, 'F')
+    doc.roundedRect(margin, y, contentW * (pct / 100), 4.5, 2, 2, 'F')
   }
-
   y += 12
 
-  // ── DESCRIPCIÓN DE COMPRA (si aplica) ──────────────────────────────────────
-  if (data.purchaseDescription) {
-    doc.setFont('helvetica', 'italic')
-    doc.setFontSize(8)
-    doc.setTextColor(107, 114, 128)
-    doc.text(`Compra: ${data.purchaseDescription}`, margin, y)
+  // ── SECCIONES POR PLAN DE CRÉDITO ─────────────────────────────────────────
+  const rowH = 7.5
+  const colCuota   = { x: margin,      w: 12 }
+  const colVenc    = { x: margin + 12, w: 26 }
+  const colMonto   = { x: margin + 38, w: 26 }
+  const colPagado  = { x: margin + 64, w: 26 }
+  const colPend    = { x: margin + 90, w: 28 }
+  const colEstado  = { x: margin + 118, w: 64 }
+
+  for (const plan of data.plans) {
+    const pendingInsts = plan.installments.filter(i => i.status !== 'PAID' && i.status !== 'VOIDED')
+    const paidCount    = plan.installments.filter(i => i.status === 'PAID').length
+    const totalInsts   = plan.installments.filter(i => i.status !== 'VOIDED').length
+
+    // Estimar espacio: encabezado + productos + tabla cuotas pendientes
+    const neededApprox = 22 + (plan.products.length * 6) + 10 + (pendingInsts.length * rowH) + 20
+    y = checkPageBreak(doc, y, Math.min(neededApprox, 60), pageH, margin)
+
+    // ── Plan header ──────────────────────────────────────────────────────────
+    doc.setFillColor(17, 24, 39)
+    doc.roundedRect(margin, y, contentW, 13, 2, 2, 'F')
+
+    const planTitle = plan.saleNumber
+      ? `Venta ${plan.saleNumber}`
+      : plan.purchaseDescription
+        ? `Deuda: ${plan.purchaseDescription.substring(0, 45)}`
+        : 'Crédito'
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(212, 165, 116)
+    doc.text(planTitle, margin + 4, y + 8)
+
+    if (plan.saleDate) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(156, 163, 175)
+      doc.text(fmtDate(plan.saleDate), pageW - margin - 4, y + 8, { align: 'right' })
+    }
+
+    // Cuotas completadas info
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(156, 163, 175)
+    const planProgress = `${paidCount}/${totalInsts} cuotas pagadas  ·  Total: ${money(plan.originalTotal)}  ·  Pagado: ${money(plan.paidSoFar)}`
+    // (se muestra en el sub-header, abajo)
+
+    y += 15
+
+    // ── Productos de esta compra ──────────────────────────────────────────────
+    if (plan.products.length > 0) {
+      y = checkPageBreak(doc, y, 10 + plan.products.length * 6, pageH, margin)
+
+      doc.setFillColor(243, 244, 246)
+      doc.setDrawColor(229, 231, 235)
+      doc.rect(margin, y, contentW, 8, 'FD')
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6.5)
+      doc.setTextColor(55, 65, 81)
+      doc.text('PRODUCTOS COMPRADOS', margin + 3, y + 5.5)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.setTextColor(107, 114, 128)
+      doc.text(`${paidCount}/${totalInsts} cuotas pagadas`, pageW - margin - 3, y + 5.5, { align: 'right' })
+
+      y += 8
+
+      for (const prod of plan.products) {
+        y = checkPageBreak(doc, y, 7, pageH, margin)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7.5)
+        doc.setTextColor(55, 65, 81)
+        const prodName = prod.name.length > 55 ? prod.name.substring(0, 52) + '...' : prod.name
+        doc.text(`• ${prodName}`, margin + 3, y + 5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(17, 24, 39)
+        doc.text(`${prod.quantity} × ${money(prod.unitPrice)} = ${money(prod.subtotal)}`, pageW - margin - 3, y + 5, { align: 'right' })
+        doc.setDrawColor(243, 244, 246)
+        doc.line(margin, y + 7, margin + contentW, y + 7)
+        y += 7
+      }
+      y += 2
+    } else if (plan.purchaseDescription) {
+      // Sin productos detallados (legacy) — mostrar descripción
+      y = checkPageBreak(doc, y, 12, pageH, margin)
+      doc.setFillColor(254, 249, 240)
+      doc.setDrawColor(253, 230, 138)
+      doc.roundedRect(margin, y, contentW, 10, 1, 1, 'FD')
+      doc.setFont('helvetica', 'italic')
+      doc.setFontSize(7.5)
+      doc.setTextColor(107, 114, 128)
+      doc.text(`Compra: ${plan.purchaseDescription}`, margin + 4, y + 7)
+      y += 14
+    }
+
+    // ── Cuotas pendientes / parciales ─────────────────────────────────────────
+    if (pendingInsts.length === 0) {
+      // Plan completamente pagado — solo mostrar resumen
+      y = checkPageBreak(doc, y, 10, pageH, margin)
+      doc.setFillColor(240, 253, 244)
+      doc.setDrawColor(187, 247, 208)
+      doc.roundedRect(margin, y, contentW, 9, 1, 1, 'FD')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(22, 101, 52)
+      doc.text('✓ Crédito completamente pagado', pageW / 2, y + 6, { align: 'center' })
+      y += 14
+      continue
+    }
+
+    // Header de tabla
+    y = checkPageBreak(doc, y, rowH + 4, pageH, margin)
+    doc.setFillColor(30, 41, 59)
+    doc.rect(margin, y, contentW, rowH, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.setTextColor(255, 255, 255)
+    doc.text('N°', colCuota.x + 2, y + 5)
+    doc.text('Vencimiento', colVenc.x + 2, y + 5)
+    doc.text('Monto cuota', colMonto.x + 2, y + 5)
+    doc.text('Ya pagado', colPagado.x + 2, y + 5)
+    doc.text('Pendiente', colPend.x + 2, y + 5)
+    doc.text('Estado', colEstado.x + 2, y + 5)
+    y += rowH
+
+    pendingInsts.forEach((inst, idx) => {
+      y = checkPageBreak(doc, y, rowH, pageH, margin)
+      const isEven = idx % 2 === 0
+      doc.setFillColor(isEven ? 249 : 255, isEven ? 250 : 255, isEven ? 251 : 255)
+      doc.rect(margin, y, contentW, rowH, 'F')
+      doc.setDrawColor(229, 231, 235)
+      doc.line(margin, y + rowH, margin + contentW, y + rowH)
+
+      const pending = Math.max(0, inst.amount - inst.paidAmount)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(55, 65, 81)
+      doc.text(String(inst.number), colCuota.x + 2, y + 5)
+      doc.text(fmtDate(inst.dueDate), colVenc.x + 2, y + 5)
+      doc.text(money(inst.amount), colMonto.x + 2, y + 5)
+
+      if (inst.paidAmount > 0) doc.setTextColor(21, 128, 61)
+      doc.text(money(inst.paidAmount), colPagado.x + 2, y + 5)
+
+      doc.setTextColor(185, 28, 28)
+      doc.text(money(pending), colPend.x + 2, y + 5)
+
+      // Badge estado
+      const [sr, sg, sb] = statusColor(inst.status)
+      doc.setFillColor(sr, sg, sb)
+      const bx = colEstado.x + 2
+      doc.roundedRect(bx, y + 1.5, 22, 4.5, 1, 1, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(5.5)
+      doc.text(statusLabel(inst.status), bx + 11, y + 4.8, { align: 'center' })
+
+      y += rowH
+    })
+
     y += 6
   }
 
-  // ── TABLA DE CUOTAS ────────────────────────────────────────────────────────
-  y += 2
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(17, 24, 39)
-  doc.text('DETALLE DE CUOTAS', margin, y + 4)
-
-  y += 8
-
-  // Header row
-  const cols = [
-    { label: 'Cuota', x: margin,      w: 14 },
-    { label: 'Vencimiento', x: margin + 14, w: 28 },
-    { label: 'Monto',   x: margin + 42, w: 28 },
-    { label: 'Pagado',  x: margin + 70, w: 28 },
-    { label: 'Pendiente', x: margin + 98, w: 30 },
-    { label: 'Estado',  x: margin + 128, w: 30 },
-  ]
-
-  const rowH = 8
-  // Header bg
-  doc.setFillColor(17, 24, 39)
-  doc.rect(margin, y, contentW, rowH, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
-  cols.forEach(col => {
-    doc.text(col.label, col.x + 2, y + 5.5)
-  })
-
-  y += rowH
-
-  // Rows
-  const activeInstallments = data.installments.filter(i => i.status !== 'VOIDED')
-  activeInstallments.forEach((inst, idx) => {
-    const isEven = idx % 2 === 0
-    if (isEven) {
-      doc.setFillColor(249, 250, 251)
-      doc.rect(margin, y, contentW, rowH, 'F')
-    } else {
-      doc.setFillColor(255, 255, 255)
-      doc.rect(margin, y, contentW, rowH, 'F')
-    }
-
-    // Border bottom
-    doc.setDrawColor(229, 231, 235)
-    doc.line(margin, y + rowH, margin + contentW, y + rowH)
-
-    const pending = Math.max(0, inst.amount - inst.paidAmount)
-
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(55, 65, 81)
-    doc.text(String(inst.number), cols[0].x + 2, y + 5.5)
-    doc.text(fmtDate(inst.dueDate), cols[1].x + 2, y + 5.5)
-    doc.text(money(inst.amount), cols[2].x + 2, y + 5.5)
-
-    // Pagado en verde si > 0
-    if (inst.paidAmount > 0) doc.setTextColor(21, 128, 61)
-    doc.text(money(inst.paidAmount), cols[3].x + 2, y + 5.5)
-    doc.setTextColor(55, 65, 81)
-
-    // Pendiente en rojo si > 0
-    if (pending > 0) doc.setTextColor(185, 28, 28)
-    doc.text(money(pending), cols[4].x + 2, y + 5.5)
-    doc.setTextColor(55, 65, 81)
-
-    // Badge de estado
-    const [sr, sg, sb] = statusColor(inst.status)
-    doc.setFillColor(sr, sg, sb)
-    const badgeX = cols[5].x + 2
-    const badgeW = 22
-    const badgeH = 4.5
-    doc.roundedRect(badgeX, y + 1.8, badgeW, badgeH, 1, 1, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(6)
-    doc.text(statusLabel(inst.status), badgeX + badgeW / 2, y + 5, { align: 'center' })
-    doc.setTextColor(55, 65, 81)
-
-    y += rowH
-
-    // Nueva página si queda poco espacio
-    if (y > pageH - 40) {
-      doc.addPage()
-      y = margin + 10
-    }
-  })
-
-  y += 6
-
   // ── PRÓXIMO PAGO / COMPLETADO ──────────────────────────────────────────────
+  y = checkPageBreak(doc, y, 22, pageH, margin)
   if (data.remainingBalance <= 0) {
     doc.setFillColor(17, 24, 39)
     doc.roundedRect(margin, y, contentW, 18, 2, 2, 'F')
-    doc.setTextColor(212, 165, 116)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
+    doc.setTextColor(212, 165, 116)
     doc.text('🎉 ¡Deuda cancelada completamente!', pageW / 2, y + 8, { align: 'center' })
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.5)
@@ -409,12 +452,13 @@ export async function generatePaymentStatementPDF(data: PaymentStatementData): P
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.5)
     doc.setTextColor(161, 98, 7)
-    doc.text(`Saldo pendiente: ${money(data.remainingBalance)}  ·  ¡Gracias por mantener tu cuenta al día!`, margin + 4, y + 14)
+    doc.text(`Saldo pendiente total: ${money(data.remainingBalance)}  ·  ¡Gracias por mantener tu cuenta al día!`, margin + 4, y + 14)
     y += 24
   }
 
   // ── NOTAS ──────────────────────────────────────────────────────────────────
   if (data.notes) {
+    y = checkPageBreak(doc, y, 8, pageH, margin)
     doc.setFont('helvetica', 'italic')
     doc.setFontSize(7.5)
     doc.setTextColor(107, 114, 128)
@@ -422,23 +466,24 @@ export async function generatePaymentStatementPDF(data: PaymentStatementData): P
     y += 8
   }
 
-  // ── FOOTER ─────────────────────────────────────────────────────────────────
-  const footerY = pageH - 18
-  doc.setFillColor(17, 24, 39)
-  doc.rect(0, footerY, pageW, 18, 'F')
-  doc.setFillColor(212, 165, 116)
-  doc.rect(0, footerY, pageW, 1, 'F')
+  // ── FOOTER (en cada página) ────────────────────────────────────────────────
+  const totalPages = (doc as any).internal.getNumberOfPages()
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p)
+    const fY = pageH - 16
+    doc.setFillColor(17, 24, 39)
+    doc.rect(0, fY, pageW, 16, 'F')
+    doc.setFillColor(212, 165, 116)
+    doc.rect(0, fY, pageW, 1, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.setTextColor(212, 165, 116)
+    doc.text('ADICTION BOUTIQUE', pageW / 2, fY + 6, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(107, 114, 128)
+    doc.text(`Trujillo, La Libertad — Perú  ·  Página ${p} de ${totalPages}`, pageW / 2, fY + 12, { align: 'center' })
+  }
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(212, 165, 116)
-  doc.text('ADICTION BOUTIQUE', pageW / 2, footerY + 6, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(6.5)
-  doc.setTextColor(107, 114, 128)
-  doc.text('Trujillo, La Libertad — Perú  ·  Documento generado automáticamente', pageW / 2, footerY + 12, { align: 'center' })
-
-  // Retornar como Buffer
-  const arrayBuffer = doc.output('arraybuffer')
-  return Buffer.from(arrayBuffer)
+  return Buffer.from(doc.output('arraybuffer'))
 }

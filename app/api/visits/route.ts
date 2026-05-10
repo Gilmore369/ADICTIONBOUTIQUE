@@ -20,6 +20,7 @@ import type { Installment } from '@/lib/payments/oldest-due-first'
 import { revalidatePath } from 'next/cache'
 import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
+import { buildPlanSections } from '@/lib/pdf/build-plan-sections'
 import { getStoreLogo } from '@/lib/utils/get-store-logo'
 
 /** Results from the visit dialog that imply a payment was collected */
@@ -324,56 +325,22 @@ export async function POST(request: NextRequest) {
 
             const clientEmail = clientFull?.email
             if (clientEmail) {
-              let purchaseDescription: string | undefined
-              let originalTotal = 0
-              let allInstallments: Array<{ number: number; dueDate: string; amount: number; paidAmount: number; status: string }> = []
+              const planIds = linkedPlanId ? [linkedPlanId] : []
+              const paymentDateISO = new Date().toISOString()
 
-              if (linkedPlanId) {
-                const { data: planData } = await serviceClient
-                  .from('credit_plans')
-                  .select('total_amount, legacy_purchase_description, legacy_original_total')
-                  .eq('id', linkedPlanId)
-                  .single()
-                if (planData) {
-                  originalTotal = Number(planData.legacy_original_total ?? planData.total_amount)
-                  purchaseDescription = planData.legacy_purchase_description || undefined
-                }
-
-                const { data: allInsts } = await serviceClient
-                  .from('installments')
-                  .select('installment_number, due_date, amount, paid_amount, status')
-                  .eq('plan_id', linkedPlanId)
-                  .order('installment_number', { ascending: true })
-
-                if (allInsts) {
-                  allInstallments = allInsts.map((i: any) => ({
-                    number: i.installment_number ?? 1,
-                    dueDate: i.due_date,
-                    amount: Number(i.amount),
-                    paidAmount: Number(i.paid_amount ?? 0),
-                    status: i.status,
-                  }))
-                }
-              }
+              const { plans, originalTotal, allInstallments } = planIds.length > 0
+                ? await buildPlanSections(planIds, serviceClient)
+                : { plans: [], originalTotal: 0, allInstallments: [] }
 
               const remainingBalance = Math.max(0, Number(clientFull?.credit_used ?? 0))
               const totalPaid = Math.max(0, originalTotal - remainingBalance)
 
-              // Próxima cuota pendiente
               const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
-              let nextDueDate: string
-              if (nextInst) {
-                nextDueDate = nextInst.dueDate
-              } else {
-                // 1 mes desde hoy
-                const base = new Date()
-                const next = new Date(base.getFullYear(), base.getMonth() + 1, base.getDate())
-                nextDueDate = next.toISOString().split('T')[0]
-              }
+              const nextDueDate = nextInst?.dueDate || (() => {
+                const b = new Date()
+                return new Date(b.getFullYear(), b.getMonth() + 1, b.getDate()).toISOString().split('T')[0]
+              })()
 
-              const paymentDateISO = new Date().toISOString()
-
-              // Generar PDF
               let pdfBuffer: Buffer | undefined
               try {
                 const logoBase64 = await getStoreLogo()
@@ -388,11 +355,10 @@ export async function POST(request: NextRequest) {
                   originalTotal: originalTotal || amount,
                   totalPaid: totalPaid || amount,
                   remainingBalance,
-                  purchaseDescription,
-                  installments: allInstallments,
                   nextDueDate,
                   notes: body.comment ? `Nota del cobrador: ${body.comment}` : undefined,
                   logoBase64: logoBase64 || undefined,
+                  plans,
                 })
               } catch (pdfErr) {
                 console.warn('[visits] PDF generation failed:', pdfErr)
@@ -404,9 +370,6 @@ export async function POST(request: NextRequest) {
                 amountPaid: amount,
                 paymentMethod: method,
                 paymentDate: paymentDateISO,
-                purchaseDescription,
-                originalTotal: originalTotal || undefined,
-                totalPaid: totalPaid || undefined,
                 remainingBalance,
                 nextDueDate,
                 notes: body.comment ? `Nota del cobrador: ${body.comment}` : undefined,

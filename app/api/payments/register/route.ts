@@ -10,6 +10,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
+import { buildPlanSections } from '@/lib/pdf/build-plan-sections'
 import { getStoreLogo } from '@/lib/utils/get-store-logo'
 
 export async function POST(request: NextRequest) {
@@ -132,8 +133,8 @@ export async function POST(request: NextRequest) {
     // ── Send payment notification email with PDF (fire-and-forget) ────────
     try {
       const planId = (installment as any).plan_id
+      const planIds = planId ? [planId] : []
 
-      // Fetch client info
       const { data: clientFull } = await supabase
         .from('clients')
         .select('email, credit_used, name, dni, phone')
@@ -141,57 +142,17 @@ export async function POST(request: NextRequest) {
         .single()
 
       const clientEmail = clientFull?.email
-      if (clientEmail) {
-        // Plan details
-        let purchaseDescription: string | undefined
-        let originalTotal = 0
-        let allInstallments: Array<{ number: number; dueDate: string; amount: number; paidAmount: number; status: string }> = []
-
-        if (planId) {
-          const { data: planData } = await supabase
-            .from('credit_plans')
-            .select('total_amount, legacy_purchase_description, legacy_original_total')
-            .eq('id', planId)
-            .single()
-          if (planData) {
-            originalTotal = Number(planData.legacy_original_total ?? planData.total_amount)
-            purchaseDescription = planData.legacy_purchase_description || undefined
-          }
-
-          // All installments for this plan
-          const { data: allInsts } = await supabase
-            .from('installments')
-            .select('installment_number, due_date, amount, paid_amount, status')
-            .eq('plan_id', planId)
-            .order('installment_number', { ascending: true })
-
-          if (allInsts) {
-            allInstallments = allInsts.map((i: any) => ({
-              number: i.installment_number ?? 1,
-              dueDate: i.due_date,
-              amount: Number(i.amount),
-              paidAmount: Number(i.paid_amount ?? 0),
-              status: i.status,
-            }))
-          }
-        }
-
+      if (clientEmail && planIds.length > 0) {
+        const { plans, originalTotal, allInstallments } = await buildPlanSections(planIds, supabase)
         const remainingBalance = Math.max(0, Number(clientFull?.credit_used ?? 0))
         const totalPaid = Math.max(0, originalTotal - remainingBalance)
 
-        // Next due date: first PENDING or PARTIAL installment after payment
-        let nextDueDate: string | undefined
         const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
-        if (nextInst) {
-          nextDueDate = nextInst.dueDate
-        } else {
-          // Fallback: 1 mes desde la fecha del pago
-          const base = new Date(paymentDate)
-          const next = new Date(base.getFullYear(), base.getMonth() + 1, base.getDate())
-          nextDueDate = next.toISOString().split('T')[0]
-        }
+        const nextDueDate = nextInst?.dueDate || (() => {
+          const b = new Date(paymentDate)
+          return new Date(b.getFullYear(), b.getMonth() + 1, b.getDate()).toISOString().split('T')[0]
+        })()
 
-        // Generate PDF
         let pdfBuffer: Buffer | undefined
         try {
           const logoBase64 = await getStoreLogo()
@@ -206,11 +167,10 @@ export async function POST(request: NextRequest) {
             originalTotal: originalTotal || amount,
             totalPaid: totalPaid || amount,
             remainingBalance,
-            purchaseDescription,
-            installments: allInstallments,
             nextDueDate,
             notes: notes || undefined,
             logoBase64: logoBase64 || undefined,
+            plans,
           })
         } catch (pdfErr) {
           console.warn('[payments/register] PDF generation failed:', pdfErr)
@@ -222,9 +182,6 @@ export async function POST(request: NextRequest) {
           amountPaid: amount,
           paymentMethod,
           paymentDate,
-          purchaseDescription,
-          originalTotal: originalTotal || undefined,
-          totalPaid: totalPaid || undefined,
           remainingBalance,
           nextDueDate,
           notes: notes ? `Nota: ${notes}` : undefined,

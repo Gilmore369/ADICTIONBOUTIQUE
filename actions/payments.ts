@@ -23,6 +23,7 @@ import type { Installment } from '@/lib/payments/oldest-due-first'
 import { STORE_DISPLAY_NAMES } from '@/lib/utils/store-filter'
 import { sendPaymentNotificationEmail } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
+import { buildPlanSections } from '@/lib/pdf/build-plan-sections'
 import { getStoreLogo } from '@/lib/utils/get-store-logo'
 
 /**
@@ -374,58 +375,16 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
         const clientEmail = clientFull?.email
         if (!clientEmail) return
 
-        // Plan data (first plan — may be multi-plan payment but email covers them all)
-        let purchaseDescription: string | undefined
-        let originalTotal = 0
-        const allInstallments: Array<{ number: number; dueDate: string; amount: number; paidAmount: number; status: string }> = []
-
-        for (const pid of capturedPlanIds) {
-          const { data: planData } = await supa
-            .from('credit_plans')
-            .select('total_amount, legacy_purchase_description, legacy_original_total')
-            .eq('id', pid)
-            .single()
-          if (planData) {
-            originalTotal += Number(planData.legacy_original_total ?? planData.total_amount)
-            if (!purchaseDescription && planData.legacy_purchase_description) {
-              purchaseDescription = planData.legacy_purchase_description
-            }
-          }
-
-          const { data: insts } = await supa
-            .from('installments')
-            .select('installment_number, due_date, amount, paid_amount, status')
-            .eq('plan_id', pid)
-            .order('installment_number', { ascending: true })
-
-          if (insts) {
-            for (const i of insts as any[]) {
-              allInstallments.push({
-                number: i.installment_number ?? allInstallments.length + 1,
-                dueDate: i.due_date,
-                amount: Number(i.amount),
-                paidAmount: Number(i.paid_amount ?? 0),
-                status: i.status,
-              })
-            }
-          }
-        }
-
+        const { plans, originalTotal, allInstallments } = await buildPlanSections(capturedPlanIds, supa)
         const remainingBalance = Math.max(0, Number(clientFull?.credit_used ?? 0))
         const totalPaid = Math.max(0, originalTotal - remainingBalance)
 
-        // Próxima cuota pendiente
         const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
-        let nextDueDate: string
-        if (nextInst) {
-          nextDueDate = nextInst.dueDate
-        } else {
-          const base = new Date()
-          const next = new Date(base.getFullYear(), base.getMonth() + 1, base.getDate())
-          nextDueDate = next.toISOString().split('T')[0]
-        }
+        const nextDueDate = nextInst?.dueDate || (() => {
+          const b = new Date()
+          return new Date(b.getFullYear(), b.getMonth() + 1, b.getDate()).toISOString().split('T')[0]
+        })()
 
-        // Generar PDF
         let pdfBuffer: Buffer | undefined
         try {
           const logoBase64 = await getStoreLogo()
@@ -440,11 +399,10 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
             originalTotal: originalTotal || capturedAmount,
             totalPaid: totalPaid || capturedAmount,
             remainingBalance,
-            purchaseDescription,
-            installments: allInstallments,
             nextDueDate,
             notes: capturedNotes || undefined,
             logoBase64: logoBase64 || undefined,
+            plans,
           })
         } catch (pdfErr) {
           console.warn('[payments] PDF generation failed:', pdfErr)
@@ -456,9 +414,6 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
           amountPaid: capturedAmount,
           paymentMethod: capturedMethodRaw,
           paymentDate: capturedDate,
-          purchaseDescription,
-          originalTotal: originalTotal || undefined,
-          totalPaid: totalPaid || undefined,
           remainingBalance,
           nextDueDate,
           notes: capturedNotes || undefined,
