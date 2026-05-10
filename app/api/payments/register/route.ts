@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
 
 export async function POST(request: NextRequest) {
   try {
@@ -124,6 +125,69 @@ export async function POST(request: NextRequest) {
       removedFromBlacklist = blacklistRemoved === true
     } catch {
       // Non-critical: don't fail the payment if blacklist check fails
+    }
+
+    // ── Send payment notification email (fire-and-forget) ──────────────
+    try {
+      const { data: clientFull } = await supabase
+        .from('clients')
+        .select('email, credit_used, name')
+        .eq('id', clientId)
+        .single()
+
+      const clientEmail = clientFull?.email
+      if (clientEmail) {
+        // Get plan details for email content
+        const planId = (installment as any).plan_id
+        let purchaseDescription: string | undefined
+        let originalTotal: number | undefined
+        let totalPaid: number | undefined
+
+        if (planId) {
+          const { data: planData } = await supabase
+            .from('credit_plans')
+            .select('total_amount, legacy_purchase_description, legacy_original_total')
+            .eq('id', planId)
+            .single()
+          if (planData) {
+            originalTotal = Number(planData.legacy_original_total ?? planData.total_amount)
+            purchaseDescription = planData.legacy_purchase_description || undefined
+            totalPaid = originalTotal - Math.max(0, Number(clientFull?.credit_used ?? 0))
+          }
+        }
+
+        // Estimate next due date from next pending installment
+        let nextDueDate: string | undefined
+        if (planId) {
+          const { data: nextInst } = await supabase
+            .from('installments')
+            .select('due_date')
+            .eq('plan_id', planId)
+            .in('status', ['PENDING', 'PARTIAL'])
+            .order('due_date', { ascending: true })
+            .limit(1)
+            .single()
+          nextDueDate = nextInst?.due_date || estimateNextPaymentDate()
+        } else {
+          nextDueDate = estimateNextPaymentDate()
+        }
+
+        sendPaymentNotificationEmail({
+          clientName: clientFull?.name ?? 'Cliente',
+          clientEmail,
+          amountPaid: amount,
+          paymentMethod,
+          paymentDate,
+          purchaseDescription,
+          originalTotal,
+          totalPaid,
+          remainingBalance: Math.max(0, Number(clientFull?.credit_used ?? 0)),
+          nextDueDate,
+          notes: notes ? `Nota: ${notes}` : undefined,
+        }).catch(err => console.warn('[payments/register] Email notification failed:', err))
+      }
+    } catch (emailErr) {
+      console.warn('[payments/register] Could not send payment email:', emailErr)
     }
 
     return NextResponse.json({
