@@ -1,229 +1,355 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Users, UserPlus, Shield, Store, Pencil, UserX, UserCheck } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Users, UserPlus, Shield, Store, Pencil, UserX, UserCheck, Search, Key,
+  Filter, X, Loader2, CheckCircle2, AlertTriangle
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
+import { UserFormDialog, type UserRow } from '@/components/admin/user-form-dialog'
+import { ResetPasswordDialog } from '@/components/admin/reset-password-dialog'
+import { cn } from '@/lib/utils'
 
-interface UserRow {
-  id: string
-  name: string
-  email: string
-  roles: string[]
-  stores: string[]
-  active: boolean
-  created_at: string
+const ROLE_TONE: Record<string, string> = {
+  admin: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300',
+  vendedor: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300',
+  cobrador: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300',
 }
-
-const ROLES = ['admin', 'vendedor', 'cobrador']
-const STORES = ['MUJERES', 'HOMBRES']
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filterRole, setFilterRole] = useState<string>('')
+  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all')
+
+  const [formOpen, setFormOpen] = useState(false)
   const [editUser, setEditUser] = useState<UserRow | null>(null)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [form, setForm] = useState({
-    name: '', email: '', password: '',
-    roles: ['vendedor'], stores: ['MUJERES'],
-  })
+
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetUser, setResetUser] = useState<UserRow | null>(null)
 
   useEffect(() => { loadUsers() }, [])
 
   async function loadUsers() {
     setLoading(true)
-    const res = await fetch('/api/admin/users')
-    if (res.ok) setUsers(await res.json())
-    setLoading(false)
-  }
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    const res = await fetch('/api/admin/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error); return }
-    setSuccess('Usuario creado exitosamente')
-    setShowForm(false)
-    setForm({ name: '', email: '', password: '', roles: ['vendedor'], stores: ['MUJERES'] })
-    loadUsers()
-    setTimeout(() => setSuccess(''), 3000)
-  }
-
-  async function handleUpdate(id: string, updates: Partial<UserRow>) {
-    const res = await fetch(`/api/admin/users/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    })
-    if (res.ok) { loadUsers(); setEditUser(null) }
+    try {
+      const res = await fetch('/api/admin/users')
+      if (res.ok) setUsers(await res.json())
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleToggleActive(user: UserRow) {
-    await handleUpdate(user.id, { active: !user.active })
+    const action = user.active ? 'desactivar' : 'reactivar'
+    if (!confirm(`¿Seguro que deseas ${action} a "${user.name}"?`)) return
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !user.active }),
+      })
+      if (res.ok) {
+        toast.success(`Usuario ${user.active ? 'desactivado' : 'reactivado'}`)
+        loadUsers()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Error')
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Error de red')
+    }
   }
 
-  function toggleCheckbox(arr: string[], val: string) {
-    return arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]
-  }
+  // Filtered + searched users
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return users.filter(u => {
+      if (filterRole && !(u.roles || []).includes(filterRole)) return false
+      if (filterActive === 'active' && !u.active) return false
+      if (filterActive === 'inactive' && u.active) return false
+      if (q) {
+        const hay = `${u.name} ${u.email} ${(u.roles || []).join(' ')}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [users, search, filterRole, filterActive])
+
+  const stats = useMemo(() => ({
+    total: users.length,
+    active: users.filter(u => u.active).length,
+    admins: users.filter(u => (u.roles || []).includes('admin')).length,
+    vendedores: users.filter(u => (u.roles || []).includes('vendedor')).length,
+    cobradores: users.filter(u => (u.roles || []).includes('cobrador')).length,
+  }), [users])
+
+  const hasActiveFilters = !!(search || filterRole || filterActive !== 'all')
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Users className="w-6 h-6 text-emerald-600" />
-          <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-3">
+            <Users className="w-6 h-6 text-emerald-600" />
+            Gestión de Usuarios
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Administra accesos, roles y tiendas asignadas
+          </p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditUser(null) }}
-          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium"
+        <Button
+          onClick={() => { setEditUser(null); setFormOpen(true) }}
+          className="gap-2"
+          size="lg"
         >
-          <UserPlus className="w-4 h-4" /> Nuevo Usuario
-        </button>
+          <UserPlus className="w-4 h-4" />
+          Nuevo Usuario
+        </Button>
       </div>
 
-      {success && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm">{success}</div>}
-      {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Total</div>
+          <div className="text-2xl font-bold mt-1">{stats.total}</div>
+        </Card>
+        <Card className="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200">
+          <div className="text-xs text-emerald-700 dark:text-emerald-400">Activos</div>
+          <div className="text-2xl font-bold mt-1 text-emerald-700 dark:text-emerald-400">{stats.active}</div>
+        </Card>
+        <Card className="p-4 bg-rose-50/50 dark:bg-rose-950/30 border-rose-200">
+          <div className="text-xs text-rose-700 dark:text-rose-400">Admins</div>
+          <div className="text-2xl font-bold mt-1 text-rose-700 dark:text-rose-400">{stats.admins}</div>
+        </Card>
+        <Card className="p-4 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200">
+          <div className="text-xs text-emerald-700 dark:text-emerald-400">Vendedores</div>
+          <div className="text-2xl font-bold mt-1 text-emerald-700 dark:text-emerald-400">{stats.vendedores}</div>
+        </Card>
+        <Card className="p-4 bg-blue-50/50 dark:bg-blue-950/30 border-blue-200">
+          <div className="text-xs text-blue-700 dark:text-blue-400">Cobradores</div>
+          <div className="text-2xl font-bold mt-1 text-blue-700 dark:text-blue-400">{stats.cobradores}</div>
+        </Card>
+      </div>
 
-      {/* Formulario crear / editar */}
-      {(showForm || editUser) && (
-        <div className="mb-6 p-5 border border-gray-200 rounded-xl bg-gray-50">
-          <h2 className="font-semibold mb-4 text-gray-800">{editUser ? 'Editar Usuario' : 'Crear Usuario'}</h2>
-          <form onSubmit={editUser ? (e) => { e.preventDefault(); handleUpdate(editUser.id, { name: form.name, roles: form.roles, stores: form.stores }) } : handleCreate}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-              <input required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                defaultValue={editUser?.name} placeholder="Nombre completo" />
-            </div>
-
-            {!editUser && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input required type="email" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-                    placeholder="correo@ejemplo.com" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                  <input required type="password" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
-                    placeholder="Mínimo 8 caracteres" minLength={8} />
-                </div>
-              </>
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre, email o rol..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                <Shield className="w-3.5 h-3.5" /> Roles
-              </label>
-              <div className="flex gap-3">
-                {ROLES.map(r => (
-                  <label key={r} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input type="checkbox" checked={form.roles.includes(r)}
-                      onChange={() => setForm({ ...form, roles: toggleCheckbox(form.roles, r) })} />
-                    <span className="capitalize">{r}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                <Store className="w-3.5 h-3.5" /> Tiendas
-              </label>
-              <div className="flex gap-3">
-                {STORES.map(s => (
-                  <label key={s} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input type="checkbox" checked={form.stores.includes(s)}
-                      onChange={() => setForm({ ...form, stores: toggleCheckbox(form.stores, s) })} />
-                    <span className="capitalize">{s.toLowerCase()}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="md:col-span-2 flex gap-3">
-              <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">
-                {editUser ? 'Guardar cambios' : 'Crear usuario'}
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Rol:</span>
+            {['', 'admin', 'vendedor', 'cobrador'].map(r => (
+              <button
+                key={r || 'all'}
+                onClick={() => setFilterRole(r)}
+                className={cn(
+                  'px-2.5 py-1 text-xs font-medium rounded-md border transition-colors capitalize',
+                  filterRole === r
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'border-border hover:bg-muted'
+                )}
+              >
+                {r || 'Todos'}
               </button>
-              <button type="button" onClick={() => { setShowForm(false); setEditUser(null) }}
-                className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-100">
-                Cancelar
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Estado:</span>
+            {([['all', 'Todos'], ['active', 'Activos'], ['inactive', 'Inactivos']] as const).map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setFilterActive(v)}
+                className={cn(
+                  'px-2.5 py-1 text-xs font-medium rounded-md border transition-colors',
+                  filterActive === v
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'border-border hover:bg-muted'
+                )}
+              >
+                {l}
               </button>
-            </div>
-          </form>
+            ))}
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSearch(''); setFilterRole(''); setFilterActive('all') }}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <X className="w-3 h-3" />Limpiar filtros
+            </button>
+          )}
         </div>
-      )}
+      </Card>
 
-      {/* Tabla de usuarios */}
+      {/* Users table */}
       {loading ? (
-        <div className="text-center py-12 text-gray-400">Cargando usuarios...</div>
+        <Card className="p-12 text-center">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-3">Cargando usuarios...</p>
+        </Card>
+      ) : filteredUsers.length === 0 ? (
+        <Card className="p-12 text-center">
+          <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {hasActiveFilters ? 'No hay usuarios con esos filtros' : 'No hay usuarios registrados'}
+          </p>
+        </Card>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Usuario</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Roles</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Tiendas</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users.map(u => (
-                <tr key={u.id} className={`hover:bg-gray-50 ${!u.active ? 'opacity-50' : ''}`}>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{u.name}</div>
-                    <div className="text-gray-400 text-xs">{u.email}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(u.roles || []).map(r => (
-                        <span key={r} className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 capitalize">{r}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(u.stores || []).map(s => (
-                        <span key={s} className={`px-2 py-0.5 rounded-full text-xs font-medium border ${s === 'MUJERES' ? 'bg-pink-50 text-pink-700 border-pink-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
-                          {s === 'MUJERES' ? 'Mujeres' : 'Hombres'}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {u.active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => { setEditUser(u); setForm({ name: u.name, email: u.email, password: '', roles: u.roles || [], stores: u.stores || [] }); setShowForm(false) }}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleToggleActive(u)}
-                        className={`p-1.5 rounded-lg ${u.active ? 'hover:bg-red-50 text-red-400 hover:text-red-600' : 'hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600'}`}>
-                        {u.active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </td>
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground/80">Usuario</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground/80">Roles</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground/80">Tiendas</th>
+                  <th className="text-left px-4 py-3 font-semibold text-foreground/80">Estado</th>
+                  <th className="text-right px-4 py-3 font-semibold text-foreground/80">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredUsers.map(u => (
+                  <tr key={u.id} className={cn('hover:bg-muted/30 transition-colors', !u.active && 'opacity-60')}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          'w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0',
+                          (u.roles || []).includes('admin')
+                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                            : (u.roles || []).includes('cobrador')
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+                        )}>
+                          {u.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-medium text-foreground">{u.name}</div>
+                          <div className="text-xs text-muted-foreground">{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(u.roles || []).map(r => (
+                          <Badge key={r} variant="outline" className={cn('capitalize', ROLE_TONE[r] || '')}>
+                            {r}
+                          </Badge>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(u.stores || []).map(s => (
+                          <Badge
+                            key={s}
+                            variant="outline"
+                            className={s === 'MUJERES'
+                              ? 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300'}
+                          >
+                            {s === 'MUJERES' ? 'Mujeres' : 'Hombres'}
+                          </Badge>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        variant="outline"
+                        className={u.active
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'bg-muted text-muted-foreground'}
+                      >
+                        {u.active ? (
+                          <><CheckCircle2 className="w-3 h-3 mr-1" />Activo</>
+                        ) : (
+                          <><AlertTriangle className="w-3 h-3 mr-1" />Inactivo</>
+                        )}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => { setEditUser(u); setFormOpen(true) }}
+                          title="Editar"
+                          className="h-8 w-8"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => { setResetUser(u); setResetOpen(true) }}
+                          title="Restablecer contraseña"
+                          className="h-8 w-8 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                        >
+                          <Key className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleToggleActive(u)}
+                          title={u.active ? 'Desactivar' : 'Reactivar'}
+                          className={cn('h-8 w-8', u.active
+                            ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40'
+                            : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40')}
+                        >
+                          {u.active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
+
+      {/* Dialogs */}
+      <UserFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        editUser={editUser}
+        onSuccess={() => {
+          toast.success(editUser ? 'Usuario actualizado' : 'Usuario creado exitosamente')
+          loadUsers()
+        }}
+      />
+
+      <ResetPasswordDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        user={resetUser}
+        onSuccess={() => toast.success('Contraseña restablecida')}
+      />
     </div>
   )
 }

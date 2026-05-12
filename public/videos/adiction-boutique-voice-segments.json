@@ -1,0 +1,62 @@
+[
+  {
+    "id": "intro",
+    "text": "Este es Adiction Boutique Suite: un ERP pensado para manejar tienda, ventas, stock y cobranzas desde una sola plataforma."
+  },
+  {
+    "id": "dashboard",
+    "text": "En el dashboard, la gerencia ve ventas, clientes, alertas y rendimiento del negocio en tiempo real."
+  },
+  {
+    "id": "pos",
+    "text": "En el punto de venta, el equipo busca productos, arma el carrito y procesa pagos al contado o al credito sin salir del flujo."
+  },
+  {
+    "id": "sales",
+    "text": "El historial de ventas permite revisar transacciones, filtrar por fecha y descargar el ticket PDF cuando el cliente lo necesita."
+  },
+  {
+    "id": "cash",
+    "text": "Caja diaria ordena ingresos, egresos, apertura y cierre de turno para cuadrar el efectivo del dia."
+  },
+  {
+    "id": "returns",
+    "text": "En devoluciones, el proceso queda completo: se registra, se aprueba y al concluir repone stock, genera movimiento, ajusta caja si corresponde y deja auditoria."
+  },
+  {
+    "id": "stock",
+    "text": "En stock actual se valida la existencia real por producto y por tienda."
+  },
+  {
+    "id": "movements",
+    "text": "En movimientos queda el historial de entradas, salidas, ajustes y devoluciones con producto, fecha y motivo."
+  },
+  {
+    "id": "catalog",
+    "text": "La revista de productos muestra el catalogo visual por modelos, colores y variantes para vender mejor."
+  },
+  {
+    "id": "clients",
+    "text": "Clientes y cobranzas concentra cartera, deuda, pagos, acciones de seguimiento y riesgo del cliente."
+  },
+  {
+    "id": "credit",
+    "text": "Los planes de credito muestran cuotas, vencimientos y saldos para priorizar la cobranza."
+  },
+  {
+    "id": "map",
+    "text": "El mapa de deudores ayuda a ubicar clientes y planificar seguimiento en campo."
+  },
+  {
+    "id": "reports",
+    "text": "Reportes convierte los datos en decisiones: ventas, inventario, clientes, cobranzas, productos destacados y stock bajo."
+  },
+  {
+    "id": "admin",
+    "text": "Administracion controla usuarios, permisos, configuracion global, logo de tienda y logs del sistema."
+  },
+  {
+    "id": "ending",
+    "text": "Adiction Boutique Suite conecta la operacion diaria con informacion confiable para vender, cobrar, controlar y auditar."
+  }
+]

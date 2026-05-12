@@ -1,0 +1,23 @@
+Este es Adiction Boutique Suite, el sistema que centraliza la operación de la tienda en una sola plataforma.
+
+La primera vista es el dashboard. Aquí la gerencia ve ventas del día, rendimiento, clientes activos y alertas importantes sin revisar archivos separados.
+
+En el punto de venta, el equipo busca productos, arma el carrito y procesa ventas al contado o al crédito. El ticket queda listo y la caja se mantiene ordenada.
+
+El historial de ventas permite revisar transacciones, filtrar por fechas, validar montos y descargar comprobantes cuando el cliente los necesita.
+
+La caja diaria registra ingresos y egresos por turno, para cerrar el día con números claros.
+
+Cuando hay una devolución, el flujo no se queda a medias. Se registra, se aprueba y se completa. Al concluir, el sistema debe reponer stock, generar el movimiento, ajustar caja si corresponde y dejar evidencia en auditoría.
+
+En inventario se consulta el stock actual y el historial de movimientos. Así se sabe qué producto entró, salió, se ajustó o volvió por devolución.
+
+La revista de productos muestra el catálogo de forma visual, útil para vender mejor y ubicar modelos por tienda, línea, categoría o color.
+
+En clientes y cobranzas se gestiona la cartera: deudas, planes de crédito, vencimientos, pagos, acciones de cobranza y mapa de deudores.
+
+Los reportes convierten toda esa información en decisiones. Ventas, inventario, clientes, cobranzas, productos más vendidos y stock bajo pueden analizarse y exportarse.
+
+Y desde administración se controlan usuarios, roles, permisos, configuración global, logo de tienda y logs del sistema.
+
+Adiction Boutique Suite está pensado para operar con orden: vender, cobrar, controlar stock, auditar y crecer con información confiable.
