@@ -30,7 +30,7 @@ const PROTECTED_POST_ROUTES = [
 test.describe('Seguridad de API - Rutas protegidas', () => {
   for (const route of PROTECTED_GET_ROUTES) {
     test(`GET ${route} → 401 sin sesión`, async ({ request }) => {
-      const response = await request.get(`http://127.0.0.1:3000${route}`)
+      const response = await request.get(route)
       expect(response.status()).toBe(401)
       const body = await response.json()
       expect(body).toHaveProperty('error')
@@ -39,7 +39,7 @@ test.describe('Seguridad de API - Rutas protegidas', () => {
 
   for (const route of PROTECTED_POST_ROUTES) {
     test(`POST ${route} → 401 sin sesión`, async ({ request }) => {
-      const response = await request.post(`http://127.0.0.1:3000${route}`)
+      const response = await request.post(route)
       expect(response.status()).toBe(401)
     })
   }
