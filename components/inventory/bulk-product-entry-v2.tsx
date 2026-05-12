@@ -403,6 +403,16 @@ export function BulkProductEntryV2() {
     try {
       const params = new URLSearchParams({ category_id: categoryId })
       if (brandId) params.set('brand_id', brandId)
+
+      // Excluir códigos ya generados en otros modelos del mismo lote (race condition local).
+      // Ej: si Modelo 1 ya tiene ZAP-001 reservado, este modelo debe obtener ZAP-002.
+      const usedInBatch = models
+        .filter(m => m.id !== modelId && m.baseCode)
+        .map(m => m.baseCode.toUpperCase())
+      if (usedInBatch.length > 0) {
+        params.set('exclude', usedInBatch.join(','))
+      }
+
       const response = await fetch(`/api/catalogs/next-code?${params.toString()}`)
       const { data, error } = await response.json()
 
@@ -642,6 +652,25 @@ export function BulkProductEntryV2() {
         description: 'Debes tener al menos un modelo con todos los campos requeridos y tallas con cantidades',
       })
       return
+    }
+
+    // Validación 3.5: dos modelos no pueden compartir base_code con base_name distinto.
+    // (Si los nombres son iguales, asumimos que el usuario está completando el mismo
+    // modelo con otro color/talla, lo cual es válido.)
+    const codeToNames = new Map<string, Set<string>>()
+    for (const m of validModels) {
+      const key = m.baseCode.toUpperCase().trim()
+      const name = m.baseName.trim().toLowerCase()
+      if (!codeToNames.has(key)) codeToNames.set(key, new Set())
+      codeToNames.get(key)!.add(name)
+    }
+    for (const [code, names] of codeToNames) {
+      if (names.size > 1) {
+        toast.error('Mismo código en modelos diferentes', {
+          description: `El código "${code}" está asignado a ${names.size} modelos con nombre distinto. Asigna códigos únicos (botón ✨ para auto-generar).`,
+        })
+        return
+      }
     }
 
     // Validación 4: Códigos de barras duplicados entre variantes

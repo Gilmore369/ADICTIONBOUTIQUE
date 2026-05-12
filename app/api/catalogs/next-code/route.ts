@@ -62,6 +62,14 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const categoryId = searchParams.get('category_id')
     const brandId    = searchParams.get('brand_id')  // OPCIONAL
+    // exclude: códigos ya generados en el lote actual (frontend) que aún no están en BD.
+    // El API saltará esos códigos para que cada llamada dentro de un mismo lote
+    // devuelva un código realmente único.
+    // Formato: ?exclude=ZAP-001,ZAP-002
+    const excludeRaw = searchParams.get('exclude') || ''
+    const excludeSet = new Set(
+      excludeRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+    )
 
     if (!categoryId) {
       return NextResponse.json(
@@ -104,28 +112,57 @@ export async function GET(request: NextRequest) {
     const prefix = brandPrefix ? `${brandPrefix}-${categoryPrefix}` : categoryPrefix
 
     // 4. Generar el siguiente código de forma ATÓMICA usando función SQL.
-    // Esto evita race conditions cuando dos usuarios crean productos simultáneos.
-    const { data: nextCode, error: rpcError } = await supabase.rpc(
+    // El RPC consulta `MAX(number)+1` para los productos con ese prefix en BD.
+    // Como en un lote nuevo aún no hay productos creados, llamar al RPC dos
+    // veces seguidas devolvería el MISMO código. Por eso aceptamos `exclude=`
+    // con los códigos que el frontend ya tiene reservados en el lote.
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
       'generate_next_product_code',
       { p_category_id: categoryId, p_prefix: prefix }
     )
 
-    if (rpcError || !nextCode) {
+    if (rpcError || !rpcData) {
       return NextResponse.json(
         { error: rpcError?.message || 'No se pudo generar el código' },
         { status: 500 }
       )
     }
 
-    // Extraer número del código generado para mantener compatibilidad con frontend
-    const numberMatch = String(nextCode).match(/-(\d+)$/)
-    const nextNumber = numberMatch ? parseInt(numberMatch[1], 10) : 1
+    let candidate = String(rpcData).toUpperCase()
+    let m = candidate.match(/-(\d+)$/)
+    let candidateNumber = m ? parseInt(m[1], 10) : 1
+
+    // Si el código del RPC choca con uno del lote, incrementar manualmente
+    // hasta encontrar uno libre. También verificamos contra BD por si acaso.
+    if (excludeSet.has(candidate)) {
+      // Buscar el siguiente número libre que no esté ni en BD ni en exclude
+      const { data: existing } = await supabase
+        .from('products')
+        .select('base_code')
+        .ilike('base_code', `${prefix}-%`)
+        .limit(500)
+
+      const usedNumbers = new Set<number>()
+      for (const p of existing || []) {
+        const mm = String(p.base_code).toUpperCase().match(/-(\d+)$/)
+        if (mm) usedNumbers.add(parseInt(mm[1], 10))
+      }
+      for (const code of excludeSet) {
+        const mm = code.match(/-(\d+)$/)
+        if (mm) usedNumbers.add(parseInt(mm[1], 10))
+      }
+
+      let n = candidateNumber
+      while (usedNumbers.has(n)) n++
+      candidateNumber = n
+      candidate = `${prefix}-${String(n).padStart(3, '0')}`
+    }
 
     return NextResponse.json({
       data: {
         prefix,
-        number: nextNumber,
-        code: nextCode,
+        number: candidateNumber,
+        code: candidate,
         category: category.name
       }
     })
