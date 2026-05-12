@@ -28,6 +28,7 @@ import { AddCollectionActionForm } from './add-collection-action-form'
 import { ChevronDown, ChevronRight, CreditCard, AlertCircle, CheckCircle2, Clock, Phone, MessageSquare, Mail, FileText, MapPin, Video, Bike, Info, RefreshCw } from 'lucide-react'
 import { getActionTypeLabel, getResultLabel, getResultColor, COLLECTION_RESULTS } from '@/lib/constants/collection-actions'
 import { PERU_TZ } from '@/lib/utils/timezone'
+import { formatSafeDate } from '@/lib/utils/date'
 
 interface ClientProfileViewProps {
   profile: ClientProfile
@@ -35,10 +36,32 @@ interface ClientProfileViewProps {
 
 function cleanPaymentNotes(notes?: string | null) {
   if (!notes) return ''
-  return notes
+  return String(notes)
     .replace(/^\[LEGACY\]\s*/i, '')
     .replace(/^\[([A-Z_]+)\]\s*\|\s*/i, '$1 - ')
     .trim()
+}
+
+function toNumber(value: unknown): number {
+  const num = typeof value === 'number' ? value : Number(value ?? 0)
+  return Number.isFinite(num) ? num : 0
+}
+
+function formatMoney(value: unknown): string {
+  return toNumber(value).toFixed(2)
+}
+
+function formatProfileDate(value: unknown): string {
+  if (!value) return '-'
+  if (value instanceof Date) {
+    return value.toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: PERU_TZ,
+    })
+  }
+  return formatSafeDate(String(value), 'dd/MM/yyyy')
 }
 
 export function ClientProfileView({ profile }: ClientProfileViewProps) {
@@ -174,8 +197,8 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                   const paid = planInsts.filter(i => i.status === 'PAID').length
                   const total = planInsts.length || plan.installments_count || 0
                   // paid_amount doesn't exist in credit_plans; compute from installments
-                  const paidAmt = planInsts.reduce((s: number, i: any) => s + (i.paidAmount || 0), 0)
-                  const totalAmt = plan.total_amount || 0
+                  const paidAmt = planInsts.reduce((s: number, i: any) => s + toNumber(i.paidAmount), 0)
+                  const totalAmt = toNumber(plan.total_amount)
                   const pendingAmt = Math.max(0, totalAmt - paidAmt)
                   const progress = totalAmt > 0 ? Math.round((paidAmt / totalAmt) * 100) : 0
                   const isExpanded = expandedPlans.has(plan.id)
@@ -214,8 +237,8 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                             {getPlanStatusBadge(plan.status || 'ACTIVE')}
                             {hasOverdue && <Badge variant="destructive" className="text-xs">Mora</Badge>}
                             <div className="text-right">
-                              <p className="text-sm font-bold">S/ {totalAmt.toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground">Pend: S/ {pendingAmt.toFixed(2)}</p>
+                              <p className="text-sm font-bold">S/ {formatMoney(totalAmt)}</p>
+                              <p className="text-xs text-muted-foreground">Pend: S/ {formatMoney(pendingAmt)}</p>
                             </div>
                           </div>
                         </div>
@@ -224,7 +247,7 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                         {total > 0 && (
                           <div className="mt-3">
                             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                              <span>Pagado: S/ {paidAmt.toFixed(2)}</span>
+                              <span>Pagado: S/ {formatMoney(paidAmt)}</span>
                               <span>{progress}%</span>
                             </div>
                             <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -258,22 +281,22 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                 </thead>
                                 <tbody>
                                   {planInsts
-                                    .sort((a: any, b: any) => a.installmentNumber - b.installmentNumber)
+                                    .sort((a: any, b: any) => toNumber(a.installmentNumber) - toNumber(b.installmentNumber))
                                     .map((inst: any) => {
-                                      const pending = Math.max(0, inst.amount - inst.paidAmount)
+                                      const amount = toNumber(inst.amount)
+                                      const paidAmount = toNumber(inst.paidAmount)
+                                      const pending = Math.max(0, amount - paidAmount)
                                       const isOverdue = inst.daysOverdue > 0 && inst.status !== 'PAID'
                                       return (
-                                        <tr key={inst.id} className={`border-b last:border-0 ${isOverdue ? 'bg-red-50' : inst.status === 'PAID' ? 'bg-green-50/50' : ''}`}>
+                                        <tr key={inst.id} className={`border-b last:border-0 ${isOverdue ? 'bg-destructive/10' : inst.status === 'PAID' ? 'bg-emerald-500/10' : ''}`}>
                                           <td className="px-4 py-2 font-medium"># {inst.installmentNumber}</td>
                                           <td className="px-4 py-2 text-muted-foreground">
-                                            {inst.dueDate instanceof Date
-                                              ? inst.dueDate.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:PERU_TZ})
-                                              : new Date(inst.dueDate).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:PERU_TZ})}
+                                            {formatProfileDate(inst.dueDate)}
                                           </td>
-                                          <td className="px-4 py-2 text-right">S/ {inst.amount.toFixed(2)}</td>
-                                          <td className="px-4 py-2 text-right text-green-700">S/ {inst.paidAmount.toFixed(2)}</td>
-                                          <td className={`px-4 py-2 text-right font-semibold ${isOverdue ? 'text-red-600' : ''}`}>
-                                            S/ {pending.toFixed(2)}
+                                          <td className="px-4 py-2 text-right">S/ {formatMoney(amount)}</td>
+                                          <td className="px-4 py-2 text-right text-emerald-600 dark:text-emerald-400">S/ {formatMoney(paidAmount)}</td>
+                                          <td className={`px-4 py-2 text-right font-semibold ${isOverdue ? 'text-destructive' : ''}`}>
+                                            S/ {formatMoney(pending)}
                                           </td>
                                           <td className="px-4 py-2 text-center">
                                             {getInstStatusBadge(inst.status, inst.daysOverdue)}
@@ -318,10 +341,10 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                     {planPayments.map((payment: any) => (
                                       <tr key={payment.id} className="border-b last:border-0">
                                         <td className="px-3 py-2 font-medium">
-                                          {formatSafeDate(payment.paymentDate, 'dd/MM/yyyy')}
+                                          {formatProfileDate(payment.paymentDate)}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-semibold text-green-700">
-                                          S/ {Number(payment.amount || 0).toFixed(2)}
+                                        <td className="px-3 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                                          S/ {formatMoney(payment.amount)}
                                         </td>
                                         <td className="px-3 py-2 text-muted-foreground">
                                           {cleanPaymentNotes(payment.notes) || 'Pago registrado'}
