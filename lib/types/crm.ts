@@ -138,6 +138,21 @@ export interface InstallmentWithPlan {
 }
 
 /**
+ * Payment record shown in the client credit history.
+ */
+export interface ClientPayment {
+  id: string
+  amount: number
+  paymentDate: string
+  createdAt: string
+  notes: string | null
+  planId: string | null
+  installmentId: string | null
+  importedFromLegacy: boolean
+  userName: string | null
+}
+
+/**
  * Client action log entry
  * Records interactions and actions taken with a client
  */
@@ -178,6 +193,7 @@ export interface ClientProfile {
   actionLogs: ClientActionLog[]
   collectionActions: CollectionAction[]
   installments: InstallmentWithPlan[]
+  paymentHistory: ClientPayment[]
   rating: ClientRating | null
 }
 

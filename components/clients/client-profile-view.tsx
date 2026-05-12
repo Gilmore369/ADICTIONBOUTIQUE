@@ -33,6 +33,14 @@ interface ClientProfileViewProps {
   profile: ClientProfile
 }
 
+function cleanPaymentNotes(notes?: string | null) {
+  if (!notes) return ''
+  return notes
+    .replace(/^\[LEGACY\]\s*/i, '')
+    .replace(/^\[([A-Z_]+)\]\s*\|\s*/i, '$1 - ')
+    .trim()
+}
+
 export function ClientProfileView({ profile }: ClientProfileViewProps) {
   const [activeTab, setActiveTab] = useState('overview')
   const [visits, setVisits] = useState<any[]>([])
@@ -45,6 +53,12 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
     const planId = inst.planId || inst.plan_id
     if (!acc[planId]) acc[planId] = []
     acc[planId].push(inst)
+    return acc
+  }, {})
+  const paymentsByPlan = (profile.paymentHistory || []).reduce((acc: Record<string, any[]>, payment: any) => {
+    const planId = payment.planId || payment.plan_id || 'sin-plan'
+    if (!acc[planId]) acc[planId] = []
+    acc[planId].push(payment)
     return acc
   }, {})
 
@@ -156,6 +170,7 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
               ) : (
                 profile.creditHistory.map((plan: any) => {
                   const planInsts: any[] = installmentsByPlan[plan.id] || []
+                  const planPayments: any[] = paymentsByPlan[plan.id] || []
                   const paid = planInsts.filter(i => i.status === 'PAID').length
                   const total = planInsts.length || plan.installments_count || 0
                   // paid_amount doesn't exist in credit_plans; compute from installments
@@ -188,6 +203,11 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                 {new Date(plan.created_at).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric',timeZone:PERU_TZ})}
                                 {total > 0 && ` · ${paid}/${total} cuotas pagadas`}
                               </p>
+                              {plan.legacy_purchase_description && (
+                                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                                  Compra: {plan.legacy_purchase_description}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-3 flex-shrink-0">
@@ -270,6 +290,60 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                               </table>
                             </div>
                           )}
+                          <div className="border-t bg-card px-4 py-3">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                Historial de pagos del plan
+                              </p>
+                              <Badge variant="outline" className="text-[10px]">
+                                {planPayments.length} pago{planPayments.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            {planPayments.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">
+                                Sin pagos registrados para este plan.
+                              </p>
+                            ) : (
+                              <div className="overflow-x-auto rounded-md border">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b bg-muted/40">
+                                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Fecha de pago</th>
+                                      <th className="text-right px-3 py-2 font-medium text-muted-foreground">Monto</th>
+                                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Detalle</th>
+                                      <th className="text-center px-3 py-2 font-medium text-muted-foreground">Origen</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {planPayments.map((payment: any) => (
+                                      <tr key={payment.id} className="border-b last:border-0">
+                                        <td className="px-3 py-2 font-medium">
+                                          {formatSafeDate(payment.paymentDate, 'dd/MM/yyyy')}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-semibold text-green-700">
+                                          S/ {Number(payment.amount || 0).toFixed(2)}
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground">
+                                          {cleanPaymentNotes(payment.notes) || 'Pago registrado'}
+                                        </td>
+                                        <td className="px-3 py-2 text-center">
+                                          {payment.importedFromLegacy ? (
+                                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                                              Legacy
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className="text-[10px]">
+                                              Sistema
+                                            </Badge>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

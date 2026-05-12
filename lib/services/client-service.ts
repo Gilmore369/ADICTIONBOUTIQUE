@@ -13,6 +13,7 @@ import {
   ClientProfile,
   CreditSummary,
   Purchase,
+  ClientPayment,
   InstallmentWithPlan,
   ClientActionLog,
   CollectionAction,
@@ -64,7 +65,7 @@ export async function fetchClientProfile(
   // Do NOT filter by store here; filter client-side so legacy plans always appear.
   const creditPlansQuery = service
     .from('credit_plans')
-    .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, sales(sale_number, store_id)')
+    .select('id, sale_id, total_amount, installments_count, installment_amount, status, created_at, imported_from_legacy, legacy_purchase_description, legacy_purchase_date, legacy_source, sales(sale_number, store_id)')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
 
@@ -149,7 +150,15 @@ export async function fetchClientProfile(
       .in('plan_id', planIds) as any
   }
 
+  const paymentsResult = await service
+    .from('payments')
+    .select('id, amount, payment_date, created_at, notes, plan_id, installment_id, imported_from_legacy, users:user_id(name)')
+    .eq('client_id', clientId)
+    .order('payment_date', { ascending: false })
+    .order('created_at', { ascending: false }) as any
+
   const installments = (installmentsResult.data || []) as any[]
+  const payments = ((paymentsResult as any).data || []) as any[]
   const actionLogs = (actionLogsResult.data || []) as any[]
   const collectionActions = (collectionActionsResult.data || []) as any[]
   const rating = ratingResult.data as any
@@ -263,6 +272,20 @@ export async function fetchClientProfile(
     user_name: (action.users as any)?.name || null,
     created_at: action.created_at,
   }))
+
+  const transformedPayments: ClientPayment[] = payments
+    .filter((payment: any) => !storeFilter || !payment.plan_id || planIds.includes(payment.plan_id))
+    .map((payment: any) => ({
+      id: payment.id,
+      amount: Number(payment.amount || 0),
+      paymentDate: payment.payment_date,
+      createdAt: payment.created_at,
+      notes: payment.notes || null,
+      planId: payment.plan_id || null,
+      installmentId: payment.installment_id || null,
+      importedFromLegacy: !!payment.imported_from_legacy,
+      userName: (payment.users as any)?.name || null,
+    }))
   
   // Transform rating if exists
   const transformedRating: ClientRating | null = rating
@@ -287,6 +310,7 @@ export async function fetchClientProfile(
     actionLogs: transformedActionLogs,
     collectionActions: transformedCollectionActions,
     installments: installmentsWithPlan,
+    paymentHistory: transformedPayments,
     rating: transformedRating,
   }
 }
