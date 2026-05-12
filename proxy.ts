@@ -48,9 +48,15 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // ── Public routes — always allow ────────────────────────────
+  // /tickets/* y /api/tickets/* son intencionalmente públicos:
+  //   se acceden vía QR impreso en los recibos de venta.
+  //   El API ya NO expone email del cliente (fix 2026-05-12) y el rate
+  //   limit de 60 req/min mitiga el abuso de enumeración.
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/tickets/') ||
+    pathname.startsWith('/tickets/') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico'
   ) {

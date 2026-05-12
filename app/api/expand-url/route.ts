@@ -2,9 +2,13 @@
  * API Route to expand shortened URLs
  * Used to expand Google Maps shortened links (maps.app.goo.gl) to get coordinates
  *
- * SEGURIDAD: este endpoint es público (lo usa el form de "crear cliente" antes
- * de tener sesión confirmada en algunos flows). Para evitar abuso como proxy
- * SSRF, limitamos a 10 requests por minuto por IP.
+ * SEGURIDAD:
+ * - El proxy global aplica rate limit de 60 req/min a TODAS las /api/*
+ *   y requiere sesión (esta ruta está bajo /api/* pero el proxy puede
+ *   eximir si se llama desde flow de crear cliente).
+ * - Como defensa en profundidad y porque esta ruta hace fetch externo
+ *   (riesgo SSRF mitigado por whitelist de dominio), aplicamos un rate
+ *   limit MÁS ESTRICTO de 10 req/min por IP específico para esta ruta.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
