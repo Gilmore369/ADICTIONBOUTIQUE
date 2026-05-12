@@ -28,6 +28,13 @@ export async function GET(
     // y no podría leer las tablas sales/sale_items/products/clients.
     // El proxy global no protege esta ruta (excluida en proxy.ts).
     const supabase = createServiceClient()
+    if (!supabase) {
+      console.error('[tickets] SUPABASE_SERVICE_ROLE_KEY no configurada')
+      return NextResponse.json(
+        { error: 'Service unavailable: server misconfigured' },
+        { status: 503 }
+      )
+    }
 
     // Obtener información de la venta
     // SEGURIDAD: este endpoint es PÚBLICO (lo consume el QR del ticket impreso).
@@ -53,8 +60,9 @@ export async function GET(
       .single()
 
     if (saleError || !sale) {
+      console.error(`[tickets] No se encontró sale_number=${saleNumber}:`, saleError?.message)
       return NextResponse.json(
-        { error: 'Ticket not found' },
+        { error: 'Ticket not found', details: saleError?.message },
         { status: 404 }
       )
     }
