@@ -48,6 +48,38 @@ async function requireAdmin() {
   return { userId: user.id }
 }
 
+function prepareLegacyRow(raw: Record<string, any>): {
+  row: LegacyDebtRow
+  historicalPayments: HistoricalPayment[]
+} {
+  const normalized = normalizeRowKeys(raw)
+  const parsed = LegacyDebtRowSchema.parse(normalized)
+  const historicalPayments = parsed.historical_payments
+    ? parseHistoricalPayments(parsed.historical_payments)
+    : []
+
+  const historicalTotal = Math.round(
+    historicalPayments.reduce((sum, payment) => sum + payment.amount, 0) * 100,
+  ) / 100
+  const declaredPaid = parsed.paid_so_far ?? 0
+  const effectivePaid = historicalTotal > 0 && declaredPaid <= 0
+    ? historicalTotal
+    : declaredPaid
+
+  if (historicalTotal > 0 && declaredPaid > 0 && Math.abs(historicalTotal - declaredPaid) > 0.01) {
+    throw new Error(`Suma de pagos historicos (${historicalTotal.toFixed(2)}) no coincide con paid_so_far (${declaredPaid.toFixed(2)})`)
+  }
+
+  if (effectivePaid > parsed.original_total + 0.01) {
+    throw new Error(`El monto pagado (${effectivePaid.toFixed(2)}) no puede ser mayor al total original (${parsed.original_total.toFixed(2)})`)
+  }
+
+  return {
+    row: { ...parsed, paid_so_far: effectivePaid },
+    historicalPayments,
+  }
+}
+
 async function geocodeLegacyAddress(address: string | null | undefined): Promise<{ lat: number; lng: number } | null> {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
   const cleanAddress = address?.trim()
@@ -89,8 +121,7 @@ export async function validateLegacyDebtRows(
   for (let i = 0; i < rawRows.length; i++) {
     const raw = rawRows[i]
     try {
-      const normalized = normalizeRowKeys(raw)
-      const parsed = LegacyDebtRowSchema.parse(normalized)
+      const { row: parsed } = prepareLegacyRow(raw)
       // Validar pagos históricos también
       let historicalPayments: HistoricalPayment[] = []
       if (parsed.historical_payments) {
@@ -200,11 +231,7 @@ export async function importLegacyDebts(
   for (let i = 0; i < rawRows.length; i++) {
     const raw = rawRows[i]
     try {
-      const normalized = normalizeRowKeys(raw)
-      const row = LegacyDebtRowSchema.parse(normalized)
-      const historicalPayments = row.historical_payments
-        ? parseHistoricalPayments(row.historical_payments)
-        : []
+      const { row, historicalPayments } = prepareLegacyRow(raw)
 
       const result = await processRow(service, row, historicalPayments, batchId, userId, i, options.sourceLabel)
       results.push(result)

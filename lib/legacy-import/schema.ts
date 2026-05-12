@@ -50,6 +50,36 @@ const positiveDecimal = z.preprocess((v) => {
   return undefined
 }, z.number().positive('Debe ser mayor a 0'))
 
+function parseMoneyInput(value: string): number {
+  const raw = value.replace(/[^\d.,-]/g, '').trim()
+  const lastComma = raw.lastIndexOf(',')
+  const lastDot = raw.lastIndexOf('.')
+
+  let normalized = raw
+  if (lastComma >= 0 && lastDot >= 0) {
+    normalized = lastComma > lastDot
+      ? raw.replace(/\./g, '').replace(',', '.')
+      : raw.replace(/,/g, '')
+  } else if (lastComma >= 0) {
+    normalized = raw.replace(',', '.')
+  }
+
+  return parseFloat(normalized)
+}
+
+function normalizeHistoricalPaymentDate(value: string): string {
+  const date = value.trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+
+  const match = date.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/)
+  if (match) {
+    const [, day, month, year] = match
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  }
+
+  return date
+}
+
 // ── Pago histórico (sub-record) ────────────────────────────────────────────
 export const HistoricalPaymentSchema = z.object({
   amount: positiveDecimal,
@@ -129,20 +159,22 @@ export function parseHistoricalPayments(input: unknown): HistoricalPayment[] {
 
   // Formato: "100:2024-05-10;200:2024-06-15"  o
   //         "100:2024-05-10:EFECTIVO;200:2024-06-15:YAPE"
-  const parts = input.split(';').map(s => s.trim()).filter(Boolean)
+  const parts = input.split(/[;\n]+/).map(s => s.trim()).filter(Boolean)
   return parts.map(part => {
-    const tokens = part.split(':').map(s => s.trim())
+    const separator = part.includes('|') ? '|' : ':'
+    const tokens = part.split(separator).map(s => s.trim())
     const [amountStr, dateStr, method, ...notesArr] = tokens
-    const amount = parseFloat(amountStr.replace(',', '.'))
+    const amount = parseMoneyInput(amountStr)
     if (isNaN(amount) || amount <= 0) {
       throw new Error(`Pago inválido: "${part}" — formato esperado "monto:YYYY-MM-DD[:metodo[:nota]]"`)
     }
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      throw new Error(`Fecha de pago inválida en "${part}" — usar YYYY-MM-DD`)
+    const paymentDate = normalizeHistoricalPaymentDate(dateStr || '')
+    if (!paymentDate || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
+      throw new Error(`Fecha de pago inválida en "${part}" — usar YYYY-MM-DD o DD/MM/YYYY`)
     }
     return HistoricalPaymentSchema.parse({
       amount,
-      payment_date: dateStr,
+      payment_date: paymentDate,
       method: method || undefined,
       notes: notesArr.length > 0 ? notesArr.join(':') : undefined,
     })

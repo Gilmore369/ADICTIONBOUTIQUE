@@ -25,9 +25,9 @@ export function generateLegacyImportTemplate(): Blob {
     ['  5. Si un cliente ya existe en el sistema (mismo DNI), se le agregará la deuda.'],
     ['  6. Si NO existe, se creará automáticamente.'],
     ['  7. Para registrar pagos individuales, usa la columna "historial_pagos":'],
-    ['     formato: monto:fecha;monto:fecha     ej: 100:2024-05-10;200:2024-06-15'],
-    ['     formato extendido: monto:fecha:metodo  ej: 100:2024-05-10:EFECTIVO'],
-    ['  8. Si solo conoces el total pagado (sin detalle), usa solo "monto_pagado".'],
+    ['     formato simple: monto:fecha;monto:fecha     ej: 100:2024-05-10;200:2024-06-15'],
+    ['     formato detallado: monto | fecha | metodo | nota     ej: 100 | 10/05/2024 | EFECTIVO | Pago inicial'],
+    ['  8. Si llenas historial_pagos, monto_pagado puede quedar vacio: el sistema calcula la suma.'],
     ['  9. Sube el archivo en la sección "Importar Deudas" del sistema.'],
     [],
     ['Validaciones automáticas:'],
@@ -76,7 +76,7 @@ export function generateLegacyImportTemplate(): Blob {
       450.00,
       150.00,
       '2026-06-30',
-      '50:2024-09-15:EFECTIVO;100:2024-12-10:YAPE',
+      '50 | 15/09/2024 | EFECTIVO | Pago inicial;100 | 10/12/2024 | YAPE | Segundo abono',
       'Cliente del sistema anterior, paga a plazos',
     ],
     [
@@ -187,7 +187,7 @@ export function generateLegacyImportTemplate(): Blob {
     ['monto_total', 'Sí', 'Número', 'Monto total de la compra (deuda original).', '450.00'],
     ['monto_pagado', 'No', 'Número', 'Total ya abonado a la fecha. Default: 0.', '150.00'],
     ['fecha_vencimiento', 'No', 'Fecha', 'Fecha pactada para terminar de pagar.', '2026-06-30'],
-    ['historial_pagos', 'No', 'Texto', 'Lista de pagos individuales separados por punto y coma. Formato: monto:fecha[:método[:nota]]', '50:2024-09-15:EFECTIVO;100:2024-12-10:YAPE'],
+    ['historial_pagos', 'No', 'Texto', 'Lista de pagos individuales. Formatos: monto:fecha:metodo:nota o monto | fecha | metodo | nota. Acepta YYYY-MM-DD o DD/MM/YYYY.', '50 | 15/09/2024 | EFECTIVO | Pago inicial;100 | 10/12/2024 | YAPE | Segundo abono'],
     ['notas', 'No', 'Texto', 'Comentarios adicionales sobre el cliente o la deuda.', 'Cliente del sistema anterior'],
   ])
   dict['!cols'] = [

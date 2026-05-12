@@ -90,7 +90,46 @@ const emptyRow = (): EditableRow => ({
 })
 
 // Convierte EditableRow → objeto plano para enviar al backend
+function parseDraftMoney(value: string): number {
+  const raw = value.replace(/[^\d.,-]/g, '').trim()
+  const lastComma = raw.lastIndexOf(',')
+  const lastDot = raw.lastIndexOf('.')
+
+  let normalized = raw
+  if (lastComma >= 0 && lastDot >= 0) {
+    normalized = lastComma > lastDot
+      ? raw.replace(/\./g, '').replace(',', '.')
+      : raw.replace(/,/g, '')
+  } else if (lastComma >= 0) {
+    normalized = raw.replace(',', '.')
+  }
+
+  const amount = parseFloat(normalized)
+  return Number.isFinite(amount) ? amount : 0
+}
+
+function getHistoricalPaymentsDraftSummary(value: string): { count: number; total: number } {
+  const entries = value
+    .split(/[;\n]+/)
+    .map(part => part.trim())
+    .filter(Boolean)
+
+  const total = entries.reduce((sum, entry) => {
+    const separator = entry.includes('|') ? '|' : ':'
+    const [amount] = entry.split(separator)
+    return sum + parseDraftMoney(amount || '')
+  }, 0)
+
+  return {
+    count: entries.length,
+    total: Math.round(total * 100) / 100,
+  }
+}
+
 function rowToPayload(r: EditableRow) {
+  const historySummary = getHistoricalPaymentsDraftSummary(r.historical_payments)
+  const paidSoFar = r.paid_so_far || (historySummary.total > 0 ? String(historySummary.total) : 0)
+
   return {
     dni: r.dni,
     name: r.name,
@@ -102,7 +141,7 @@ function rowToPayload(r: EditableRow) {
     purchase_description: r.purchase_description,
     purchase_date: r.purchase_date,
     original_total: r.original_total,
-    paid_so_far: r.paid_so_far || 0,
+    paid_so_far: paidSoFar,
     due_date: r.due_date || undefined,
     historical_payments: r.historical_payments || undefined,
     notes: r.notes || undefined,
@@ -209,11 +248,11 @@ function ManualMode() {
     }
   }
 
-  const remaining = (() => {
-    const t = parseFloat(row.original_total) || 0
-    const p = parseFloat(row.paid_so_far) || 0
-    return Math.max(0, t - p)
-  })()
+  const historySummary = getHistoricalPaymentsDraftSummary(row.historical_payments)
+  const effectivePaid = row.paid_so_far
+    ? parseDraftMoney(row.paid_so_far)
+    : historySummary.total
+  const remaining = Math.max(0, (parseFloat(row.original_total) || 0) - effectivePaid)
 
   return (
     <Card className="p-5">
@@ -258,16 +297,23 @@ function ManualMode() {
               </div>
             </div>
             <div>
-              <Label className="text-xs">Historial de pagos (opcional)</Label>
-              <Input
+              <Label className="text-xs">Historial de pagos detallado (opcional)</Label>
+              <Textarea
                 value={row.historical_payments}
                 onChange={e => update('historical_payments', e.target.value)}
-                placeholder="50:2024-09-15:EFECTIVO;100:2024-12-10:YAPE"
-                className="font-mono text-xs"
+                placeholder={'300 | 30/12/2024 | EFECTIVO | Pago inicial\n270 | 30/11/2025 | YAPE | Abono con captura'}
+                className="font-mono text-xs min-h-20"
+                rows={3}
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Formato: <code>monto:fecha[:método[:nota]]</code>; separador: <code>;</code>
+                Un pago por linea: <code>monto | fecha | metodo | nota</code>. Fecha: YYYY-MM-DD o DD/MM/YYYY.
               </p>
+              {historySummary.count > 0 && (
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                  {historySummary.count} pago(s) detallado(s) por S/ {historySummary.total.toFixed(2)}
+                  {!row.paid_so_far ? ' se usaran como monto ya pagado.' : '.'}
+                </p>
+              )}
             </div>
             <div>
               <Label className="text-xs">Notas</Label>
@@ -430,6 +476,7 @@ function BatchMode() {
       <div className="space-y-3">
         {rows.map((r, idx) => {
           const result = results?.find(x => x.row_index === idx)
+          const historySummary = getHistoricalPaymentsDraftSummary(r.historical_payments)
           return (
             <div
               key={r.id}
@@ -474,12 +521,47 @@ function BatchMode() {
 
               <CompactField placeholder="¿Qué compró?* (descripción)" value={r.purchase_description} onChange={v => updateRow(r.id, 'purchase_description', v)} />
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <CompactField placeholder="Fecha compra*" type="date" value={r.purchase_date} onChange={v => updateRow(r.id, 'purchase_date', v)} />
                 <CompactField placeholder="Total S/*" type="number" value={r.original_total} onChange={v => updateRow(r.id, 'original_total', v)} />
-                <CompactField placeholder="Pagado S/" type="number" value={r.paid_so_far} onChange={v => updateRow(r.id, 'paid_so_far', v)} />
+                <CompactField placeholder="Pagado S/ (opcional)" type="number" value={r.paid_so_far} onChange={v => updateRow(r.id, 'paid_so_far', v)} />
                 <CompactField placeholder="Vencimiento" type="date" value={r.due_date} onChange={v => updateRow(r.id, 'due_date', v)} />
-                <CompactField placeholder="Notas" value={r.notes} onChange={v => updateRow(r.id, 'notes', v)} />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Historial de pagos detallado</Label>
+                  <Textarea
+                    value={r.historical_payments}
+                    onChange={e => updateRow(r.id, 'historical_payments', e.target.value)}
+                    placeholder={'300 | 30/12/2024 | EFECTIVO | Pago inicial\n270 | 30/11/2025 | YAPE | Abono con captura'}
+                    rows={2}
+                    className="mt-1 min-h-16 font-mono text-xs"
+                  />
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span>Un pago por linea: monto | fecha | metodo | nota.</span>
+                    {historySummary.count > 0 && (
+                      <span className="rounded-md bg-muted px-2 py-0.5 font-medium text-foreground">
+                        {historySummary.count} pago(s) · S/ {historySummary.total.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  {!r.paid_so_far && historySummary.total > 0 && (
+                    <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                      Se usara como pagado si dejas "Pagado S/" vacio.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Notas de la deuda / seguimiento</Label>
+                  <Textarea
+                    value={r.notes}
+                    onChange={e => updateRow(r.id, 'notes', e.target.value)}
+                    placeholder="Ej: buscarlo en su casa, prometio pagar el viernes, referencia del sistema anterior..."
+                    rows={2}
+                    className="mt-1 min-h-16 text-xs"
+                  />
+                </div>
               </div>
 
               {result?.status === 'error' && (
