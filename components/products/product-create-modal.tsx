@@ -788,15 +788,35 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                   />
                 </Field>
                 <Field label="Almacén">
-                  <select
-                    value={warehouseId}
-                    onChange={(e) => setWarehouseId(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-input bg-card px-3 text-sm font-medium text-foreground/85 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    {WAREHOUSES.map((w) => (
-                      <option key={w.id} value={w.id}>{w.label}</option>
-                    ))}
-                  </select>
+                  {(() => {
+                    // Lock warehouse if the selected line is store-specific (Mujeres/Hombres/Niños)
+                    const lineName = lines.find(l => l.id === lineId)?.name || ''
+                    const lockedWh = warehouseFromLineName(lineName)
+                    const isLocked = !!lockedWh
+                    return (
+                      <>
+                        <select
+                          value={warehouseId}
+                          onChange={(e) => setWarehouseId(e.target.value)}
+                          disabled={isLocked}
+                          className={cn(
+                            'flex h-9 w-full rounded-lg border border-input px-3 text-sm font-medium text-foreground/85 focus:outline-none focus:ring-2 focus:ring-blue-400',
+                            isLocked ? 'bg-muted/40 cursor-not-allowed' : 'bg-card',
+                          )}
+                          title={isLocked ? `Bloqueado por línea "${lineName}"` : ''}
+                        >
+                          {WAREHOUSES.map((w) => (
+                            <option key={w.id} value={w.id}>{w.label}</option>
+                          ))}
+                        </select>
+                        {isLocked && (
+                          <p className="mt-1 text-[11px] text-blue-600 dark:text-blue-400">
+                            🔒 Bloqueado por línea <strong>{lineName}</strong>
+                          </p>
+                        )}
+                      </>
+                    )
+                  })()}
                 </Field>
               </div>
 
