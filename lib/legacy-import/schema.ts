@@ -258,21 +258,65 @@ export const EXCEL_COLUMN_ALIASES: Record<string, keyof LegacyDebtRow> = {
   'pagos históricos': 'historical_payments',
   'historial pagos': 'historical_payments',
   'historial de pagos': 'historical_payments',
+  'historial pagos detallado': 'historical_payments',
+}
+
+/**
+ * Normaliza una clave de columna Excel/CSV:
+ * - lowercase
+ * - sin espacios alrededor
+ * - sin asteriscos (`*` marca campos obligatorios visualmente)
+ * - sin signos de interrogación, paréntesis, dos puntos
+ * - underscores → espacios (para que `descripcion_compra` coincida con `descripcion compra`)
+ * - acentos preservados (los aliases incluyen ambas versiones)
+ */
+function normalizeColumnKey(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/[\*\?:()\[\]]/g, '')   // sin marcadores ni signos
+    .replace(/_/g, ' ')              // underscores → espacios
+    .replace(/\s+/g, ' ')            // múltiples espacios → uno
+    .trim()
+}
+
+/** Versión sin acentos para fallback ("descripción" → "descripcion") */
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
 // Mapea una fila cruda (objeto con keys en español) a LegacyDebtRow
 export function normalizeRowKeys(rawRow: Record<string, any>): Record<string, any> {
   const result: Record<string, any> = {}
+
+  // Construir mapa de aliases sin acentos también (para tolerancia)
+  const aliasNoAccents: Record<string, keyof LegacyDebtRow> = {}
+  for (const [k, v] of Object.entries(EXCEL_COLUMN_ALIASES)) {
+    aliasNoAccents[stripAccents(k)] = v
+  }
+
   for (const [key, value] of Object.entries(rawRow)) {
-    const normalizedKey = key.toLowerCase().trim()
-    const mapped = EXCEL_COLUMN_ALIASES[normalizedKey]
+    const norm = normalizeColumnKey(key)
+
+    // 1) match directo con alias
+    let mapped = EXCEL_COLUMN_ALIASES[norm]
+
+    // 2) match sin acentos
+    if (!mapped) mapped = aliasNoAccents[stripAccents(norm)]
+
     if (mapped) {
       result[mapped] = value
-    } else {
-      // Intentar match directo si la columna ya viene con el nombre técnico
-      const tech = key.toLowerCase().trim().replace(/\s+/g, '_')
-      result[tech] = value
+      continue
     }
+
+    // 3) match contra el nombre técnico (snake_case interno)
+    const tech = norm.replace(/\s+/g, '_')
+    if (Object.values(EXCEL_COLUMN_ALIASES).includes(tech as any)) {
+      result[tech] = value
+      continue
+    }
+
+    // 4) descarte: no es una columna reconocida (silencioso)
   }
   return result
 }

@@ -511,12 +511,19 @@ function BatchMode() {
                 </div>
               </div>
 
+              {/* Cliente — datos básicos */}
               <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                 <CompactField placeholder="DNI*" value={r.dni} onChange={v => updateRow(r.id, 'dni', v)} />
-                <CompactField placeholder="Nombre*" value={r.name} onChange={v => updateRow(r.id, 'name', v)} className="md:col-span-2" />
+                <CompactField placeholder="Nombre*" value={r.name} onChange={v => updateRow(r.id, 'name', v)} className="md:col-span-3" />
                 <CompactField placeholder="Teléfono" value={r.phone} onChange={v => updateRow(r.id, 'phone', v)} />
-                <CompactField placeholder="Distrito" value={r.district} onChange={v => updateRow(r.id, 'district', v)} />
                 <CompactField placeholder="Cumpleaños" type="date" value={r.birthday} onChange={v => updateRow(r.id, 'birthday', v)} />
+              </div>
+
+              {/* Cliente — contacto y ubicación */}
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+                <CompactField placeholder="Correo electrónico" type="email" value={r.email} onChange={v => updateRow(r.id, 'email', v)} className="md:col-span-2" />
+                <CompactField placeholder="Dirección" value={r.address} onChange={v => updateRow(r.id, 'address', v)} className="md:col-span-3" />
+                <CompactField placeholder="Distrito" value={r.district} onChange={v => updateRow(r.id, 'district', v)} />
               </div>
 
               <CompactField placeholder="¿Qué compró?* (descripción)" value={r.purchase_description} onChange={v => updateRow(r.id, 'purchase_description', v)} />
