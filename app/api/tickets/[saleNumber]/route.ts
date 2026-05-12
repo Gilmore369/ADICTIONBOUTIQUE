@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function GET(
   request: NextRequest,
@@ -23,8 +23,11 @@ export async function GET(
       )
     }
 
-    // Intentionally public: used by QR codes on printed receipts
-    const supabase = await createServerClient()
+    // Intentionally public: used by QR codes on printed receipts.
+    // Usa service client porque sin sesión el server client respeta RLS
+    // y no podría leer las tablas sales/sale_items/products/clients.
+    // El proxy global no protege esta ruta (excluida en proxy.ts).
+    const supabase = createServiceClient()
 
     // Obtener información de la venta
     // SEGURIDAD: este endpoint es PÚBLICO (lo consume el QR del ticket impreso).
