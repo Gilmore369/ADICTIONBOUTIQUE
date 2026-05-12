@@ -49,7 +49,6 @@ export async function GET(
         total,
         discount,
         sale_type,
-        installments,
         store_id,
         client:clients(
           id,
@@ -91,6 +90,17 @@ export async function GET(
     // Calcular subtotal
     const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
 
+    // Si es venta a crédito, obtener cantidad de cuotas del plan
+    let installmentsCount: number | undefined
+    if (sale.sale_type === 'CREDITO') {
+      const { data: plan } = await supabase
+        .from('credit_plans')
+        .select('installments_count')
+        .eq('sale_id', sale.id)
+        .maybeSingle()
+      installmentsCount = (plan as any)?.installments_count
+    }
+
     // Preparar respuesta
     const ticketData = {
       saleNumber: sale.sale_number,
@@ -106,7 +116,7 @@ export async function GET(
       total: sale.total,
       paymentType: sale.sale_type,
       clientName: sale.client?.name,
-      installments: sale.installments,
+      installments: installmentsCount,
       storeName: sale.store_id
     }
 
