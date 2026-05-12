@@ -393,8 +393,8 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
               {/* Common action form - collapsible */}
               <details className="group">
                 <summary className="cursor-pointer list-none">
-                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border rounded-lg hover:bg-gray-100 transition-colors">
-                    <span className="text-sm font-medium text-gray-600">Registrar nota / acción simple</span>
+                  <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border rounded-lg hover:bg-muted transition-colors">
+                    <span className="text-sm font-medium text-muted-foreground">Registrar nota / acción simple</span>
                     <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
                   </div>
                 </summary>
@@ -407,7 +407,7 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
             {/* Right column: unified history timeline */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-foreground/80 flex items-center gap-2">
                   <Clock className="h-4 w-4 text-gray-400" />
                   Historial de Gestión
                   <span className="text-xs font-normal text-muted-foreground">
@@ -417,14 +417,14 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
               </div>
 
               {(profile.collectionActions as any[]).length === 0 && profile.actionLogs.length === 0 ? (
-                <div className="text-center py-16 text-sm text-muted-foreground border rounded-xl bg-gray-50">
+                <div className="text-center py-16 text-sm text-muted-foreground border rounded-xl bg-muted/30">
                   <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                   No hay acciones registradas
                 </div>
               ) : (
                 <div className="relative">
                   {/* Timeline line */}
-                  <div className="absolute left-[18px] top-0 bottom-0 w-0.5 bg-gray-100" />
+                  <div className="absolute left-[18px] top-0 bottom-0 w-0.5 bg-muted" />
 
                   <div className="space-y-3">
                     {/* Merge and sort all actions by date desc */}
@@ -478,15 +478,15 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                               <div className="bg-white border rounded-xl p-3.5 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-start justify-between gap-2 mb-1.5">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-semibold text-gray-800">
+                                    <span className="text-sm font-semibold text-foreground/90">
                                       {getActionTypeLabel(item.action_type)}
                                     </span>
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 border ${
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-muted/30 border ${
                                       item.result === 'PAGO_REALIZADO' ? 'text-green-700 border-green-200 bg-green-50' :
                                       item.result === 'PAGO_PARCIAL' ? 'text-green-600 border-green-200 bg-green-50' :
                                       item.result === 'SE_NIEGA_PAGAR' ? 'text-red-700 border-red-200 bg-red-50' :
                                       item.result === 'COMPROMISO_PAGO' ? 'text-blue-700 border-blue-200 bg-blue-50' :
-                                      item.result === 'NO_CONTESTA' ? 'text-gray-600 border-gray-200' :
+                                      item.result === 'NO_CONTESTA' ? 'text-muted-foreground border-gray-200' :
                                       'text-purple-700 border-purple-200 bg-purple-50'
                                     }`}>
                                       {resultMeta?.icon} {getResultLabel(item.result)}
@@ -498,7 +498,7 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                 </div>
 
                                 {item.notes && (
-                                  <p className="text-sm text-gray-600 leading-relaxed mb-2">{item.notes}</p>
+                                  <p className="text-sm text-muted-foreground leading-relaxed mb-2">{item.notes}</p>
                                 )}
 
                                 {promiseDate && (
@@ -532,9 +532,9 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                 {logIcon}
                               </div>
                               {/* Card */}
-                              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 hover:shadow-sm transition-shadow">
+                              <div className="bg-muted/30 border border-gray-200 rounded-xl p-3 hover:shadow-sm transition-shadow">
                                 <div className="flex items-start justify-between gap-2 mb-1">
-                                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                                     {item.action_type}
                                   </span>
                                   <span className="text-xs text-gray-400 whitespace-nowrap font-mono flex-shrink-0">
@@ -542,7 +542,7 @@ export function ClientProfileView({ profile }: ClientProfileViewProps) {
                                   </span>
                                 </div>
                                 {item.description && (
-                                  <p className="text-sm text-gray-700 leading-relaxed">{item.description}</p>
+                                  <p className="text-sm text-foreground/80 leading-relaxed">{item.description}</p>
                                 )}
                                 <span className="text-xs text-gray-400 mt-1 block">
                                   por <span className="font-medium text-gray-500">{item.user_name || 'Usuario'}</span>

@@ -27,6 +27,9 @@ export async function GET(
     const supabase = await createServerClient()
 
     // Obtener información de la venta
+    // SEGURIDAD: este endpoint es PÚBLICO (lo consume el QR del ticket impreso).
+    // NO incluimos email/teléfono/DNI del cliente — solo nombre, que ya aparece
+    // en el ticket físico. Cualquiera con el sale_number podría enumerarlos.
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .select(`
@@ -40,8 +43,7 @@ export async function GET(
         store_id,
         client:clients(
           id,
-          name,
-          email
+          name
         )
       `)
       .eq('sale_number', saleNumber)
@@ -93,7 +95,6 @@ export async function GET(
       total: sale.total,
       paymentType: sale.sale_type,
       clientName: sale.client?.name,
-      clientEmail: sale.client?.email,
       installments: sale.installments,
       storeName: sale.store_id
     }

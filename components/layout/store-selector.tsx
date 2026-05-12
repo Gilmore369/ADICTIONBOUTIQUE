@@ -48,9 +48,9 @@ export function StoreSelector() {
                 onClick={() => handleSelect(store.value)}
                 className={cn(
                   'flex items-center w-full px-4 py-2 text-sm text-left',
-                  'hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
+                  'hover:bg-muted dark:hover:bg-gray-700 transition-colors',
                   'first:rounded-t-lg last:rounded-b-lg',
-                  selectedStore === store.value && 'bg-gray-100 dark:bg-gray-700'
+                  selectedStore === store.value && 'bg-muted dark:bg-gray-700'
                 )}
               >
                 <span className="mr-2">{store.icon}</span>

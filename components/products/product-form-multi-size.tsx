@@ -469,7 +469,7 @@ export function ProductFormMultiSize({ onSuccess, onCancel }: ProductFormMultiSi
           </Label>
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted/30 border-b">
                 <tr>
                   <th className="text-left p-3 font-semibold">Talla</th>
                   <th className="text-left p-3 font-semibold">Color</th>
@@ -480,9 +480,9 @@ export function ProductFormMultiSize({ onSuccess, onCancel }: ProductFormMultiSi
                 {variants.map((variant, idx) => {
                   const hasCustomColor = variant.color && variant.color !== color
                   return (
-                    <tr key={variant.sizeId} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={variant.sizeId} className={idx % 2 === 0 ? 'bg-white' : 'bg-muted/30'}>
                       <td className="p-3">
-                        <span className="font-semibold text-gray-700">
+                        <span className="font-semibold text-foreground/80">
                           {variant.sizeName}
                         </span>
                       </td>

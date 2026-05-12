@@ -127,7 +127,7 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
 
       {/* ── Period tabs ── */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex flex-wrap gap-1 bg-muted rounded-lg p-1">
           {PERIODS.map(p => (
             <button
               key={p.key}
@@ -135,8 +135,8 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
                 period === p.key
-                  ? 'bg-white shadow text-gray-900'
-                  : 'text-gray-500 hover:text-gray-800'
+                  ? 'bg-white shadow text-foreground'
+                  : 'text-gray-500 hover:text-foreground/90'
               )}
             >
               {p.short}
@@ -199,7 +199,7 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
             <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide leading-tight">
               Nº de cobros
             </p>
-            <p className="text-xl font-bold text-gray-800 leading-tight">{filtered.length}</p>
+            <p className="text-xl font-bold text-foreground/90 leading-tight">{filtered.length}</p>
             <p className="text-[10px] text-gray-400">registros</p>
           </div>
         </div>
@@ -213,7 +213,7 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
             <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide leading-tight">
               Promedio
             </p>
-            <p className="text-xl font-bold text-gray-800 leading-tight">{formatCurrency(avg)}</p>
+            <p className="text-xl font-bold text-foreground/90 leading-tight">{formatCurrency(avg)}</p>
             <p className="text-[10px] text-gray-400">por cobro</p>
           </div>
         </div>

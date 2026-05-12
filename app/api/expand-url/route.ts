@@ -1,11 +1,62 @@
 /**
  * API Route to expand shortened URLs
  * Used to expand Google Maps shortened links (maps.app.goo.gl) to get coordinates
+ *
+ * SEGURIDAD: este endpoint es público (lo usa el form de "crear cliente" antes
+ * de tener sesión confirmada en algunos flows). Para evitar abuso como proxy
+ * SSRF, limitamos a 10 requests por minuto por IP.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 
+// Rate limiter in-memory: 10 requests por minuto por IP
+// (En clusters con múltiples workers PM2 cada worker tiene su propio mapa,
+//  pero como límite blando de abuso es suficiente sin Redis.)
+const RATE_LIMIT_WINDOW_MS = 60_000 // 1 minuto
+const RATE_LIMIT_MAX = 10
+const rateLimitMap = new Map<string, number[]>()
+
+function getClientIp(req: NextRequest): string {
+  // Apache reverse proxy → X-Forwarded-For
+  const xff = req.headers.get('x-forwarded-for') || ''
+  return xff.split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown'
+}
+
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetIn: number } {
+  const now = Date.now()
+  const timestamps = (rateLimitMap.get(ip) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+
+  if (timestamps.length >= RATE_LIMIT_MAX) {
+    const oldest = timestamps[0]
+    return { allowed: false, remaining: 0, resetIn: Math.ceil((RATE_LIMIT_WINDOW_MS - (now - oldest)) / 1000) }
+  }
+
+  timestamps.push(now)
+  rateLimitMap.set(ip, timestamps)
+
+  // Limpieza periódica: si el mapa crece mucho, podar IPs sin actividad reciente
+  if (rateLimitMap.size > 10_000) {
+    for (const [k, v] of rateLimitMap) {
+      if (v.every(t => now - t > RATE_LIMIT_WINDOW_MS)) rateLimitMap.delete(k)
+    }
+  }
+
+  return { allowed: true, remaining: RATE_LIMIT_MAX - timestamps.length, resetIn: 0 }
+}
+
+function rateLimitResponse(resetIn: number) {
+  return NextResponse.json(
+    { success: false, error: `Demasiadas peticiones. Intenta en ${resetIn}s.` },
+    { status: 429, headers: { 'Retry-After': String(resetIn) } }
+  )
+}
+
 export async function POST(request: NextRequest) {
+  // Rate limiting
+  const ip = getClientIp(request)
+  const limit = checkRateLimit(ip)
+  if (!limit.allowed) return rateLimitResponse(limit.resetIn)
+
   try {
     const body = await request.json()
     const url = body.url
@@ -129,6 +180,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // Rate limiting
+  const ip = getClientIp(request)
+  const limit = checkRateLimit(ip)
+  if (!limit.allowed) return rateLimitResponse(limit.resetIn)
+
   try {
     const searchParams = request.nextUrl.searchParams
     const url = searchParams.get('url')

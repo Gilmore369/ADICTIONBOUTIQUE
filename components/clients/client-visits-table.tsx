@@ -64,14 +64,14 @@ export function ClientVisitsTable({ visits, loading = false }: ClientVisitsTable
     'Rechazó': 'bg-red-50 border-red-200 text-red-800',
     'Interesado': 'bg-purple-50 border-purple-200 text-purple-800',
     'Dejé recado': 'bg-slate-50 border-slate-200 text-slate-800',
-    'Sin respuesta': 'bg-gray-50 border-gray-200 text-gray-800',
+    'Sin respuesta': 'bg-muted/30 border-gray-200 text-foreground/90',
   }
 
   return (
     <>
       <div className="space-y-3">
         {visits.map((visit) => {
-          const colorClass = resultColors[visit.result] || 'bg-gray-50 border-gray-200 text-gray-800'
+          const colorClass = resultColors[visit.result] || 'bg-muted/30 border-gray-200 text-foreground/90'
           
           return (
             <Card key={visit.id} className={`p-4 border ${colorClass}`}>

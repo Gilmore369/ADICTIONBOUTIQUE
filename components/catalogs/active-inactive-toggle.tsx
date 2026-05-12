@@ -29,7 +29,7 @@ export function ActiveInactiveToggle({
         type="button"
         onClick={() => onChange(false)}
         className={`px-3 py-1.5 rounded-md transition-colors ${
-          !showInactive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+          !showInactive ? 'bg-blue-600 text-white' : 'text-foreground/80 hover:bg-muted/30'
         }`}
       >
         {activeLabel}
@@ -38,14 +38,14 @@ export function ActiveInactiveToggle({
         type="button"
         onClick={() => onChange(true)}
         className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
-          showInactive ? 'bg-gray-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+          showInactive ? 'bg-gray-600 text-white' : 'text-foreground/80 hover:bg-muted/30'
         }`}
       >
         {inactiveLabel}
         {inactiveCount > 0 && (
           <span
             className={`text-[11px] px-1.5 py-0.5 rounded-full ${
-              showInactive ? 'bg-white text-gray-700' : 'bg-gray-200 text-gray-700'
+              showInactive ? 'bg-white text-foreground/80' : 'bg-gray-200 text-foreground/80'
             }`}
           >
             {inactiveCount}
@@ -62,7 +62,7 @@ interface InactiveBannerProps {
 
 export function InactiveBanner({ entityName }: InactiveBannerProps) {
   return (
-    <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md p-3">
+    <div className="text-xs text-muted-foreground bg-muted/30 border border-gray-200 rounded-md p-3">
       Estás viendo {entityName} <strong>desactivadas</strong>. Usa &quot;Restaurar&quot; para reactivarlas.
     </div>
   )

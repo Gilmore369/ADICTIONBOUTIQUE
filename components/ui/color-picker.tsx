@@ -285,11 +285,11 @@ function AdvancedColorPicker({ value, onChange, onClose }: AdvancedColorPickerPr
     <div className="w-[240px] rounded-2xl border border-gray-200 bg-white shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-        <span className="text-sm font-semibold text-gray-800">Color</span>
+        <span className="text-sm font-semibold text-foreground/90">Color</span>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-md p-0.5 text-gray-400 hover:bg-muted hover:text-muted-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -379,7 +379,7 @@ function AdvancedColorPicker({ value, onChange, onClose }: AdvancedColorPickerPr
                 max={255}
                 value={rgb[i]}
                 onChange={(e) => handleRgbInput(i as 0 | 1 | 2, e.target.value)}
-                className="w-full rounded-md border border-gray-200 bg-gray-50 px-1 py-0.5 text-center text-xs font-mono focus:border-blue-400 focus:outline-none"
+                className="w-full rounded-md border border-gray-200 bg-muted/30 px-1 py-0.5 text-center text-xs font-mono focus:border-blue-400 focus:outline-none"
               />
             </div>
           ))}
@@ -390,7 +390,7 @@ function AdvancedColorPicker({ value, onChange, onClose }: AdvancedColorPickerPr
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="flex-1 rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/30"
           >
             Cancelar
           </button>
@@ -451,9 +451,9 @@ export function ColorPicker({ value, onChange, placeholder, label, compact }: Co
     <div className="space-y-2">
       {label && (
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-gray-700">{label}</span>
+          <span className="text-xs font-medium text-foreground/80">{label}</span>
           {value && (
-            <button type="button" onClick={clearColor} className="text-gray-400 hover:text-gray-600">
+            <button type="button" onClick={clearColor} className="text-gray-400 hover:text-muted-foreground">
               <X className="w-3 h-3" />
             </button>
           )}
@@ -461,21 +461,21 @@ export function ColorPicker({ value, onChange, placeholder, label, compact }: Co
       )}
 
       {value && (
-        <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/30 border border-gray-200 rounded-lg text-xs">
           <div
             className="w-4 h-4 rounded-md flex-shrink-0 border border-gray-300"
             style={{ backgroundColor: selectedHex ?? (value.startsWith('#') ? value : '#ccc') }}
           />
-          <span className="font-medium text-gray-700 flex-1 truncate">{value}</span>
+          <span className="font-medium text-foreground/80 flex-1 truncate">{value}</span>
           {!label && (
-            <button type="button" onClick={clearColor} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+            <button type="button" onClick={clearColor} className="text-gray-400 hover:text-muted-foreground flex-shrink-0">
               <X className="w-3 h-3" />
             </button>
           )}
         </div>
       )}
 
-      <div className="grid grid-cols-5 gap-0.5 p-2 bg-gray-50 rounded-xl border border-gray-200">
+      <div className="grid grid-cols-5 gap-0.5 p-2 bg-muted/30 rounded-xl border border-gray-200">
         {BOUTIQUE_COLORS.map((color) => {
           const light = isLight(color.hex)
           const whiteOutline =
@@ -502,12 +502,12 @@ export function ColorPicker({ value, onChange, placeholder, label, compact }: Co
               >
                 {sel && (
                   <div className="w-full h-full flex items-center justify-center rounded-lg">
-                    <Check className={cn('w-4 h-4', light ? 'text-gray-800' : 'text-white')} />
+                    <Check className={cn('w-4 h-4', light ? 'text-foreground/90' : 'text-white')} />
                   </div>
                 )}
               </div>
               <span className={cn(
-                'text-[9px] font-medium leading-none text-gray-600 max-w-[32px] truncate',
+                'text-[9px] font-medium leading-none text-muted-foreground max-w-[32px] truncate',
                 sel ? 'text-blue-600' : '',
               )}>
                 {color.name}
@@ -647,7 +647,7 @@ export function CompactColorPicker({
           className="h-4 w-4 shrink-0 rounded-md border border-gray-300"
           style={{ backgroundColor: selectedHex ?? '#E5E7EB' }}
         />
-        <span className="flex-1 truncate text-left text-gray-700">
+        <span className="flex-1 truncate text-left text-foreground/80">
           {value || <span className="text-gray-400">{placeholder ?? 'Color'}</span>}
         </span>
         <ChevronDown className={cn('h-3 w-3 shrink-0 text-gray-400 transition-transform', open && 'rotate-180')} />

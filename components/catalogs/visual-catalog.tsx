@@ -1208,7 +1208,7 @@ function ModelDetailModal({
                                 {creatingSize ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                               </button>
                               <button type="button" onClick={() => setShowNewSizeInput(false)}
-                                className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-gray-50">
+                                className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-muted/30">
                                 <X className="h-3 w-3" />
                               </button>
                             </div>
@@ -1241,7 +1241,7 @@ function ModelDetailModal({
                             className="h-8 flex-1 rounded-lg border border-blue-300 bg-card px-2 text-xs outline-none focus:ring-1 focus:ring-blue-400"
                           />
                           <button type="button" onClick={() => { setColorMode('select'); setCustomColor(''); setAddColor('') }}
-                            className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-gray-50">
+                            className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-muted/30">
                             <X className="h-3 w-3" />
                           </button>
                         </div>
@@ -1320,7 +1320,7 @@ function ModelDetailModal({
                     <button
                       type="button"
                       onClick={() => setShowAddVariant(false)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground/70 hover:bg-gray-50"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground/70 hover:bg-muted/30"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>

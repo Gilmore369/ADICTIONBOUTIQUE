@@ -416,7 +416,7 @@ export function DebtorsMap() {
   if (!isLoaded || loading) {
     return (
       <Card className="p-4">
-        <p className="text-sm text-gray-600">Cargando mapa...</p>
+        <p className="text-sm text-muted-foreground">Cargando mapa...</p>
       </Card>
     )
   }
@@ -504,7 +504,7 @@ export function DebtorsMap() {
               <select
                 value={routeType}
                 onChange={e => setRouteType(e.target.value as RouteType)}
-                className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-foreground/80 focus:outline-none focus:ring-1 focus:ring-blue-400"
               >
                 {ROUTE_TYPES.map(rt => (
                   <option key={rt} value={rt}>{rt}</option>
@@ -550,7 +550,7 @@ export function DebtorsMap() {
                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${
                   minDays === 0
                     ? 'text-white border-red-500'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-red-400'
+                    : 'bg-white text-muted-foreground border-gray-300 hover:border-red-400'
                 }`}
                 style={minDays === 0 ? { backgroundColor: '#EF4444', borderColor: '#EF4444' } : {}}
               >
@@ -562,7 +562,7 @@ export function DebtorsMap() {
                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1.5 ${
                   minDays === OVERDUE_90_THRESHOLD
                     ? 'text-white border-red-900'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-red-700'
+                    : 'bg-white text-muted-foreground border-gray-300 hover:border-red-700'
                 }`}
                 style={minDays === OVERDUE_90_THRESHOLD ? { backgroundColor: '#991B1B', borderColor: '#991B1B' } : {}}
               >
@@ -649,7 +649,7 @@ export function DebtorsMap() {
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
             <button
               onClick={handleClearRoute}
-              className="flex items-center gap-1.5 bg-white shadow-md border border-gray-200 rounded-full px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors"
+              className="flex items-center gap-1.5 bg-white shadow-md border border-gray-200 rounded-full px-3 py-1.5 text-xs font-medium text-foreground/80 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
               Limpiar ruta
@@ -715,9 +715,9 @@ export function DebtorsMap() {
                   />
                 </div>
 
-                <h3 className="font-bold text-sm text-gray-900 mb-2">{selectedClient.name}</h3>
+                <h3 className="font-bold text-sm text-foreground mb-2">{selectedClient.name}</h3>
 
-                <div className="space-y-1 text-xs text-gray-600 mb-2">
+                <div className="space-y-1 text-xs text-muted-foreground mb-2">
                   <p className="flex items-start gap-1">
                     <span>📍</span>
                     <span>{selectedClient.address}</span>
@@ -733,13 +733,13 @@ export function DebtorsMap() {
                 <div className="border-t pt-2 mb-2">
                   {filter === 'overdue' && (
                     <div className="text-sm">
-                      <p className="text-gray-600 text-xs">Monto Atrasado</p>
+                      <p className="text-muted-foreground text-xs">Monto Atrasado</p>
                       <p className="font-bold text-red-600">{formatCurrency(selectedClient.overdue_amount || 0)}</p>
                     </div>
                   )}
                   {filter === 'upcoming' && (
                     <div className="text-sm">
-                      <p className="text-gray-600 text-xs">Próximo Pago</p>
+                      <p className="text-muted-foreground text-xs">Próximo Pago</p>
                       <p className="font-bold text-yellow-600">{formatCurrency(selectedClient.upcoming_amount || 0)}</p>
                       {selectedClient.next_due_date && (
                         <p className="text-xs text-gray-500 mt-1">
@@ -755,7 +755,7 @@ export function DebtorsMap() {
                   )}
                   {(filter === 'all' || filter === 'activation') && (
                     <div className="text-sm">
-                      <p className="text-gray-600 text-xs">Crédito usado</p>
+                      <p className="text-muted-foreground text-xs">Crédito usado</p>
                       <p className="font-bold">{formatCurrency(selectedClient.credit_used)}</p>
                     </div>
                   )}
@@ -813,23 +813,23 @@ export function DebtorsMap() {
         {filter === 'overdue' && (
           <>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Clientes con Atraso</p>
+              <p className="text-sm text-muted-foreground">Clientes con Atraso</p>
               <p className="text-2xl font-bold">{clients.length}</p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Monto Atrasado</p>
+              <p className="text-sm text-muted-foreground">Monto Atrasado</p>
               <p className="text-2xl font-bold text-red-600">
                 {formatCurrency(clients.reduce((sum, c) => sum + (c.overdue_amount || 0), 0))}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Cuotas Vencidas</p>
+              <p className="text-sm text-muted-foreground">Cuotas Vencidas</p>
               <p className="text-2xl font-bold">
                 {clients.reduce((sum, c) => sum + (c.overdue_count || 0), 0)}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Deuda Total</p>
+              <p className="text-sm text-muted-foreground">Deuda Total</p>
               <p className="text-2xl font-bold">
                 {formatCurrency(clients.reduce((sum, c) => sum + c.credit_used, 0))}
               </p>
@@ -839,23 +839,23 @@ export function DebtorsMap() {
         {filter === 'upcoming' && (
           <>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Clientes</p>
+              <p className="text-sm text-muted-foreground">Clientes</p>
               <p className="text-2xl font-bold">{clients.length}</p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Monto Próximo</p>
+              <p className="text-sm text-muted-foreground">Monto Próximo</p>
               <p className="text-2xl font-bold text-yellow-600">
                 {formatCurrency(clients.reduce((sum, c) => sum + (c.upcoming_amount || 0), 0))}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Cuotas Próximas</p>
+              <p className="text-sm text-muted-foreground">Cuotas Próximas</p>
               <p className="text-2xl font-bold">
                 {clients.reduce((sum, c) => sum + (c.upcoming_count || 0), 0)}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Deuda Total</p>
+              <p className="text-sm text-muted-foreground">Deuda Total</p>
               <p className="text-2xl font-bold">
                 {formatCurrency(clients.reduce((sum, c) => sum + c.credit_used, 0))}
               </p>
@@ -865,23 +865,23 @@ export function DebtorsMap() {
         {filter === 'up-to-date' && (
           <>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Clientes al Día</p>
+              <p className="text-sm text-muted-foreground">Clientes al Día</p>
               <p className="text-2xl font-bold text-green-600">{clients.length}</p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Pagos Realizados</p>
+              <p className="text-sm text-muted-foreground">Pagos Realizados</p>
               <p className="text-2xl font-bold">
                 {clients.reduce((sum, c) => sum + (c.payment_count || 0), 0)}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Deuda Total</p>
+              <p className="text-sm text-muted-foreground">Deuda Total</p>
               <p className="text-2xl font-bold">
                 {formatCurrency(clients.reduce((sum, c) => sum + c.credit_used, 0))}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Límite Total</p>
+              <p className="text-sm text-muted-foreground">Límite Total</p>
               <p className="text-2xl font-bold">
                 {formatCurrency(clients.reduce((sum, c) => sum + c.credit_limit, 0))}
               </p>
@@ -891,23 +891,23 @@ export function DebtorsMap() {
         {filter === 'all' && (
           <>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Total Clientes</p>
+              <p className="text-sm text-muted-foreground">Total Clientes</p>
               <p className="text-2xl font-bold">{clients.length}</p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Deuda Total</p>
+              <p className="text-sm text-muted-foreground">Deuda Total</p>
               <p className="text-2xl font-bold">
                 {formatCurrency(clients.reduce((sum, c) => sum + c.credit_used, 0))}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Límite Total</p>
+              <p className="text-sm text-muted-foreground">Límite Total</p>
               <p className="text-2xl font-bold">
                 {formatCurrency(clients.reduce((sum, c) => sum + c.credit_limit, 0))}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Uso Promedio</p>
+              <p className="text-sm text-muted-foreground">Uso Promedio</p>
               <p className="text-2xl font-bold">
                 {clients.length > 0
                   ? ((clients.reduce((sum, c) => sum + (c.credit_used / c.credit_limit) * 100, 0) / clients.length)).toFixed(1)
@@ -919,23 +919,23 @@ export function DebtorsMap() {
         {filter === 'activation' && (
           <>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Total Clientes</p>
+              <p className="text-sm text-muted-foreground">Total Clientes</p>
               <p className="text-2xl font-bold text-violet-600">{clients.length}</p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Con Crédito Activo</p>
+              <p className="text-sm text-muted-foreground">Con Crédito Activo</p>
               <p className="text-2xl font-bold">
                 {clients.filter(c => c.credit_limit > 0).length}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Sin Crédito Asignado</p>
+              <p className="text-sm text-muted-foreground">Sin Crédito Asignado</p>
               <p className="text-2xl font-bold text-amber-600">
                 {clients.filter(c => c.credit_limit === 0).length}
               </p>
             </Card>
             <Card className="p-4">
-              <p className="text-sm text-gray-600">Paradas en Ruta</p>
+              <p className="text-sm text-muted-foreground">Paradas en Ruta</p>
               <p className="text-2xl font-bold">
                 {Math.min(clients.length, MAX_ROUTE_STOPS)}
               </p>

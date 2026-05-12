@@ -100,7 +100,7 @@ function KpiCard({
         </div>
       </div>
       <div>
-        <div className="text-2xl font-bold text-gray-900 tabular-nums">{value}</div>
+        <div className="text-2xl font-bold text-foreground tabular-nums">{value}</div>
         {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
       </div>
       {trendEl && <div>{trendEl}</div>}
@@ -113,7 +113,7 @@ function SectionHeader({ title, sub, action }: { title: string; sub?: string; ac
   return (
     <div className="flex items-center justify-between mb-4">
       <div>
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
         {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
       </div>
       {action}
@@ -185,7 +185,7 @@ export function CrmDashboard() {
         <div />
         <button
           onClick={fetchData}
-          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-muted-foreground transition-colors"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           {lastUpdated ? `Actualizado ${lastUpdated.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}` : 'Actualizar'}
@@ -237,16 +237,16 @@ export function CrmDashboard() {
             <Users className="h-5 w-5 text-green-600" />
           </div>
           <div>
-            <div className="text-xl font-bold text-gray-900">{metrics.totalActiveClients}</div>
+            <div className="text-xl font-bold text-foreground">{metrics.totalActiveClients}</div>
             <div className="text-xs text-gray-500">Clientes activos</div>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 shadow-sm">
-          <div className="p-2.5 rounded-lg bg-gray-100">
+          <div className="p-2.5 rounded-lg bg-muted">
             <Users className="h-5 w-5 text-gray-500" />
           </div>
           <div>
-            <div className="text-xl font-bold text-gray-900">{metrics.inactiveClients}</div>
+            <div className="text-xl font-bold text-foreground">{metrics.inactiveClients}</div>
             <div className="text-xs text-gray-500">Clientes inactivos</div>
           </div>
         </div>
@@ -258,7 +258,7 @@ export function CrmDashboard() {
             <Users className="h-5 w-5 text-pink-500" />
           </div>
           <div>
-            <div className="text-xl font-bold text-gray-900">{metrics.birthdaysThisMonth}</div>
+            <div className="text-xl font-bold text-foreground">{metrics.birthdaysThisMonth}</div>
             <div className="text-xs text-gray-500">Cumpleaños este mes</div>
           </div>
           <ChevronRight className="h-4 w-4 text-pink-300 ml-auto" />
@@ -325,9 +325,9 @@ export function CrmDashboard() {
                   <div key={i} className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                      <span className="text-gray-600">{s.name}</span>
+                      <span className="text-muted-foreground">{s.name}</span>
                     </div>
-                    <span className="font-semibold text-gray-900">{s.value}</span>
+                    <span className="font-semibold text-foreground">{s.value}</span>
                   </div>
                 ))}
               </div>
@@ -385,7 +385,7 @@ export function CrmDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
+                <tr className="border-b border-gray-100 bg-muted/30">
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cliente</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Deuda total</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Vencida</th>
@@ -400,7 +400,7 @@ export function CrmDashboard() {
                   const initials = getInitials(debtor.name)
                   const color = avatarColor(debtor.name)
                   return (
-                    <tr key={debtor.id} className={cn('border-b border-gray-50 hover:bg-gray-50 transition-colors', i % 2 === 0 ? '' : 'bg-gray-50/40')}>
+                    <tr key={debtor.id} className={cn('border-b border-gray-50 hover:bg-muted/30 transition-colors', i % 2 === 0 ? '' : 'bg-muted/30/40')}>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div
@@ -410,18 +410,18 @@ export function CrmDashboard() {
                             {initials}
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">{debtor.name}</div>
+                            <div className="font-medium text-foreground">{debtor.name}</div>
                             <div className="text-xs text-gray-400">{debtor.dni}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-gray-900">
+                      <td className="px-4 py-3.5 text-right font-semibold text-foreground">
                         {formatCurrency(debtor.totalDebt)}
                       </td>
                       <td className="px-4 py-3.5 text-right font-medium text-red-600">
                         {formatCurrency(debtor.overdueDebt)}
                       </td>
-                      <td className="px-4 py-3.5 text-right text-gray-600 hidden md:table-cell">
+                      <td className="px-4 py-3.5 text-right text-muted-foreground hidden md:table-cell">
                         {debtor.maxDaysOverdue > 0 ? `${debtor.maxDaysOverdue} días` : '—'}
                       </td>
                       <td className="px-4 py-3.5 text-center">
@@ -454,7 +454,7 @@ export function CrmDashboard() {
                           <button
                             onClick={() => router.push(`/clients/${debtor.id}`)}
                             title="Ver detalle"
-                            className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="p-1.5 rounded-md hover:bg-muted text-gray-400 hover:text-muted-foreground transition-colors"
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>

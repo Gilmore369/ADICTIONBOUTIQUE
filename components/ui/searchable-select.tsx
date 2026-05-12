@@ -115,7 +115,7 @@ export function SearchableSelect({
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-muted-foreground"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -142,7 +142,7 @@ export function SearchableSelect({
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-gray-900">{opt.label}</p>
+                      <p className="truncate text-foreground">{opt.label}</p>
                       {opt.hint && (
                         <p className="text-[11px] text-gray-500 truncate">{opt.hint}</p>
                       )}

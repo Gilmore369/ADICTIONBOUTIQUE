@@ -86,13 +86,13 @@ export function ClientSelector({ value, onChange, disabled = false, required = f
       </label>
 
       {value ? (
-        <div className="flex items-center justify-between p-2 border rounded-lg bg-gray-50">
+        <div className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
           <div className="flex-1 min-w-0">
             <div className="font-medium text-sm truncate">{value.name}</div>
             {value.dni && (
               <div className="text-xs text-gray-500">DNI: {value.dni}</div>
             )}
-            <div className="text-xs text-gray-600 mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               Crédito disponible: {formatCurrency(value.credit_limit - value.credit_used)}
             </div>
           </div>
@@ -133,13 +133,13 @@ export function ClientSelector({ value, onChange, disabled = false, required = f
                   key={client.id}
                   type="button"
                   onClick={() => handleSelectClient(client)}
-                  className="w-full p-2 text-left hover:bg-gray-50 transition border-b last:border-b-0"
+                  className="w-full p-2 text-left hover:bg-muted/30 transition border-b last:border-b-0"
                 >
                   <div className="font-medium text-sm">{client.name}</div>
                   {client.dni && (
                     <div className="text-xs text-gray-500">DNI: {client.dni}</div>
                   )}
-                  <div className="text-xs text-gray-600 mt-1">
+                  <div className="text-xs text-muted-foreground mt-1">
                     Disponible: {formatCurrency(client.credit_limit - client.credit_used)}
                   </div>
                 </button>

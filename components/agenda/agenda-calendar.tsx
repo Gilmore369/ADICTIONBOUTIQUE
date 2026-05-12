@@ -77,7 +77,7 @@ function getEventBg(type: AgendaEvent['type']) {
   if (type === 'installment_due')     return 'bg-amber-100 text-amber-700 border-amber-200'
   if (type === 'reminder')            return 'bg-violet-100 text-violet-700 border-violet-200'
   if (type === 'scheduled_visit')     return 'bg-indigo-100 text-indigo-700 border-indigo-200'
-  return 'bg-gray-100 text-gray-700 border-gray-200'
+  return 'bg-muted text-foreground/80 border-gray-200'
 }
 
 function buildCalendarDays(year: number, month: number) {
@@ -119,18 +119,18 @@ function CreateReminderModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
         <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
+          <div className="flex items-center gap-2 font-semibold text-foreground">
             <Bell className="h-4 w-4 text-violet-500" /> Nuevo recordatorio
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-foreground/80"><X className="h-4 w-4" /></button>
         </div>
         <div className="p-4 space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Fecha</label>
-            <div className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 border">{date}</div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Fecha</label>
+            <div className="text-sm text-foreground/80 bg-muted/30 rounded-lg px-3 py-2 border">{date}</div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Título *</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Título *</label>
             <input
               value={title} onChange={e => setTitle(e.target.value)}
               placeholder="Ej: Llamar a cliente, Reunión con proveedor..."
@@ -138,7 +138,7 @@ function CreateReminderModal({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Nota (opcional)</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Nota (opcional)</label>
             <textarea
               value={note} onChange={e => setNote(e.target.value)} rows={2}
               placeholder="Detalles adicionales..."
@@ -146,7 +146,7 @@ function CreateReminderModal({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Color</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Color</label>
             <div className="flex gap-2">
               {REMINDER_COLORS.map(c => (
                 <button
@@ -162,7 +162,7 @@ function CreateReminderModal({
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
         <div className="p-4 border-t flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg border">Cancelar</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted/30 rounded-lg border">Cancelar</button>
           <button
             onClick={handleSave} disabled={saving}
             className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5"
@@ -240,19 +240,19 @@ function CreateVisitModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
+          <div className="flex items-center gap-2 font-semibold text-foreground">
             <CalendarCheck className="h-4 w-4 text-indigo-500" /> Programar visita
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-foreground/80"><X className="h-4 w-4" /></button>
         </div>
         <div className="p-4 space-y-3 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Fecha</label>
-              <div className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 border">{date}</div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Fecha</label>
+              <div className="text-sm text-foreground/80 bg-muted/30 rounded-lg px-3 py-2 border">{date}</div>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo</label>
               <select
                 value={visitType} onChange={e => setVisitType(e.target.value)}
                 className="w-full text-sm border rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
@@ -264,7 +264,7 @@ function CreateVisitModal({
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Título</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Título</label>
             <input
               value={title} onChange={e => setTitle(e.target.value)}
               className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
@@ -273,7 +273,7 @@ function CreateVisitModal({
 
           {/* Client search */}
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
               Clientes a visitar *
             </label>
             <div className="relative">
@@ -308,7 +308,7 @@ function CreateVisitModal({
           {/* Selected clients */}
           {selectedClients.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-gray-600 mb-1">{selectedClients.length} cliente{selectedClients.length !== 1 ? 's' : ''} seleccionado{selectedClients.length !== 1 ? 's' : ''}</div>
+              <div className="text-xs font-medium text-muted-foreground mb-1">{selectedClients.length} cliente{selectedClients.length !== 1 ? 's' : ''} seleccionado{selectedClients.length !== 1 ? 's' : ''}</div>
               <div className="space-y-1 max-h-36 overflow-y-auto">
                 {selectedClients.map(c => (
                   <div key={c.id} className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm">
@@ -326,7 +326,7 @@ function CreateVisitModal({
           )}
 
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Nota (opcional)</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Nota (opcional)</label>
             <textarea
               value={note} onChange={e => setNote(e.target.value)} rows={2}
               placeholder="Observaciones de la visita..."
@@ -336,7 +336,7 @@ function CreateVisitModal({
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
         <div className="p-4 border-t flex gap-2 justify-end flex-shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg border">Cancelar</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted/30 rounded-lg border">Cancelar</button>
           <button
             onClick={handleSave} disabled={saving || selectedClients.length === 0}
             className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
@@ -364,7 +364,7 @@ function DayActionMenu({
         >
           <div className="p-1.5 bg-violet-100 rounded-lg"><Bell className="h-4 w-4 text-violet-600" /></div>
           <div>
-            <div className="font-medium text-gray-900">Recordatorio</div>
+            <div className="font-medium text-foreground">Recordatorio</div>
             <div className="text-xs text-gray-400">Nota personal para este día</div>
           </div>
         </button>
@@ -374,7 +374,7 @@ function DayActionMenu({
         >
           <div className="p-1.5 bg-indigo-100 rounded-lg"><CalendarCheck className="h-4 w-4 text-indigo-600" /></div>
           <div>
-            <div className="font-medium text-gray-900">Programar visita</div>
+            <div className="font-medium text-foreground">Programar visita</div>
             <div className="text-xs text-gray-400">Visita a uno o varios clientes</div>
           </div>
         </button>
@@ -446,10 +446,10 @@ function DetailPanel({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <div>
-            <div className="text-sm font-semibold text-gray-900">{label}</div>
+            <div className="text-sm font-semibold text-foreground">{label}</div>
             <div className="text-xs text-gray-500">{events.length} evento{events.length !== 1 ? 's' : ''}</div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-foreground/80"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="overflow-y-auto p-4 space-y-3 flex-1">
@@ -641,13 +641,13 @@ export function AgendaCalendar() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-indigo-500" />
-          <h1 className="text-xl font-bold text-gray-900">Agenda</h1>
+          <h1 className="text-xl font-bold text-foreground">Agenda</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={goToday} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">Hoy</button>
-          <button onClick={prevMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronLeft className="h-4 w-4" /></button>
-          <span className="text-sm font-semibold text-gray-900 min-w-[140px] text-center">{MONTH_NAMES[month - 1]} {year}</span>
-          <button onClick={nextMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronRight className="h-4 w-4" /></button>
+          <button onClick={goToday} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-muted/30">Hoy</button>
+          <button onClick={prevMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-muted/30"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="text-sm font-semibold text-foreground min-w-[140px] text-center">{MONTH_NAMES[month - 1]} {year}</span>
+          <button onClick={nextMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-muted/30"><ChevronRight className="h-4 w-4" /></button>
         </div>
       </div>
 
@@ -671,7 +671,7 @@ export function AgendaCalendar() {
           </span>
           <button
             onClick={handleRefresh}
-            className="inline-flex items-center gap-1.5 text-xs bg-gray-50 border border-gray-200 text-gray-500 px-3 py-1.5 rounded-full hover:bg-gray-100 ml-auto"
+            className="inline-flex items-center gap-1.5 text-xs bg-muted/30 border border-gray-200 text-gray-500 px-3 py-1.5 rounded-full hover:bg-muted ml-auto"
           >
             Actualizar
           </button>
@@ -698,7 +698,7 @@ export function AgendaCalendar() {
           <div className="grid grid-cols-7">
             {calDays.map((day, idx) => {
               if (day === null) {
-                return <div key={`empty-${idx}`} className="min-h-[90px] bg-gray-50/50 border-b border-r border-gray-50" />
+                return <div key={`empty-${idx}`} className="min-h-[90px] bg-muted/30/50 border-b border-r border-gray-50" />
               }
               const dateStr   = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
               const dayEvents = eventsByDate[dateStr] || []
@@ -711,13 +711,13 @@ export function AgendaCalendar() {
                   onClick={() => handleDayClick(dateStr)}
                   className={cn(
                     'min-h-[90px] p-1.5 border-b border-r border-gray-50 flex flex-col gap-1 cursor-pointer transition-colors',
-                    dayEvents.length > 0 ? 'hover:bg-gray-50' : 'hover:bg-indigo-50/30',
+                    dayEvents.length > 0 ? 'hover:bg-muted/30' : 'hover:bg-indigo-50/30',
                     isToday && 'bg-indigo-50/40'
                   )}
                 >
                   <div className={cn(
                     'w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold self-start',
-                    isToday ? 'bg-indigo-600 text-white' : 'text-gray-700'
+                    isToday ? 'bg-indigo-600 text-white' : 'text-foreground/80'
                   )}>
                     {day}
                   </div>
@@ -760,7 +760,7 @@ export function AgendaCalendar() {
       {/* ── Events list ─────────────────────────────────────── */}
       {data && data.events.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-indigo-500" />
             Lista de eventos del mes
           </h2>

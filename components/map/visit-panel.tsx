@@ -104,9 +104,9 @@ export function VisitPanel({
         style={{ maxWidth: '90vw' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
           <div>
-            <h2 className="text-sm font-bold text-gray-900">
+            <h2 className="text-sm font-bold text-foreground">
               Visitas · {visitType}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -114,14 +114,14 @@ export function VisitPanel({
               {pendingCount > 0 && ` · ${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''}`}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+          <button onClick={onClose} className="text-gray-400 hover:text-muted-foreground p-1">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Progress bar */}
         {localEntries.length > 0 && (
-          <div className="h-1 bg-gray-100">
+          <div className="h-1 bg-muted">
             <div
               className="h-1 bg-green-500 transition-all duration-500"
               style={{ width: `${(visitedCount / localEntries.length) * 100}%` }}
@@ -154,7 +154,7 @@ export function VisitPanel({
                     {visited
                       ? <CheckCircle2 className="h-5 w-5 text-green-500" />
                       : (
-                        <span className="flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 text-xs font-bold text-gray-600">
+                        <span className="flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 text-xs font-bold text-muted-foreground">
                           {idx + 1}
                         </span>
                       )
@@ -162,7 +162,7 @@ export function VisitPanel({
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold truncate ${visited ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                    <p className={`text-sm font-semibold truncate ${visited ? 'text-gray-500 line-through' : 'text-foreground'}`}>
                       {client.name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">{client.address}</p>
@@ -225,7 +225,7 @@ export function VisitPanel({
         </div>
 
         {/* Footer actions */}
-        <div className="border-t p-3 space-y-2 bg-gray-50">
+        <div className="border-t p-3 space-y-2 bg-muted/30">
           {visitedCount > 0 && (
             <Button
               onClick={() => setShowReport(true)}
