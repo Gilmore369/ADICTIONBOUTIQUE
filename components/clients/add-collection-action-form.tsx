@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { AlertCircle } from 'lucide-react'
 import { COLLECTION_ACTION_TYPES, COLLECTION_RESULTS, requiresFollowUpDate } from '@/lib/constants/collection-actions'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 const collectionActionFormSchema = z.object({
   action_type: z.string().min(1, 'El tipo de acción es requerido'),
@@ -206,7 +207,7 @@ export function AddCollectionActionForm({ clientId }: AddCollectionActionFormPro
                     <FormControl>
                       <Input
                         type="date"
-                        min={new Date().toISOString().split('T')[0]}
+                        min={getTodayPeru()}
                         {...field}
                       />
                     </FormControl>

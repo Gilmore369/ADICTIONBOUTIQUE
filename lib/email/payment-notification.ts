@@ -12,6 +12,8 @@
  *   - Próxima fecha de pago estimada
  */
 
+import { formatDatePeru, getTodayPeru, normalizeDateOnlyPeru } from '@/lib/utils/timezone'
+
 export interface PaymentNotificationData {
   clientName: string
   clientEmail: string
@@ -34,16 +36,7 @@ function formatMoney(n: number): string {
 }
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('es-PE', {
-      timeZone: 'America/Lima',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-    })
-  } catch {
-    return iso
-  }
+  return formatDatePeru(iso, { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
 function formatDateTime(iso: string): string {
@@ -63,10 +56,11 @@ function formatDateTime(iso: string): string {
 
 // ── Estimar próxima fecha de pago: primer día del mes siguiente ───────────────
 export function estimateNextPaymentDate(fromDate?: string): string {
-  const base = fromDate ? new Date(fromDate) : new Date()
+  const [year, month] = normalizeDateOnlyPeru(fromDate || getTodayPeru()).split('-').map(Number)
   // Primer día del mes que sigue
-  const next = new Date(base.getFullYear(), base.getMonth() + 1, 1)
-  return next.toISOString().split('T')[0]
+  const nextMonth = month === 12 ? 1 : month + 1
+  const nextYear = month === 12 ? year + 1 : year
+  return `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
 }
 
 // ── Generar HTML del email ────────────────────────────────────────────────────

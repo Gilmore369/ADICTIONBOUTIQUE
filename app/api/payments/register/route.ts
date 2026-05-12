@@ -8,10 +8,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
+import { sendPaymentNotificationEmail } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
 import { buildPlanSections } from '@/lib/pdf/build-plan-sections'
 import { getStoreLogo } from '@/lib/utils/get-store-logo'
+import { addDaysPeru, normalizeDateOnlyPeru } from '@/lib/utils/timezone'
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { installmentId, amount, paymentMethod, paymentDate, notes } = body
+    const normalizedPaymentDate = normalizeDateOnlyPeru(paymentDate)
 
     // Validate required fields
     if (!installmentId || !amount || !paymentMethod || !paymentDate) {
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
         installment_id: installmentId,
         plan_id: (installment as any).plan_id || null,
         amount: amount,
-        payment_date: paymentDate,
+        payment_date: normalizedPaymentDate,
         user_id: user.id,
         notes: notes || null,
       })
@@ -149,8 +151,7 @@ export async function POST(request: NextRequest) {
 
         const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
         const nextDueDate = nextInst?.dueDate || (() => {
-          const b = new Date(paymentDate)
-          return new Date(b.getFullYear(), b.getMonth() + 1, b.getDate()).toISOString().split('T')[0]
+          return addDaysPeru(30, normalizedPaymentDate)
         })()
 
         let pdfBuffer: Buffer | undefined
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
             clientEmail,
             amountPaid: amount,
             paymentMethod,
-            paymentDate,
+            paymentDate: normalizedPaymentDate,
             originalTotal: originalTotal || amount,
             totalPaid: totalPaid || amount,
             remainingBalance,
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
           clientEmail,
           amountPaid: amount,
           paymentMethod,
-          paymentDate,
+          paymentDate: normalizedPaymentDate,
           remainingBalance,
           nextDueDate,
           notes: notes ? `Nota: ${notes}` : undefined,

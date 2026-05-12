@@ -16,7 +16,7 @@ import { processPayment } from '@/actions/payments'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/currency'
-import { PERU_TZ } from '@/lib/utils/timezone'
+import { formatDatePeru, getTodayPeru } from '@/lib/utils/timezone'
 import { useStore } from '@/contexts/store-context'
 import {
   Search, Loader2, AlertTriangle, CheckCircle2, Clock,
@@ -91,7 +91,7 @@ export function SmartPaymentPanel() {
 
   // Payment
   const [amount, setAmount] = useState('')
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
+  const [paymentDate, setPaymentDate] = useState(getTodayPeru())
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO')
   const [notes, setNotes] = useState('')
   const [autoAction, setAutoAction] = useState(true)
@@ -223,7 +223,7 @@ export function SmartPaymentPanel() {
       const formData = new FormData()
       formData.append('client_id', selectedClient.id)
       formData.append('amount', String(amt))
-      formData.append('payment_date', new Date(paymentDate).toISOString())
+      formData.append('payment_date', paymentDate)
       if (activeStoreText) formData.append('store_id', activeStoreText)
       // Idempotency: dedupes double-click / network retry on the server side.
       formData.append('idempotency_key', crypto.randomUUID())
@@ -382,7 +382,7 @@ export function SmartPaymentPanel() {
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-gray-500 text-xs">#{inst.installment_number}</span>
                         <span className="text-muted-foreground text-xs truncate">
-                          {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', timeZone: PERU_TZ })}
+                          {formatDatePeru(inst.due_date, { day: '2-digit', month: 'short' })}
                         </span>
                         <StatusBadge status={inst.status} days={inst.days_overdue} isOverdue={inst.is_overdue} />
                       </div>
@@ -551,7 +551,7 @@ export function SmartPaymentPanel() {
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground flex justify-between">
-                    <span>Vence: {new Date(inst.due_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: '2-digit', timeZone: PERU_TZ })}</span>
+                    <span>Vence: {formatDatePeru(inst.due_date, { day: '2-digit', month: 'short', year: '2-digit' })}</span>
                     <span>Pendiente: {formatCurrency(inst.amount - inst.paid_amount)}</span>
                   </div>
                 </div>

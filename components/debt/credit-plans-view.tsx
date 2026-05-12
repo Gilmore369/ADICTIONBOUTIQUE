@@ -14,6 +14,7 @@ import { createBrowserClient } from '@/lib/supabase/client'
 import { useStore } from '@/contexts/store-context'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate, getSafeTimestamp, isValidDate } from '@/lib/utils/date'
+import { addDaysPeru, getTodayPeru } from '@/lib/utils/timezone'
 import { InstallmentStatusBadge } from './installment-status-badge'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -161,10 +162,7 @@ export function CreditPlansView() {
       // No depender solo del campo status: hay cuotas PARTIAL/OVERDUE en BD
       // cuyo paid_amount cubre el monto pero el status nunca se actualizó a
       // PAID; esas no deben contar como vencidas.
-      const todayDateStr = (() => {
-        const n = new Date()
-        return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
-      })()
+      const todayDateStr = getTodayPeru()
       const overdueInsts = insts.filter(i => {
         const balance = Number(i.amount) - Number(i.paid_amount || 0)
         return balance > 0.009 &&
@@ -202,8 +200,6 @@ export function CreditPlansView() {
     setClients(sorted)
 
     // Alerts: overdue or due in next 7 days
-    const sevenDaysOut = new Date()
-    sevenDaysOut.setDate(sevenDaysOut.getDate() + 7)
     const { data: alertsData } = await supabase
       .from('installments')
       .select(`
@@ -211,7 +207,7 @@ export function CreditPlansView() {
         credit_plans!inner ( id, clients!inner ( id, name ) )
       `)
       .in('status', ['OVERDUE'])
-      .lte('due_date', sevenDaysOut.toISOString().split('T')[0])
+      .lte('due_date', addDaysPeru(7))
       .order('due_date', { ascending: true })
       .limit(15)
     setAlerts(alertsData || [])
@@ -415,6 +411,11 @@ interface ClientAccordionProps {
 
 function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, onTogglePlan }: ClientAccordionProps) {
   const isOverdue = client.overdue_count > 0
+  const legacyPurchaseSummary = client.plans
+    .map(plan => plan.legacy_purchase_description?.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' | ')
 
   return (
     <div className={`rounded-xl border transition-colors ${isOverdue ? 'border-rose-200 bg-rose-50 dark:bg-rose-950/20' : 'border-border bg-card'}`}>
@@ -460,6 +461,11 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
                 <Phone className="h-3 w-3 text-muted-foreground/50" />
                 <span className="text-xs text-muted-foreground/70">{client.phone}</span>
               </div>
+            )}
+            {legacyPurchaseSummary && (
+              <p className="mt-1 ml-5 text-xs text-muted-foreground truncate">
+                Compra: {legacyPurchaseSummary}
+              </p>
             )}
           </div>
 
@@ -645,7 +651,7 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
                   const balance = Number(inst.amount) - Number(inst.paid_amount)
                   const isPaid = inst.status === 'PAID' || balance <= 0
                   // Vencida por fecha real (due_date < hoy) sin importar status en BD
-                  const todayStr2 = (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })()
+                  const todayStr2 = getTodayPeru()
                   const isOverdue = !isPaid && (inst.due_date as string).split('T')[0] < todayStr2
                   return (
                     <tr

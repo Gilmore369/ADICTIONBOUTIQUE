@@ -55,10 +55,9 @@ export default async function PaymentHistoryPage({
   const initialPeriod = validPeriods.includes(periodParam) ? periodParam : '3M'
 
   // Always load 1 full year from DB; client-side filtering handles narrower periods
-  const now = new Date()
-  const oneYearAgo = new Date(now)
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-  const fromDate = oneYearAgo.toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+  const oneYearAgo = new Date(`${getTodayPeru()}T05:00:00.000Z`)
+  oneYearAgo.setUTCFullYear(oneYearAgo.getUTCFullYear() - 1)
+  const fromDate = oneYearAgo.toISOString().slice(0, 10)
 
   // Fetch payments with client and user info
   let query = supabase

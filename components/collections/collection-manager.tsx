@@ -23,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { formatSafeDate } from '@/lib/utils/date'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface HistoryRecord {
@@ -965,7 +966,7 @@ export function CollectionManager() {
                       value={formPromiseDate}
                       onChange={e => setFormPromiseDate(e.target.value)}
                       className="w-full h-9 px-3 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min={new Date().toISOString().split('T')[0]}
+                      min={getTodayPeru()}
                       required
                     />
                   </div>

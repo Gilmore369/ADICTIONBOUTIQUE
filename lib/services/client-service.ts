@@ -19,6 +19,7 @@ import {
   ClientRating,
 } from '@/lib/types/crm'
 import { differenceInDays } from 'date-fns'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 /**
  * Fetch complete client profile with all related data
@@ -177,11 +178,13 @@ export async function fetchClientProfile(
   const planMap = new Map(creditPlans.map((p: any) => [p.id, p]))
 
   // Transform installments and calculate days overdue
-  const today = new Date()
+  const today = getTodayPeru()
   const installmentsWithPlan: InstallmentWithPlan[] = installments
     .map((inst: any) => {
-      const dueDate = new Date(inst.due_date)
-      const daysOverdue = dueDate < today ? differenceInDays(today, dueDate) : 0
+      const dueDateKey = String(inst.due_date).split('T')[0]
+      const dueDate = new Date(`${dueDateKey}T12:00:00`)
+      const todayDate = new Date(`${today}T12:00:00`)
+      const daysOverdue = dueDateKey < today ? differenceInDays(todayDate, dueDate) : 0
       const plan = planMap.get(inst.plan_id) || inst.credit_plans || {}
       const saleNumber = (plan as any).sales?.sale_number || ''
       const saleStoreId = (plan as any).sales?.store_id || ''
@@ -626,7 +629,7 @@ export async function filterClients(filters: import('@/lib/types/crm').ClientFil
         installmentsByClient.get(clientId)!.push(inst)
       })
       
-      const today = new Date()
+      const today = getTodayPeru()
       
       filteredClients = filteredClients.filter((client: any) => {
         const clientInstallments = installmentsByClient.get(client.id) || []
@@ -634,9 +637,8 @@ export async function filterClients(filters: import('@/lib/types/crm').ClientFil
         
         // Check if client has any overdue installments
         const hasOverdueInstallments = clientInstallments.some((inst: any) => {
-          const dueDate = new Date(inst.due_date)
           return (
-            dueDate < today &&
+            String(inst.due_date).split('T')[0] < today &&
             (inst.status === 'PENDING' || inst.status === 'PARTIAL' || inst.status === 'OVERDUE')
           )
         })

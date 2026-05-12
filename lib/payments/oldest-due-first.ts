@@ -8,6 +8,8 @@
  * Requirements: 7.1, 7.2, 7.3, 7.4
  */
 
+import { getTodayPeru } from '@/lib/utils/timezone'
+
 /**
  * Installment type for payment processing
  */
@@ -53,18 +55,15 @@ export interface PaymentApplicationResult {
  * **Validates: Requirements 7.1, 7.2**
  */
 export function sortInstallmentsByDueDate(installments: Installment[]): Installment[] {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0) // Normalize to start of day
+  const today = getTodayPeru()
+  const toDateKey = (value: string) => value.split('T')[0]
   
   // Separate overdue and upcoming installments
   const overdue: Installment[] = []
   const upcoming: Installment[] = []
   
   for (const installment of installments) {
-    const dueDate = new Date(installment.due_date)
-    dueDate.setHours(0, 0, 0, 0) // Normalize to start of day
-    
-    if (dueDate < today) {
+    if (toDateKey(installment.due_date) < today) {
       overdue.push(installment)
     } else {
       upcoming.push(installment)
@@ -73,7 +72,7 @@ export function sortInstallmentsByDueDate(installments: Installment[]): Installm
   
   // Sort each group by due_date ascending (oldest first)
   const sortByDueDate = (a: Installment, b: Installment) => {
-    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+    return toDateKey(a.due_date).localeCompare(toDateKey(b.due_date))
   }
   
   overdue.sort(sortByDueDate)

@@ -50,6 +50,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 // Form validation schema
 const paymentFormSchema = z.object({
@@ -89,7 +90,7 @@ export function PaymentForm({ onSuccess, onCancel, onClientChange, onAmountChang
     defaultValues: {
       client_id: '',
       amount: 0,
-      payment_date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
+      payment_date: getTodayPeru(),
       receipt_url: '',
       notes: ''
     }
@@ -110,8 +111,7 @@ export function PaymentForm({ onSuccess, onCancel, onClientChange, onAmountChang
       const formData = new FormData()
       formData.append('client_id', data.client_id)
       formData.append('amount', String(data.amount))
-      // Convert date to ISO datetime format
-      formData.append('payment_date', new Date(data.payment_date).toISOString())
+      formData.append('payment_date', data.payment_date)
       if (data.receipt_url) {
         formData.append('receipt_url', data.receipt_url)
       }

@@ -58,6 +58,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Calendar } from 'lucide-react'
 import { formatSafeDate, isValidDate } from '@/lib/utils/date'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 // Form validation schema
 const rescheduleFormSchema = z.object({
@@ -126,8 +127,7 @@ export function RescheduleDialog({
       // Convert data to FormData for server action
       const formData = new FormData()
       formData.append('installment_id', installment.id)
-      // Convert date to ISO datetime format
-      formData.append('new_due_date', new Date(data.new_due_date).toISOString())
+      formData.append('new_due_date', data.new_due_date)
       formData.append('reason', data.reason)
 
       // Call server action (to be created)
@@ -197,9 +197,9 @@ export function RescheduleDialog({
                   <FormControl>
                     <Input
                       type="date"
+                      min={getTodayPeru()}
                       {...field}
                       disabled={loading}
-                      min={new Date().toISOString().split('T')[0]}
                     />
                   </FormControl>
                   <FormMessage />

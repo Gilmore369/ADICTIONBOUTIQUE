@@ -14,11 +14,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { peruMidnightUTC, peruEndOfDayUTC } from '@/lib/utils/timezone'
+import { addDaysPeru, getTodayPeru, peruEndOfDayUTC, peruMidnightUTC } from '@/lib/utils/timezone'
 import { applyPaymentToInstallments } from '@/lib/payments/oldest-due-first'
 import type { Installment } from '@/lib/payments/oldest-due-first'
 import { revalidatePath } from 'next/cache'
-import { sendPaymentNotificationEmail, estimateNextPaymentDate } from '@/lib/email/payment-notification'
+import { sendPaymentNotificationEmail } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
 import { buildPlanSections } from '@/lib/pdf/build-plan-sections'
 import { getStoreLogo } from '@/lib/utils/get-store-logo'
@@ -201,6 +201,7 @@ export async function POST(request: NextRequest) {
         const serviceClient = createServiceClient()
         const amount = Number(payment_amount)
         const method = payment_method || 'EFECTIVO'
+        const paymentDate = getTodayPeru()
         const paymentNote = `Cobro via visita - ${result} - Método: ${method}`
 
         // ── Step 1: Try to apply to installments (optional) ────────────────
@@ -277,7 +278,7 @@ export async function POST(request: NextRequest) {
           .insert({
             client_id,
             amount,
-            payment_date: new Date().toISOString(),
+            payment_date: paymentDate,
             user_id: user.id,
             receipt_url: payment_proof_url || null,
             notes: paymentNote,
@@ -294,7 +295,7 @@ export async function POST(request: NextRequest) {
             .insert({
               client_id,
               amount,
-              payment_date: new Date().toISOString(),
+              payment_date: paymentDate,
               user_id: user.id,
               receipt_url: payment_proof_url || null,
               notes: paymentNote,
@@ -326,8 +327,6 @@ export async function POST(request: NextRequest) {
             const clientEmail = clientFull?.email
             if (clientEmail) {
               const planIds = linkedPlanId ? [linkedPlanId] : []
-              const paymentDateISO = new Date().toISOString()
-
               const { plans, originalTotal, allInstallments } = planIds.length > 0
                 ? await buildPlanSections(planIds, serviceClient)
                 : { plans: [], originalTotal: 0, allInstallments: [] }
@@ -336,10 +335,7 @@ export async function POST(request: NextRequest) {
               const totalPaid = Math.max(0, originalTotal - remainingBalance)
 
               const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
-              const nextDueDate = nextInst?.dueDate || (() => {
-                const b = new Date()
-                return new Date(b.getFullYear(), b.getMonth() + 1, b.getDate()).toISOString().split('T')[0]
-              })()
+              const nextDueDate = nextInst?.dueDate || addDaysPeru(30, paymentDate)
 
               let pdfBuffer: Buffer | undefined
               try {
@@ -351,7 +347,7 @@ export async function POST(request: NextRequest) {
                   clientEmail,
                   amountPaid: amount,
                   paymentMethod: method,
-                  paymentDate: paymentDateISO,
+                  paymentDate,
                   originalTotal: originalTotal || amount,
                   totalPaid: totalPaid || amount,
                   remainingBalance,
@@ -369,7 +365,7 @@ export async function POST(request: NextRequest) {
                 clientEmail,
                 amountPaid: amount,
                 paymentMethod: method,
-                paymentDate: paymentDateISO,
+                paymentDate,
                 remainingBalance,
                 nextDueDate,
                 notes: body.comment ? `Nota del cobrador: ${body.comment}` : undefined,

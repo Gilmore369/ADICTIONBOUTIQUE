@@ -18,6 +18,43 @@ export function getNowPeru(): string {
 }
 
 /**
+ * Normalizes a date input to a Peru calendar date (YYYY-MM-DD).
+ * Date-only database fields should store this value, not a UTC ISO timestamp.
+ */
+export function normalizeDateOnlyPeru(value: string | Date | null | undefined): string {
+  if (!value) return getTodayPeru()
+
+  if (value instanceof Date) {
+    return value.toLocaleDateString('en-CA', { timeZone: PERU_TZ })
+  }
+
+  const raw = value.trim()
+  if (!raw) return getTodayPeru()
+
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})$/)
+  if (dateOnly) return dateOnly[1]
+
+  // Old clients submitted selected date inputs as UTC midnight.
+  // Keep the selected calendar day instead of shifting it to the previous day.
+  const utcMidnight = raw.match(/^(\d{4}-\d{2}-\d{2})T00:00:00(?:\.000)?Z$/)
+  if (utcMidnight) return utcMidnight[1]
+
+  const parsed = new Date(raw)
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toLocaleDateString('en-CA', { timeZone: PERU_TZ })
+  }
+
+  return getTodayPeru()
+}
+
+/** Adds days to a Peru calendar date and returns YYYY-MM-DD. */
+export function addDaysPeru(days: number, fromDate: string = getTodayPeru()): string {
+  const d = new Date(`${normalizeDateOnlyPeru(fromDate)}T05:00:00.000Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
  * Returns the UTC ISO string that corresponds to Peru midnight (00:00 Lima)
  * for the given YYYY-MM-DD date string.
  * Peru is UTC-5, so Lima midnight = 05:00 UTC.

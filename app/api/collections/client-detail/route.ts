@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getTodayPeru, peruMidnightUTC } from '@/lib/utils/timezone'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerClient()
@@ -54,16 +55,15 @@ export async function GET(request: NextRequest) {
         .order('due_date', { ascending: true })
     : { data: [] }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0) // comparar solo fecha, sin hora
+  const today = getTodayPeru()
+  const todayMs = new Date(peruMidnightUTC(today)).getTime()
 
   const installments = ((installmentsRes as any).data || []).map((inst: any) => {
-    const due = new Date(inst.due_date)
-    due.setHours(0, 0, 0, 0)
+    const dueDate = String(inst.due_date).split('T')[0]
     // Vencida si la fecha ya pasó, sin importar el status en BD
-    const isOverdue = due < today
+    const isOverdue = dueDate < today
     const daysOverdue = isOverdue
-      ? Math.floor((today.getTime() - due.getTime()) / 86400000)
+      ? Math.floor((todayMs - new Date(peruMidnightUTC(dueDate)).getTime()) / 86400000)
       : 0
     // Attach store_id from plan's sale for client-side store validation
     return { ...inst, days_overdue: daysOverdue, is_overdue: isOverdue, store_id: planStoreMap[inst.plan_id] || '' }

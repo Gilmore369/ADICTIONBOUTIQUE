@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { getTodayPeru } from '@/lib/utils/timezone'
+import { addDaysPeru, getTodayPeru } from '@/lib/utils/timezone'
 import { getAllowedStoreNames, getAllowedPlanIds } from '@/lib/utils/store-filter'
 
 export async function GET(request: Request) {
@@ -12,11 +12,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    const today = new Date()
-    const sevenDaysFromNow = new Date(today)
-    sevenDaysFromNow.setDate(today.getDate() + 7)
     const todayStr = getTodayPeru()
-    const sevenDaysStr = sevenDaysFromNow.toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+    const sevenDaysStr = addDaysPeru(7, todayStr)
 
     // Store filter — respeta selección de tienda del UI y restricciones del perfil
     const { searchParams } = new URL(request.url)

@@ -22,6 +22,7 @@ import { ExternalLink, Search, TrendingUp, Calendar } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
+import { addDaysPeru, getTodayPeru } from '@/lib/utils/timezone'
 
 interface Payment {
   id: string
@@ -58,35 +59,33 @@ function toDateStr(d: Date): string {
   return d.toISOString().split('T')[0]
 }
 
-function todayStr(): string { return toDateStr(new Date()) }
+function todayStr(): string { return getTodayPeru() }
 
 function thisMonthStart(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  return `${getTodayPeru().slice(0, 7)}-01`
 }
 
 function periodRange(period: Period): { from: string; to: string } {
-  const now = new Date()
   const to = todayStr()
   if (period === '1D') return { from: to, to }
   if (period === '1W') {
-    const d = new Date(now); d.setDate(d.getDate() - 6)
-    return { from: toDateStr(d), to }
+    return { from: addDaysPeru(-6, to), to }
   }
+  const now = new Date(`${to}T05:00:00.000Z`)
   if (period === '1M') {
-    const d = new Date(now); d.setMonth(d.getMonth() - 1)
+    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 1)
     return { from: toDateStr(d), to }
   }
   if (period === '3M') {
-    const d = new Date(now); d.setMonth(d.getMonth() - 3)
+    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 3)
     return { from: toDateStr(d), to }
   }
   if (period === '6M') {
-    const d = new Date(now); d.setMonth(d.getMonth() - 6)
+    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 6)
     return { from: toDateStr(d), to }
   }
   // 1Y
-  const d = new Date(now); d.setFullYear(d.getFullYear() - 1)
+  const d = new Date(now); d.setUTCFullYear(d.getUTCFullYear() - 1)
   return { from: toDateStr(d), to }
 }
 

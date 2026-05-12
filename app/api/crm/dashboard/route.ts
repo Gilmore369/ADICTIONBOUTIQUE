@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { fetchDashboardMetrics } from '@/lib/services/dashboard-service'
-import { getTodayPeru, PERU_TZ } from '@/lib/utils/timezone'
+import { getTodayPeru, PERU_TZ, peruMidnightUTC } from '@/lib/utils/timezone'
 
 export async function GET(request: Request) {
   const supabase = await createServerClient()
@@ -41,15 +41,16 @@ export async function GET(request: Request) {
       .in('status', ['OVERDUE', 'PARTIAL'])
 
     const ageingBuckets = { '0-30': 0, '31-60': 0, '61-90': 0, '+90': 0 }
-    const today = new Date()
+    const today = getTodayPeru()
+    const todayMs = new Date(peruMidnightUTC(today)).getTime()
     for (const row of overdueRows || []) {
       // Store filter
       if (storeId) {
         const saleStoreId = (row.credit_plans as any)?.sales?.store_id
         if (saleStoreId && saleStoreId !== storeId) continue
       }
-      const due = new Date(row.due_date)
-      const days = Math.floor((today.getTime() - due.getTime()) / 86400000)
+      const dueDate = String(row.due_date).split('T')[0]
+      const days = Math.floor((todayMs - new Date(peruMidnightUTC(dueDate)).getTime()) / 86400000)
       const remaining = Number(row.amount) - Number(row.paid_amount || 0)
       if (days <= 30) ageingBuckets['0-30'] += remaining
       else if (days <= 60) ageingBuckets['31-60'] += remaining
@@ -87,9 +88,9 @@ export async function GET(request: Request) {
 
       const clientId = client.id
       const remaining = Number(row.amount) - Number(row.paid_amount || 0)
-      const due = new Date(row.due_date)
-      const daysOverdue = Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000))
-      const isOverdue = new Date(row.due_date) < today
+      const dueDate = String(row.due_date).split('T')[0]
+      const daysOverdue = Math.max(0, Math.floor((todayMs - new Date(peruMidnightUTC(dueDate)).getTime()) / 86400000))
+      const isOverdue = dueDate < today
 
       if (!clientMap[clientId]) {
         clientMap[clientId] = {

@@ -25,6 +25,7 @@ import { sendPaymentNotificationEmail } from '@/lib/email/payment-notification'
 import { generatePaymentStatementPDF } from '@/lib/pdf/generate-payment-statement'
 import { buildPlanSections } from '@/lib/pdf/build-plan-sections'
 import { getStoreLogo } from '@/lib/utils/get-store-logo'
+import { addDaysPeru, normalizeDateOnlyPeru } from '@/lib/utils/timezone'
 
 /**
  * Standard response type for server actions
@@ -79,11 +80,12 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
   const storeFilter = rawStoreFilter
     ? (STORE_DISPLAY_NAMES[rawStoreFilter.toUpperCase()] || rawStoreFilter)
     : null
+  const normalizedPaymentDate = normalizeDateOnlyPeru(formData.get('payment_date')?.toString())
 
   const validated = paymentSchema.safeParse({
     client_id: formData.get('client_id'),
     amount: formData.get('amount') ? Number(formData.get('amount')) : undefined,
-    payment_date: formData.get('payment_date'),
+    payment_date: normalizedPaymentDate,
     user_id: user.id,
     receipt_url: receiptUrl || undefined,
     notes: notes || undefined
@@ -380,10 +382,7 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
         const totalPaid = Math.max(0, originalTotal - remainingBalance)
 
         const nextInst = allInstallments.find(i => i.status === 'PENDING' || i.status === 'PARTIAL')
-        const nextDueDate = nextInst?.dueDate || (() => {
-          const b = new Date()
-          return new Date(b.getFullYear(), b.getMonth() + 1, b.getDate()).toISOString().split('T')[0]
-        })()
+        const nextDueDate = nextInst?.dueDate || addDaysPeru(30, capturedDate)
 
         let pdfBuffer: Buffer | undefined
         try {

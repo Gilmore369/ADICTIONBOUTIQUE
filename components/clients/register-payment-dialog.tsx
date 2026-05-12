@@ -41,6 +41,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { DollarSign, Store } from 'lucide-react'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 const STORE_TEXT: Record<string, string> = {
   MUJERES: 'Tienda Mujeres',
@@ -91,7 +92,7 @@ export function RegisterPaymentDialog({
     defaultValues: {
       amount: pendingAmount.toFixed(2),
       payment_method: 'EFECTIVO',
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: getTodayPeru(),
       notes: '',
     },
   })
@@ -252,7 +253,7 @@ export function RegisterPaymentDialog({
                   <FormControl>
                     <Input
                       type="date"
-                      max={new Date().toISOString().split('T')[0]}
+                      max={getTodayPeru()}
                       {...field}
                     />
                   </FormControl>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { getTodayPeru } from '@/lib/utils/timezone'
+import { getTodayPeru, peruMidnightUTC } from '@/lib/utils/timezone'
 import { getAllowedStoreNames, getAllowedPlanIds } from '@/lib/utils/store-filter'
 
 export async function GET(request: Request) {
@@ -12,8 +12,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    const todayDate = new Date()
     const today = getTodayPeru()
+    const todayMs = new Date(peruMidnightUTC(today)).getTime()
 
     // Store filter — respeta selección de tienda del UI y restricciones del perfil
     const { searchParams } = new URL(request.url)
@@ -67,8 +67,9 @@ export async function GET(request: Request) {
     overdueInstallments?.forEach((installment: any) => {
       const client = installment.credit_plans.clients
       const overdueAmount = installment.amount - (installment.paid_amount || 0)
+      const dueDate = String(installment.due_date).split('T')[0]
       const daysOverdue = Math.floor(
-        (todayDate.getTime() - new Date(installment.due_date).getTime()) / (1000 * 60 * 60 * 24)
+        (todayMs - new Date(peruMidnightUTC(dueDate)).getTime()) / (1000 * 60 * 60 * 24)
       )
       if (clientsMap.has(client.id)) {
         const existing = clientsMap.get(client.id)

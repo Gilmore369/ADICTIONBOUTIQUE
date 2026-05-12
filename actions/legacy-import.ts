@@ -26,6 +26,7 @@ import {
   type LegacyImportBatchResult,
   type HistoricalPayment,
 } from '@/lib/legacy-import/schema'
+import { addDaysPeru, getTodayPeru, normalizeDateOnlyPeru } from '@/lib/utils/timezone'
 
 // ── Auth: solo admin puede importar ─────────────────────────────────────────
 async function requireAdmin() {
@@ -339,10 +340,11 @@ async function processRow(
   }
 
   // installments_count tiene CHECK BETWEEN 1 AND 6 → usamos 1
-  const dueDate = row.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const dueDate = row.due_date ? normalizeDateOnlyPeru(row.due_date) : addDaysPeru(30)
+  const todayPeru = getTodayPeru()
   const installmentStatus =
     paidSoFar > 0 ? 'PARTIAL' :
-    new Date(dueDate) < new Date() ? 'OVERDUE' :
+    dueDate < todayPeru ? 'OVERDUE' :
     'PENDING'
 
   const { data: plan, error: planError } = await service
@@ -357,7 +359,7 @@ async function processRow(
       imported_from_legacy: true,
       legacy_source: sourceLabel || 'Importación legacy',
       legacy_purchase_description: row.purchase_description,
-      legacy_purchase_date: row.purchase_date,
+      legacy_purchase_date: normalizeDateOnlyPeru(row.purchase_date),
       legacy_original_total: totalAmount,
       legacy_imported_at: new Date().toISOString(),
       legacy_imported_by: userId,
@@ -398,7 +400,7 @@ async function processRow(
     const paymentRecords = historicalPayments.map(p => ({
       client_id: clientId,
       amount: p.amount,
-      payment_date: p.payment_date,
+      payment_date: normalizeDateOnlyPeru(p.payment_date),
       user_id: userId,
       notes: `[LEGACY] ${p.method ? `${p.method} — ` : ''}${p.notes || 'Pago histórico importado'}`,
       plan_id: plan.id,
@@ -422,7 +424,7 @@ async function processRow(
     const { error: payError } = await service.from('payments').insert({
       client_id: clientId,
       amount: paidSoFar,
-      payment_date: row.purchase_date,  // mejor estimado
+      payment_date: normalizeDateOnlyPeru(row.purchase_date),  // mejor estimado
       user_id: userId,
       notes: `[LEGACY] Pagos previos consolidados (sin detalle histórico)`,
       plan_id: plan.id,

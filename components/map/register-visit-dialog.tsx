@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils/currency'
 import { X, Camera, CheckCircle2, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { formatSafeDate } from '@/lib/utils/date'
+import { getTodayPeru } from '@/lib/utils/timezone'
 
 export interface VisitClient {
   id: string
@@ -352,7 +353,7 @@ export function RegisterVisitDialog({ client, visitType, pastVisits, onClose, on
                   type="date"
                   value={promiseDate}
                   onChange={e => setPromiseDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={getTodayPeru()}
                   className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
