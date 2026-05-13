@@ -203,11 +203,13 @@ function ModelCardItem({
   onOpenDetail,
   onAddToCart,
   isInCart,
+  viewMode = 'grid',
 }: {
   model: ModelCard
   onOpenDetail: () => void
   onAddToCart: (variant: ModelVariant) => void
   isInCart: boolean
+  viewMode?: 'grid' | 'list' | 'pos'
 }) {
   const [selSize, setSelSize] = useState<string | null>(
     model.size_names.length === 1 ? model.size_names[0] : null
@@ -352,11 +354,23 @@ function ModelCardItem({
     setTimeout(() => setJustAdded(false), 1500)
   }
 
+  const isList = viewMode === 'list'
+
   return (
-    <Card className="group overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 p-0 relative flex flex-col">
+    <Card className={[
+      'group overflow-hidden hover:shadow-md transition-all duration-200 p-0 relative',
+      isList
+        ? 'flex flex-row hover:bg-muted/30 hover:translate-x-0.5'
+        : 'flex flex-col hover:-translate-y-0.5',
+    ].join(' ')}>
       {/* ── Image ── */}
       <div
-        className="relative aspect-[3/4] bg-muted overflow-hidden cursor-pointer flex-shrink-0"
+        className={[
+          'relative bg-muted overflow-hidden cursor-pointer flex-shrink-0',
+          isList
+            ? 'w-24 h-24 sm:w-32 sm:h-32 aspect-square'
+            : 'aspect-[3/4]',
+        ].join(' ')}
         onClick={onOpenDetail}
       >
         {displayImage ? (
@@ -396,13 +410,22 @@ function ModelCardItem({
       </div>
 
       {/* ── Card body ── */}
-      <div className="p-2 flex flex-col gap-1.5 flex-1">
+      <div className={[
+        'flex flex-col gap-1.5 flex-1 min-w-0',
+        isList ? 'p-3 sm:flex-row sm:items-center sm:gap-4' : 'p-2',
+      ].join(' ')}>
         {/* Title — click opens detail */}
-        <div onClick={onOpenDetail} className="cursor-pointer">
+        <div onClick={onOpenDetail} className={[
+          'cursor-pointer min-w-0',
+          isList ? 'sm:flex-1' : '',
+        ].join(' ')}>
           <p className="text-[9px] font-mono text-muted-foreground leading-none">{model.base_code}</p>
-          <p className="text-xs font-semibold leading-tight line-clamp-2 mt-0.5">{model.base_name}</p>
+          <p className={[
+            'font-semibold leading-tight mt-0.5',
+            isList ? 'text-sm line-clamp-1 sm:text-base' : 'text-xs line-clamp-2',
+          ].join(' ')}>{model.base_name}</p>
           {model.brand_name && (
-            <p className="text-[9px] text-muted-foreground mt-0.5">{model.brand_name}</p>
+            <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{model.brand_name}</p>
           )}
         </div>
 
@@ -499,14 +522,21 @@ function ModelCardItem({
         </p>
 
         {/* Price + Add button */}
-        <div className="flex items-center justify-between gap-1 mt-auto pt-1">
-          <span className="text-xs font-bold tabular-nums">{formatCurrency(model.sale_price)}</span>
+        <div className={[
+          'flex items-center justify-between gap-2 mt-auto pt-1',
+          isList ? 'sm:flex-col sm:items-end sm:justify-center sm:gap-1 sm:pt-0 sm:flex-shrink-0' : '',
+        ].join(' ')}>
+          <span className={[
+            'font-bold tabular-nums',
+            isList ? 'text-sm sm:text-base' : 'text-xs',
+          ].join(' ')}>{formatCurrency(model.sale_price)}</span>
           <button
             onClick={handleAdd}
             title={model.total_stock === 0 ? 'Sin stock' : 'Agregar al carrito'}
             disabled={model.total_stock === 0}
             className={[
-              'h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-200',
+              'rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-200',
+              isList ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-6 w-6',
               justAdded
                 ? 'bg-emerald-600 text-white scale-110'
                 : model.total_stock === 0
@@ -514,7 +544,9 @@ function ModelCardItem({
                   : 'bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-110 active:scale-95',
             ].join(' ')}
           >
-            {justAdded ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+            {justAdded
+              ? <Check className={isList ? 'h-4 w-4' : 'h-3 w-3'} />
+              : <Plus className={isList ? 'h-4 w-4' : 'h-3 w-3'} />}
           </button>
         </div>
       </div>
@@ -2044,19 +2076,23 @@ export function VisualCatalog() {
             </>
           )}
           <div className="h-3 w-px bg-border" />
-          <div className="flex items-center gap-1.5">
+          <div
+            className="flex items-center gap-1.5"
+            title={`Productos destacados (favoritos). Marcas los productos con la estrellita en su tarjeta. Aparecen primero y son tus prendas estrella. Máximo ${CATALOG_LIMIT}.`}
+          >
             <Bookmark className="h-3.5 w-3.5 text-violet-500" />
             <span className="font-semibold">{catalogCount}</span>
-            <span className="text-muted-foreground">en catálogo</span>
+            <span className="text-muted-foreground">destacados</span>
             <span className="text-muted-foreground/50">/ {CATALOG_LIMIT}</span>
           </div>
           <div className="ml-auto">
             <button
               onClick={() => { setCatalogOnly(v => !v); setPage(1) }}
+              title={catalogOnly ? 'Mostrar todos los productos' : 'Filtrar solo los destacados'}
               className={[
                 'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-medium transition-colors',
                 catalogOnly
-                  ? 'bg-violet-100 text-violet-700 border border-violet-300'
+                  ? 'bg-violet-100 text-violet-700 border border-violet-300 dark:bg-violet-950/40 dark:text-violet-300'
                   : 'bg-muted text-muted-foreground border border-border hover:bg-muted/80',
               ].join(' ')}
             >
@@ -2064,7 +2100,7 @@ export function VisualCatalog() {
                 ? <BookmarkCheck className="h-3 w-3" />
                 : <Bookmark className="h-3 w-3" />
               }
-              {catalogOnly ? 'Solo catálogo' : 'Ver catálogo'}
+              {catalogOnly ? 'Solo destacados' : 'Ver destacados'}
             </button>
           </div>
         </div>
@@ -2289,7 +2325,7 @@ export function VisualCatalog() {
                 viewMode === 'pos'
                   ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
                   : viewMode === 'list'
-                    ? 'grid-cols-1'
+                    ? 'grid-cols-1 max-w-4xl mx-auto w-full'
                     : cartOpen
                       ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                       : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
@@ -2298,6 +2334,7 @@ export function VisualCatalog() {
                   <ModelCardItem
                     key={m.base_code}
                     model={m}
+                    viewMode={viewMode}
                     onOpenDetail={() => setSelected(m)}
                     onAddToCart={variant => {
                       addToCart(m, variant)
