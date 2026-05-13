@@ -30,6 +30,7 @@ export interface UserRow {
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin', desc: 'Acceso total al sistema', tone: 'rose' as const },
   { value: 'vendedor', label: 'Vendedor', desc: 'POS, productos, clientes', tone: 'emerald' as const },
+  { value: 'cajero', label: 'Cajero', desc: 'Caja, POS y operaciones', tone: 'amber' as const },
   { value: 'cobrador', label: 'Cobrador', desc: 'Mapa, visitas, cobros', tone: 'blue' as const },
 ]
 
@@ -400,12 +401,13 @@ export function UserFormDialog({ open, onOpenChange, editUser, onSuccess }: Prop
                 Selecciona uno o más
               </span>
             </Label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               {ROLE_OPTIONS.map(r => {
                 const active = roles.includes(r.value)
                 const tone: Record<string, string> = {
                   rose: active ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/40' : 'hover:border-rose-300',
                   emerald: active ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40' : 'hover:border-emerald-300',
+                  amber: active ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'hover:border-amber-300',
                   blue: active ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40' : 'hover:border-blue-300',
                 }
                 return (

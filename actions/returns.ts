@@ -317,7 +317,7 @@ async function adjustCreditForCompletedReturnFallback(
     .limit(1)
     .maybeSingle()
 
-  if (!creditPlan || returnAmount <= 0) return { refundDue: 0, planId: null }
+  if (!creditPlan || returnAmount <= 0) return { success: true, refundDue: 0, planId: null }
 
   const { data: payments } = await service
     .from('payments')
@@ -348,10 +348,21 @@ async function adjustCreditForCompletedReturnFallback(
           .update({ amount: paid, status: 'PAID', paid_at: new Date().toISOString() })
           .eq('id', installment.id)
       } else {
-        await service
+        const { error: deleteError } = await service
           .from('installments')
-          .update({ amount: 0, paid_amount: 0, status: 'VOIDED', paid_at: null })
+          .delete()
           .eq('id', installment.id)
+
+        if (deleteError) {
+          const { error: voidError } = await service
+            .from('installments')
+            .update({ amount: 0.01, paid_amount: 0, status: 'VOIDED', paid_at: null })
+            .eq('id', installment.id)
+
+          if (voidError) {
+            return { success: false, error: `No se pudo anular cuota sin pagos: ${voidError.message}` }
+          }
+        }
       }
     } else {
       const newAmount = Math.round((amount - remainingReturn) * 100) / 100
@@ -393,6 +404,7 @@ async function adjustCreditForCompletedReturnFallback(
     })
 
   return {
+    success: true,
     planId: creditPlan.id,
     newPlanTotal,
     paidTotal,
@@ -511,8 +523,9 @@ export async function approveReturnAction(returnId: string) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
-  const canApproveReturn = await checkAnyPermission([Permission.MANAGE_CASH, Permission.MANAGE_USERS])
-  if (!canApproveReturn) return { success: false, error: 'No tienes permisos para aprobar devoluciones' }
+  // Solo ADMIN puede aprobar devoluciones (MANAGE_USERS es exclusivo de admin)
+  const canApproveReturn = await checkAnyPermission([Permission.MANAGE_USERS])
+  if (!canApproveReturn) return { success: false, error: 'Solo administradores pueden aprobar devoluciones' }
 
   // ── 1. Fetch devolución ───────────────────────────────────────────────────
   const { data: ret, error: fetchErr } = await service
@@ -683,6 +696,10 @@ export async function rejectReturnAction(returnId: string, adminNotes: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
 
+  // Solo ADMIN puede rechazar devoluciones
+  const canRejectReturn = await checkAnyPermission([Permission.MANAGE_USERS])
+  if (!canRejectReturn) return { success: false, error: 'Solo administradores pueden rechazar devoluciones' }
+
   const { data: previous } = await supabase
     .from('returns')
     .select('id, return_number, sale_number, status, store_id')
@@ -724,8 +741,9 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
 
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
-  const canCompleteReturn = await checkAnyPermission([Permission.MANAGE_CASH, Permission.MANAGE_USERS])
-  if (!canCompleteReturn) return { success: false, error: 'No tienes permisos para completar devoluciones' }
+  // Solo ADMIN puede completar devoluciones (MANAGE_USERS es exclusivo de admin)
+  const canCompleteReturn = await checkAnyPermission([Permission.MANAGE_USERS])
+  if (!canCompleteReturn) return { success: false, error: 'Solo administradores pueden completar devoluciones' }
 
   const atomicResult = await service.rpc('complete_return_atomic', {
     p_return_id: returnId,
@@ -751,9 +769,16 @@ export async function completeReturnAction(returnId: string, refundAmount?: numb
     }
   }
 
-  const missingAtomicRpc = ['42883', 'PGRST202'].includes(String((atomicResult.error as any).code))
+  const atomicErrorMessage = String(atomicResult.error.message || '')
+  const atomicErrorCode = String((atomicResult.error as any).code || '')
+  const missingAtomicRpc = ['42883', 'PGRST202'].includes(atomicErrorCode)
     || String(atomicResult.error.message || '').includes('complete_return_atomic')
-  if (!missingAtomicRpc) {
+  const canFallbackFromAtomicError = missingAtomicRpc
+    || atomicErrorCode === '23514'
+    || atomicErrorMessage.includes('installments_amount_check')
+    || atomicErrorMessage.includes('apply_credit_return_adjustment')
+    || atomicErrorMessage.includes('audit_logs')
+  if (!canFallbackFromAtomicError) {
     return { success: false, error: atomicResult.error.message }
   }
 

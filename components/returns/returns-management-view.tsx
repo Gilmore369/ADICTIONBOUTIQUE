@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import {
   RotateCcw, Search, CheckCircle, XCircle, Clock,
   Package, TrendingDown, ArrowLeftRight, Eye,
@@ -91,6 +90,18 @@ interface ReturnsManagementViewProps {
   initialReturns: ReturnRecord[]
 }
 
+function readIsAdminFromStorage() {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = window.localStorage.getItem('user_roles')
+    if (!raw) return false
+    const roles: string[] = JSON.parse(raw).map((r: string) => String(r).toLowerCase())
+    return roles.includes('admin')
+  } catch {
+    return false
+  }
+}
+
 export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewProps) {
   const [returns, setReturns]               = useState<ReturnRecord[]>(initialReturns)
   const [searchTerm, setSearchTerm]         = useState('')
@@ -101,6 +112,20 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
   const [approvingId, setApprovingId]       = useState<string | null>(null)
   const [rejectingId, setRejectingId]       = useState<string | null>(null)
   const [completingId, setCompletingId]     = useState<string | null>(null)
+  const [isAdmin, setIsAdmin]               = useState(readIsAdminFromStorage)
+
+  // Solo ADMIN puede aprobar/rechazar/completar devoluciones
+  useEffect(() => {
+    const syncAdminRole = () => setIsAdmin(readIsAdminFromStorage())
+    const rafId = window.requestAnimationFrame(syncAdminRole)
+    window.addEventListener('storage', syncAdminRole)
+    window.addEventListener('focus', syncAdminRole)
+    return () => {
+      window.cancelAnimationFrame(rafId)
+      window.removeEventListener('storage', syncAdminRole)
+      window.removeEventListener('focus', syncAdminRole)
+    }
+  }, [])
 
   // ── Metrics ─────────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -133,9 +158,9 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
     const result = await approveReturnAction(ret.id)
     setApprovingId(null)
     if (result.success) {
-      const r = result as any
+      const saleType = (result as { saleType?: string }).saleType
       toast.success(`Devolución ${ret.return_number} aprobada`, {
-        description: r.saleType === 'CREDITO'
+        description: saleType === 'CREDITO'
           ? 'Plan de crédito cancelado y crédito del cliente restaurado.'
           : 'Queda lista para completar. El egreso de caja se registrará al completar.',
       })
@@ -164,9 +189,9 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
     const result = await completeReturnAction(ret.id)
     setCompletingId(null)
     if (result.success) {
-      const r = result as any
+      const saleType = (result as { saleType?: string }).saleType
       toast.success(`Devolución ${ret.return_number} completada`, {
-        description: r.saleType === 'CONTADO'
+        description: saleType === 'CONTADO'
           ? 'Stock restaurado y egreso registrado en caja.'
           : 'Stock restaurado exitosamente.',
       })
@@ -406,7 +431,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
 
-                          {isPending && (
+                          {isPending && isAdmin && (
                             <>
                               <Button
                                 variant="ghost"
@@ -439,7 +464,7 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
                             </>
                           )}
 
-                          {isApproved && (
+                          {isApproved && isAdmin && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -482,9 +507,9 @@ export function ReturnsManagementView({ initialReturns }: ReturnsManagementViewP
         <ReturnDetailsDialog
           returnData={selected}
           onClose={() => setSelected(null)}
-          onApprove={() => handleApprove(selected)}
-          onReject={() => handleReject(selected)}
-          onComplete={() => handleComplete(selected)}
+          onApprove={isAdmin ? () => handleApprove(selected) : undefined}
+          onReject={isAdmin ? () => handleReject(selected) : undefined}
+          onComplete={isAdmin ? () => handleComplete(selected) : undefined}
           approving={approvingId === selected.id}
           rejecting={rejectingId === selected.id}
           completing={completingId === selected.id}

@@ -1,7 +1,7 @@
 /**
  * GET /api/admin/logs
  * Unified audit log for admins — aggregates recent activity from:
- *   sales, payments, movements, collection_actions, audit_logs
+ *   sales, payments, movements, collection_actions, audit_logs/audit_log
  * Query params:
  *   limit    (default 200, max 500)
  *   category (all | ventas | cobros | inventario | cobranzas | devoluciones | ediciones)
@@ -10,12 +10,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 async function requireAdmin() {
-  const supabase = await createServerClient()
+  const supabase = createServiceClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: profile } = await supabase.from('users').select('roles').eq('id', user.id).single()
+  const service = createServiceClient()
+  const { data: profile } = await service.from('users').select('roles').eq('id', user.id).single()
   const roles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
   if (!roles.includes('admin')) return null
   return user
@@ -140,7 +142,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Devoluciones y ediciones / borrados (audit_logs) ─────────────────────
+  // ── Devoluciones y ediciones / borrados (audit_logs + audit_log legacy) ───
   if (category === 'all' || category === 'ediciones' || category === 'devoluciones') {
     let q = supabase
       .from('audit_logs')
@@ -186,6 +188,61 @@ export async function GET(request: NextRequest) {
         severity: isReturn
           ? (detailLower.includes('rechaz') ? 'warning' : detailLower.includes('complet') ? 'success' : 'info')
           : (r.action === 'DELETE' ? 'warning' : 'info'),
+      })
+    }
+
+    let legacyQ = supabase
+      .from('audit_log')
+      .select('id, timestamp, user_id, operation, entity_type, entity_id, new_values, users:user_id(name)')
+      .order('timestamp', { ascending: false })
+      .limit(limit)
+    if (category === 'ediciones') legacyQ = legacyQ.neq('entity_type', 'return') as typeof legacyQ
+    if (category === 'devoluciones') legacyQ = legacyQ.eq('entity_type', 'return') as typeof legacyQ
+    if (filterUserId) legacyQ = legacyQ.eq('user_id', filterUserId) as typeof legacyQ
+    if (dateFrom) legacyQ = legacyQ.gte('timestamp', dateFrom) as typeof legacyQ
+    if (dateTo) legacyQ = legacyQ.lte('timestamp', dateTo) as typeof legacyQ
+    const { data: legacyData } = await legacyQ
+
+    for (const r of legacyData || []) {
+      const values = ((r.new_values || {}) as Record<string, any>)
+      const op = String(r.operation || '').toUpperCase()
+      const actionLabel = op === 'DELETE' ? 'Eliminado' : op === 'UPDATE' ? 'Editado' : 'Creado'
+      const entityLabel: Record<string, string> = {
+        product: 'Producto', client: 'Cliente', user: 'Usuario',
+        catalog_line: 'Linea', catalog_category: 'Categoria',
+        catalog_brand: 'Marca', catalog_size: 'Talla',
+        catalog_supplier: 'Proveedor', product_image: 'Imagen',
+        stock: 'Stock', 'return': 'Devolucion',
+      }
+      const isReturn = r.entity_type === 'return'
+      const detail = values.detail
+        || values.return_number
+        || values.sale_number
+        || r.entity_id
+        || '-'
+      const detailLower = String(detail).toLowerCase()
+      const returnAction = detailLower.includes('complet')
+        ? 'Devolucion completada'
+        : detailLower.includes('aprob')
+          ? 'Devolucion aprobada'
+          : detailLower.includes('rechaz')
+            ? 'Devolucion rechazada'
+            : detailLower.includes('cread')
+              ? 'Devolucion creada'
+              : `${actionLabel}: Devolucion`
+
+      entries.push({
+        id: `audit-${r.id}`,
+        category: isReturn ? 'devolucion' : 'edicion',
+        action: isReturn ? returnAction : `${actionLabel}: ${entityLabel[r.entity_type] || r.entity_type}`,
+        detail,
+        store: values.store || null,
+        user_id: r.user_id,
+        user_name: (r.users as any)?.name || '-',
+        created_at: r.timestamp,
+        severity: isReturn
+          ? (detailLower.includes('rechaz') ? 'warning' : detailLower.includes('complet') ? 'success' : 'info')
+          : (op === 'DELETE' ? 'warning' : 'info'),
       })
     }
   }
