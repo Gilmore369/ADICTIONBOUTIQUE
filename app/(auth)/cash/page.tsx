@@ -23,7 +23,9 @@ async function CashData() {
     .single()
 
   const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-  if (!profile || (!userRoles.includes('admin') && !userRoles.includes('cajero') && !userRoles.includes('vendedor'))) {
+  // Modelo unificado (2026-05-13): TODOS los roles operativos acceden a caja
+  const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+  if (!profile || !userRoles.some(r => validRoles.includes(r))) {
     redirect('/')
   }
 

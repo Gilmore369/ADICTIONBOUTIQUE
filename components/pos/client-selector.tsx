@@ -92,8 +92,20 @@ export function ClientSelector({ value, onChange, disabled = false, required = f
             {value.dni && (
               <div className="text-xs text-gray-500">DNI: {value.dni}</div>
             )}
-            <div className="text-xs text-muted-foreground mt-1">
-              Crédito disponible: {formatCurrency(value.credit_limit - value.credit_used)}
+            {/* Mostrar deuda Y crédito disponible por separado para evitar confusiones */}
+            <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
+              {value.credit_used > 0 && (
+                <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
+                  ⚠ Deuda: {formatCurrency(value.credit_used)}
+                </span>
+              )}
+              <span className="text-muted-foreground">
+                Crédito disponible:{' '}
+                <strong className={value.credit_limit - value.credit_used <= 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>
+                  {formatCurrency(Math.max(0, value.credit_limit - value.credit_used))}
+                </strong>
+                <span className="text-muted-foreground/70"> / {formatCurrency(value.credit_limit)}</span>
+              </span>
             </div>
           </div>
           <button
@@ -128,22 +140,35 @@ export function ClientSelector({ value, onChange, disabled = false, required = f
 
           {!loading && showResults && clients.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 border rounded-lg bg-white shadow-sm max-h-64 overflow-y-auto z-10">
-              {clients.map((client) => (
-                <button
-                  key={client.id}
-                  type="button"
-                  onClick={() => handleSelectClient(client)}
-                  className="w-full p-2 text-left hover:bg-muted/30 transition border-b last:border-b-0"
-                >
-                  <div className="font-medium text-sm">{client.name}</div>
-                  {client.dni && (
-                    <div className="text-xs text-gray-500">DNI: {client.dni}</div>
-                  )}
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Disponible: {formatCurrency(client.credit_limit - client.credit_used)}
-                  </div>
-                </button>
-              ))}
+              {clients.map((client) => {
+                const debt = client.credit_used
+                const available = Math.max(0, client.credit_limit - client.credit_used)
+                return (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => handleSelectClient(client)}
+                    className="w-full p-2 text-left hover:bg-muted/30 transition border-b last:border-b-0"
+                  >
+                    <div className="font-medium text-sm">{client.name}</div>
+                    {client.dni && (
+                      <div className="text-xs text-gray-500">DNI: {client.dni}</div>
+                    )}
+                    <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
+                      {debt > 0 && (
+                        <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                          ⚠ Debe: {formatCurrency(debt)}
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">
+                        Disponible: <strong className={available <= 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                          {formatCurrency(available)}
+                        </strong>
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
 

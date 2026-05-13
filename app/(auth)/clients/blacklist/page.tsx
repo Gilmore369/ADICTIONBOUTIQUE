@@ -31,7 +31,9 @@ export default async function BlacklistPage() {
     .single()
 
   const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-  if (!profile || (!userRoles.includes('admin') && !userRoles.includes('vendedor'))) {
+  // Modelo unificado: TODOS los roles operativos
+  const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+  if (!profile || !userRoles.some(r => validRoles.includes(r))) {
     redirect('/')
   }
 

@@ -16,7 +16,9 @@ export default async function ClientDashboardPage() {
     .single()
 
   const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-  if (!userRoles.includes('admin') && !userRoles.includes('vendedor') && !userRoles.includes('cobrador')) {
+  // Modelo unificado: TODOS los roles operativos
+  const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+  if (!userRoles.some(r => validRoles.includes(r))) {
     redirect('/')
   }
 

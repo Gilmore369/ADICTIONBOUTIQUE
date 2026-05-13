@@ -39,7 +39,9 @@ async function ClientsData() {
   }
 
   const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-  if (!profile || (!userRoles.includes('admin') && !userRoles.includes('vendedor') && !userRoles.includes('cobrador'))) {
+  // Modelo unificado: TODOS los roles operativos
+  const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+  if (!profile || !userRoles.some(r => validRoles.includes(r))) {
     redirect('/')
   }
 

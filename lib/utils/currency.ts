@@ -10,16 +10,16 @@
  * @returns String formateado como S/ 1,234.56
  */
 export function formatCurrency(amount: number, showDecimals: boolean = true): string {
-  // Asegurar que el monto no sea negativo para crédito disponible
-  const absoluteAmount = Math.abs(amount)
-  
+  // BUG FIX 2026-05-13: NO aplicar Math.abs. Antes ocultaba deudas mostrando
+  // un cliente con saldo -300 como "S/ 300" haciendo creer que tenía crédito
+  // disponible. Ahora respeta el signo: negativo se muestra como -S/ 300.
   const formatted = new Intl.NumberFormat('es-PE', {
     style: 'currency',
     currency: 'PEN',
     minimumFractionDigits: showDecimals ? 2 : 0,
     maximumFractionDigits: showDecimals ? 2 : 0,
-  }).format(absoluteAmount)
-  
+  }).format(amount)
+
   // Reemplazar el símbolo PEN por S/
   return formatted.replace('PEN', 'S/').trim()
 }
