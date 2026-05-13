@@ -202,12 +202,14 @@ function ModelCardItem({
   model,
   onOpenDetail,
   onAddToCart,
+  onToggleFeatured,
   isInCart,
   viewMode = 'grid',
 }: {
   model: ModelCard
   onOpenDetail: () => void
   onAddToCart: (variant: ModelVariant) => void
+  onToggleFeatured?: (model: ModelCard) => Promise<void>
   isInCart: boolean
   viewMode?: 'grid' | 'list' | 'pos'
 }) {
@@ -368,7 +370,7 @@ function ModelCardItem({
         className={[
           'relative bg-muted overflow-hidden cursor-pointer flex-shrink-0',
           isList
-            ? 'w-24 h-24 sm:w-32 sm:h-32 aspect-square'
+            ? 'w-40 h-40 sm:w-48 sm:h-48 aspect-square'
             : 'aspect-[3/4]',
         ].join(' ')}
         onClick={onOpenDetail}
@@ -401,11 +403,24 @@ function ModelCardItem({
             <ShoppingCart className="h-2.5 w-2.5" />
           </div>
         )}
-        {/* Catalog visible indicator */}
-        {model.catalog_visible && !isInCart && (
-          <div className="absolute top-1.5 left-1.5 bg-violet-500/90 text-white px-1.5 py-0.5 rounded-full shadow" title="En catálogo">
-            <BookmarkCheck className="h-2.5 w-2.5" />
-          </div>
+
+        {/* Toggle DESTACAR — siempre clickeable, cambia color según estado */}
+        {onToggleFeatured && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFeatured(model) }}
+            title={model.catalog_visible ? 'Quitar de destacados' : 'Marcar como destacado'}
+            className={[
+              'absolute bottom-1.5 left-1.5 h-7 w-7 rounded-full flex items-center justify-center shadow-md transition-all',
+              model.catalog_visible
+                ? 'bg-violet-500 text-white hover:bg-violet-600 hover:scale-110'
+                : 'bg-card/90 backdrop-blur text-muted-foreground hover:text-violet-500 hover:bg-card hover:scale-110',
+            ].join(' ')}
+          >
+            {model.catalog_visible
+              ? <BookmarkCheck className="h-3.5 w-3.5" />
+              : <Bookmark className="h-3.5 w-3.5" />
+            }
+          </button>
         )}
       </div>
 
@@ -1913,6 +1928,29 @@ export function VisualCatalog() {
   const catalogCount = useMemo(() => models.filter(m => m.catalog_visible).length, [models])
   const CATALOG_LIMIT = 50
 
+  // Handler para destacar/quitar destacado desde la tarjeta sin abrir el modal
+  const handleToggleFeaturedFromCard = useCallback(async (m: ModelCard) => {
+    const newVal = !m.catalog_visible
+    if (newVal && catalogCount >= CATALOG_LIMIT) {
+      toast.error(`Límite alcanzado: máximo ${CATALOG_LIMIT} productos destacados`)
+      return
+    }
+    const supabase = createBrowserClient()
+    // @ts-ignore — types regenerados en build
+    const { error } = await supabase.from('products')
+      .update({ catalog_visible: newVal })
+      .eq('base_code', m.base_code)
+    if (error) {
+      toast.error('Error al cambiar destacado')
+      return
+    }
+    // Actualizar UI inmediatamente sin recargar todo
+    setModels(prev => prev.map(x =>
+      x.base_code === m.base_code ? { ...x, catalog_visible: newVal } : x
+    ))
+    toast.success(newVal ? '✨ Marcado como destacado' : 'Quitado de destacados', { duration: 1500 })
+  }, [catalogCount])
+
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let out = models
@@ -2343,6 +2381,7 @@ export function VisualCatalog() {
                         { duration: 1500 }
                       )
                     }}
+                    onToggleFeatured={handleToggleFeaturedFromCard}
                     isInCart={m.variants.some(v => cartProductIds.has(v.product_id))}
                   />
                 ))}
