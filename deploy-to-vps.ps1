@@ -1,36 +1,38 @@
 # ============================================================================
 # SCRIPT DE DEPLOY AUTOMATIZADO - ADICTION BOUTIQUE VPS (PowerShell)
 # ============================================================================
-# Fecha: 2026-05-04
+# Fecha: 2026-05-13
 # Descripción: Deploy completo con subida de código y build
 # ============================================================================
 
-param(
-    [switch]$SkipBackup = $false,
-    [switch]$SkipBuild = $false
-)
+Write-Host "🚀 Iniciando deploy a VPS..." -ForegroundColor Blue
+Write-Host "============================================================================" -ForegroundColor Blue
 
 # Variables
 $VPS_HOST = "ubuntu@18.224.29.109"
 $VPS_PATH = "/var/www/ADICTIONBOUTIQUE"
-$KEY_PATH = "/tmp/k.pem"
+$KEY_PATH = "tiendakey.pem"
 
-# Función para logging con colores
+# Función para logging
 function Write-Log {
-    param([string]$Message, [string]$Type = "Info")
-    
-    $timestamp = Get-Date -Format "HH:mm:ss"
-    
-    switch ($Type) {
-        "Success" { Write-Host "[$timestamp] ✅ $Message" -ForegroundColor Green }
-        "Warning" { Write-Host "[$timestamp] ⚠️  $Message" -ForegroundColor Yellow }
-        "Error"   { Write-Host "[$timestamp] ❌ $Message" -ForegroundColor Red }
-        default   { Write-Host "[$timestamp] 🔵 $Message" -ForegroundColor Blue }
-    }
+    param($Message)
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $Message" -ForegroundColor Blue
 }
 
-Write-Host "🚀 Iniciando deploy a VPS..." -ForegroundColor Cyan
-Write-Host "============================================================================" -ForegroundColor Cyan
+function Write-Success {
+    param($Message)
+    Write-Host "✅ $Message" -ForegroundColor Green
+}
+
+function Write-Warning {
+    param($Message)
+    Write-Host "⚠️  $Message" -ForegroundColor Yellow
+}
+
+function Write-Error {
+    param($Message)
+    Write-Host "❌ $Message" -ForegroundColor Red
+}
 
 # ============================================================================
 # PASO 1: VERIFICAR ARCHIVOS LOCALES
@@ -42,27 +44,28 @@ Write-Log "Verificando archivos locales..."
 $requiredFolders = @("actions", "components", "lib", "app", "supabase")
 foreach ($folder in $requiredFolders) {
     if (!(Test-Path $folder)) {
-        Write-Log "Falta carpeta: $folder. Ejecuta desde la raíz del proyecto." "Error"
+        Write-Error "Falta carpeta: $folder. Ejecuta desde la raíz del proyecto."
         exit 1
     }
 }
 
-# Verificar las 4 migraciones nuevas
+# Verificar las migraciones
 $migrations = @(
     "supabase/migrations/20260504000001_payments_idempotency_key.sql",
-    "supabase/migrations/20260504000002_installments_voided_status.sql",
+    "supabase/migrations/20260504000002_installments_voided_status.sql", 
     "supabase/migrations/20260504000003_increment_stock_rpc.sql",
-    "supabase/migrations/20260504000004_peek_sale_number_seq.sql"
+    "supabase/migrations/20260504000004_peek_sale_number_seq.sql",
+    "supabase/migrations/20260513000000_add_user_profile_photo.sql"
 )
 
 foreach ($migration in $migrations) {
     if (!(Test-Path $migration)) {
-        Write-Log "Falta migración: $migration" "Error"
+        Write-Error "Falta migración: $migration"
         exit 1
     }
 }
 
-Write-Log "Archivos locales verificados" "Success"
+Write-Success "Archivos locales verificados"
 
 # ============================================================================
 # PASO 2: SUBIR CÓDIGO AL VPS
@@ -70,84 +73,33 @@ Write-Log "Archivos locales verificados" "Success"
 
 Write-Log "Subiendo código al VPS..."
 
-try {
-    # Crear backup del código actual en VPS (si no se omite)
-    if (!$SkipBackup) {
-        Write-Log "Creando backup del código actual..."
-        $backupCmd = "cd $VPS_PATH && cp -r . ../ADICTIONBOUTIQUE_backup_$(date +%Y%m%d_%H%M%S) || true"
-        ssh -i $KEY_PATH $VPS_HOST $backupCmd
+# Crear backup del código actual en VPS
+Write-Log "Creando backup del código actual..."
+$backupCmd = "cd $VPS_PATH && cp -r . ../ADICTIONBOUTIQUE_backup_$(date +%Y%m%d_%H%M%S) || true"
+& ssh -i $KEY_PATH $VPS_HOST $backupCmd
+
+# Subir carpetas principales
+Write-Log "Subiendo carpetas: actions, components, lib, app, supabase..."
+& scp -i $KEY_PATH -r actions components lib app supabase "${VPS_HOST}:${VPS_PATH}/"
+
+# Subir archivos de configuración importantes
+Write-Log "Subiendo archivos de configuración..."
+$configFiles = @("package.json", "package-lock.json", "next.config.ts", "tsconfig.json")
+foreach ($file in $configFiles) {
+    if (Test-Path $file) {
+        & scp -i $KEY_PATH $file "${VPS_HOST}:${VPS_PATH}/"
     }
-
-    # Subir carpetas principales
-    Write-Log "Subiendo carpetas: actions, components, lib, app, supabase..."
-    scp -i $KEY_PATH -r actions components lib app supabase "${VPS_HOST}:${VPS_PATH}/"
-
-    # Subir archivos de configuración importantes
-    Write-Log "Subiendo archivos de configuración..."
-    $configFiles = @("package.json", "package-lock.json", "next.config.ts", "tsconfig.json")
-    foreach ($file in $configFiles) {
-        if (Test-Path $file) {
-            scp -i $KEY_PATH $file "${VPS_HOST}:${VPS_PATH}/"
-        }
-    }
-
-    Write-Log "Código subido al VPS" "Success"
-}
-catch {
-    Write-Log "Error subiendo código: $($_.Exception.Message)" "Error"
-    exit 1
 }
 
-# ============================================================================
-# PASO 3: VERIFICAR ESTADO EN VPS
-# ============================================================================
-
-Write-Log "Verificando estado en VPS..."
-
-$verifyScript = @"
-cd /var/www/ADICTIONBOUTIQUE
-
-echo "📁 Contenido del directorio:"
-ls -la
-
-echo ""
-echo "📦 Verificando package.json:"
-if [ -f package.json ]; then
-    echo "✅ package.json existe"
-else
-    echo "❌ package.json no encontrado"
-fi
-
-echo ""
-echo "🗄️ Verificando migraciones nuevas:"
-for migration in supabase/migrations/20260504000001_payments_idempotency_key.sql \
-                 supabase/migrations/20260504000002_installments_voided_status.sql \
-                 supabase/migrations/20260504000003_increment_stock_rpc.sql \
-                 supabase/migrations/20260504000004_peek_sale_number_seq.sql; do
-    if [ -f "`$migration" ]; then
-        echo "✅ `$migration"
-    else
-        echo "❌ `$migration - FALTA"
-    fi
-done
-
-echo ""
-echo "🔧 Verificando PM2:"
-pm2 list | grep adiction || echo "⚠️  Proceso adiction no encontrado en PM2"
-"@
-
-ssh -i $KEY_PATH $VPS_HOST $verifyScript
-
-Write-Log "Verificación completada" "Success"
+Write-Success "Código subido al VPS"
 
 # ============================================================================
-# PASO 4: INSTALAR DEPENDENCIAS Y BUILD
+# PASO 3: INSTALAR DEPENDENCIAS Y BUILD
 # ============================================================================
 
-if (!$SkipBuild) {
-    Write-Log "Instalando dependencias y haciendo build..."
+Write-Log "Instalando dependencias y haciendo build..."
 
-    $buildScript = @"
+$buildScript = @"
 cd /var/www/ADICTIONBOUTIQUE
 
 echo "📦 Instalando dependencias..."
@@ -168,18 +120,12 @@ else
 fi
 "@
 
-    try {
-        ssh -i $KEY_PATH $VPS_HOST $buildScript
-        Write-Log "Build completado" "Success"
-    }
-    catch {
-        Write-Log "Error en build: $($_.Exception.Message)" "Error"
-        exit 1
-    }
-}
+& ssh -i $KEY_PATH $VPS_HOST $buildScript
+
+Write-Success "Build completado"
 
 # ============================================================================
-# PASO 5: REINICIAR APLICACIÓN
+# PASO 4: REINICIAR APLICACIÓN
 # ============================================================================
 
 Write-Log "Reiniciando aplicación..."
@@ -199,12 +145,12 @@ echo "📝 Logs recientes:"
 pm2 logs adiction-boutique --lines 10 --nostream || echo "No hay logs disponibles"
 "@
 
-ssh -i $KEY_PATH $VPS_HOST $restartScript
+& ssh -i $KEY_PATH $VPS_HOST $restartScript
 
-Write-Log "Aplicación reiniciada" "Success"
+Write-Success "Aplicación reiniciada"
 
 # ============================================================================
-# PASO 6: VERIFICAR QUE LA APLICACIÓN ESTÉ FUNCIONANDO
+# PASO 5: VERIFICAR QUE LA APLICACIÓN ESTÉ FUNCIONANDO
 # ============================================================================
 
 Write-Log "Verificando que la aplicación esté funcionando..."
@@ -212,7 +158,7 @@ Write-Log "Verificando que la aplicación esté funcionando..."
 # Esperar un poco para que la aplicación inicie
 Start-Sleep -Seconds 5
 
-$checkScript = @"
+$verifyScript = @"
 echo "🔍 Verificando proceso:"
 pm2 show adiction-boutique | grep -E "(status|uptime|cpu|memory)" || echo "Proceso no encontrado"
 
@@ -225,16 +171,16 @@ echo "📡 Probando conexión local:"
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "No se pudo conectar"
 "@
 
-ssh -i $KEY_PATH $VPS_HOST $checkScript
+& ssh -i $KEY_PATH $VPS_HOST $verifyScript
 
 # ============================================================================
-# PASO 7: MOSTRAR RESUMEN
+# PASO 6: MOSTRAR RESUMEN
 # ============================================================================
 
 Write-Host ""
-Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host "============================================================================" -ForegroundColor Green
 Write-Host "🎉 DEPLOY COMPLETADO" -ForegroundColor Green
-Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host "============================================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "📋 Resumen:" -ForegroundColor White
 Write-Host "✅ Código subido al VPS" -ForegroundColor Green
@@ -247,14 +193,18 @@ Write-Host "   • https://adictionboutique.agsys.es/" -ForegroundColor Cyan
 Write-Host "   • https://asistenciasboutique.agsys.es/" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "📝 Próximos pasos:" -ForegroundColor White
-Write-Host "   1. Ejecutar las 4 migraciones en Supabase Dashboard" -ForegroundColor Yellow
+Write-Host "   1. La migración de profile_photo_url ya se ejecutó en Supabase" -ForegroundColor Yellow
 Write-Host "   2. Verificar que la aplicación funcione correctamente" -ForegroundColor Yellow
-Write-Host "   3. Probar funcionalidades críticas (POS, inventario, etc.)" -ForegroundColor Yellow
+Write-Host "   3. Probar nuevas funcionalidades:" -ForegroundColor Yellow
+Write-Host "      • Fotos de perfil de usuario (Configuración > Mi Perfil)" -ForegroundColor Cyan
+Write-Host "      • Crear proveedores desde Ingreso Masivo (sin error RUC)" -ForegroundColor Cyan
+Write-Host "      • Visualización de recibos de pagos" -ForegroundColor Cyan
+Write-Host "   4. Probar funcionalidades críticas (POS, inventario, etc.)" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "🔧 Si hay problemas:" -ForegroundColor White
-Write-Host "   • Revisar logs: ssh -i /tmp/k.pem ubuntu@18.224.29.109 'pm2 logs adiction-boutique'" -ForegroundColor Gray
-Write-Host "   • Reiniciar: ssh -i /tmp/k.pem ubuntu@18.224.29.109 'pm2 restart adiction-boutique'" -ForegroundColor Gray
+Write-Host "   • Revisar logs: ssh -i tiendakey.pem ubuntu@18.224.29.109 'pm2 logs adiction-boutique'" -ForegroundColor Gray
+Write-Host "   • Reiniciar: ssh -i tiendakey.pem ubuntu@18.224.29.109 'pm2 restart adiction-boutique'" -ForegroundColor Gray
 Write-Host ""
-Write-Host "============================================================================" -ForegroundColor Cyan
+Write-Host "============================================================================" -ForegroundColor Green
 
-Write-Log "Deploy completado exitosamente! 🚀" "Success"
+Write-Success "Deploy completado exitosamente!"

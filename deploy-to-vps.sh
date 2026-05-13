@@ -53,12 +53,13 @@ if [ ! -d "actions" ] || [ ! -d "components" ] || [ ! -d "lib" ] || [ ! -d "app"
     exit 1
 fi
 
-# Verificar las 4 migraciones nuevas
+# Verificar las migraciones (incluyendo la nueva de profile_photo_url)
 MIGRATIONS=(
     "supabase/migrations/20260504000001_payments_idempotency_key.sql"
     "supabase/migrations/20260504000002_installments_voided_status.sql"
     "supabase/migrations/20260504000003_increment_stock_rpc.sql"
     "supabase/migrations/20260504000004_peek_sale_number_seq.sql"
+    "supabase/migrations/20260513000000_add_user_profile_photo.sql"
 )
 
 for migration in "${MIGRATIONS[@]}"; do
@@ -115,7 +116,8 @@ echo "🗄️ Verificando migraciones nuevas:"
 for migration in supabase/migrations/20260504000001_payments_idempotency_key.sql \
                  supabase/migrations/20260504000002_installments_voided_status.sql \
                  supabase/migrations/20260504000003_increment_stock_rpc.sql \
-                 supabase/migrations/20260504000004_peek_sale_number_seq.sql; do
+                 supabase/migrations/20260504000004_peek_sale_number_seq.sql \
+                 supabase/migrations/20260513000000_add_user_profile_photo.sql; do
     if [ -f "$migration" ]; then
         echo "✅ $migration"
     else
@@ -225,9 +227,13 @@ echo "   • https://adictionboutique.agsys.es/"
 echo "   • https://asistenciasboutique.agsys.es/"
 echo ""
 echo "📝 Próximos pasos:"
-echo "   1. Ejecutar las 4 migraciones en Supabase Dashboard"
+echo "   1. La migración de profile_photo_url ya se ejecutó en Supabase"
 echo "   2. Verificar que la aplicación funcione correctamente"
-echo "   3. Probar funcionalidades críticas (POS, inventario, etc.)"
+echo "   3. Probar nuevas funcionalidades:"
+echo "      • Fotos de perfil de usuario (Configuración > Mi Perfil)"
+echo "      • Crear proveedores desde Ingreso Masivo (sin error RUC)"
+echo "      • Visualización de recibos de pagos"
+echo "   4. Probar funcionalidades críticas (POS, inventario, etc.)"
 echo ""
 echo "🔧 Si hay problemas:"
 echo "   • Revisar logs: ssh -i /tmp/k.pem ubuntu@18.224.29.109 'pm2 logs adiction-boutique'"

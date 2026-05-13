@@ -46,9 +46,9 @@ export const sizeSchema = z.object({
 export const supplierSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(100, 'El nombre debe tener menos de 100 caracteres'),
   ruc: z.string()
-    .regex(/^\d{11}$/, 'El RUC debe tener exactamente 11 dígitos')
     .optional()
-    .or(z.literal('')),
+    .transform(val => val?.trim() || undefined)
+    .refine(val => !val || /^\d{11}$/.test(val), 'El RUC debe tener exactamente 11 dígitos'),
   contact_name: z.string().optional(),
   phone: z.string().optional(),
   email: email('Email inválido').optional().or(z.literal('')),

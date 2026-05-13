@@ -25,7 +25,7 @@ export default async function AuthenticatedLayout({
 
   const { data: profile } = await supabase
     .from('users')
-    .select('name, email, roles, stores')
+    .select('name, email, roles, stores, profile_photo_url')
     .eq('id', user.id)
     .single()
 
@@ -34,6 +34,7 @@ export default async function AuthenticatedLayout({
       user={{
         email: (profile as any)?.email || user.email || '',
         name:  (profile as any)?.name ?? null,
+        profile_photo_url: (profile as any)?.profile_photo_url ?? null,
       }}
       userStores={(profile as any)?.stores || []}
       userRoles={(profile as any)?.roles || []}

@@ -34,9 +34,36 @@ function getAvatarColor(name: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
-function UserAvatar({ name }: { name: string }) {
+function UserAvatar({ name, photoUrl }: { name: string; photoUrl?: string | null }) {
   const initials = getInitials(name)
   const color = getAvatarColor(name)
+
+  if (photoUrl) {
+    return (
+      <div className="relative w-8 h-8 flex-shrink-0">
+        <img
+          src={photoUrl}
+          alt={name}
+          className="w-8 h-8 rounded-full object-cover border border-border"
+          onError={(e) => {
+            // Fallback to initials avatar if image fails to load
+            const target = e.target as HTMLImageElement
+            target.style.display = 'none'
+            const fallback = target.nextElementSibling as HTMLElement
+            if (fallback) fallback.style.display = 'flex'
+          }}
+        />
+        <div
+          className="hidden items-center justify-center w-8 h-8 rounded-full text-white text-xs font-bold absolute inset-0"
+          style={{ background: color }}
+          title={name}
+        >
+          {initials}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-bold flex-shrink-0"
@@ -52,6 +79,7 @@ interface HeaderProps {
   user?: {
     email?: string
     name?: string
+    profile_photo_url?: string | null
   }
 }
 
@@ -87,7 +115,7 @@ export function Header({ user }: HeaderProps) {
             className="flex items-center gap-2 px-2"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
-            <UserAvatar name={user?.name || user?.email || 'U'} />
+            <UserAvatar name={user?.name || user?.email || 'U'} photoUrl={user?.profile_photo_url} />
             <span className="hidden md:inline text-sm font-medium text-foreground/85 max-w-[120px] truncate">
               {user?.name || user?.email || 'Usuario'}
             </span>
@@ -105,7 +133,7 @@ export function Header({ user }: HeaderProps) {
               {/* Dropdown content */}
               <div className="absolute right-0 mt-2 w-56 bg-card rounded-lg shadow-lg border border-border z-50">
                 <div className="p-3 border-b border-border flex items-center gap-3">
-                  <UserAvatar name={user?.name || user?.email || 'U'} />
+                  <UserAvatar name={user?.name || user?.email || 'U'} photoUrl={user?.profile_photo_url} />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">
                       {user?.name || 'Usuario'}

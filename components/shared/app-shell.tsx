@@ -15,7 +15,7 @@ const SIDEBAR_KEY = 'sidebar_collapsed'
 
 interface AppShellProps {
   children: React.ReactNode
-  user: { email: string; name?: string | null }
+  user: { email: string; name?: string | null; profile_photo_url?: string | null }
   userStores?: string[]
   userRoles?: string[]
 }

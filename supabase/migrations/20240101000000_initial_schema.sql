@@ -17,6 +17,7 @@ CREATE TABLE users (
   name TEXT NOT NULL,
   roles TEXT[] DEFAULT ARRAY['vendedor'],
   stores TEXT[] DEFAULT ARRAY['Mujeres'],
+  profile_photo_url TEXT,
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
