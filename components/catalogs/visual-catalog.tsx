@@ -1289,37 +1289,87 @@ function ModelDetailModal({
                         />
                       )}
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Color</label>
-                      {colorMode === 'custom' ? (
-                        <div className="flex gap-1">
+                      {/* Swatches de colores existentes del modelo + "sin color" + botón nuevo */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {/* Opción "sin color" */}
+                        <button
+                          type="button"
+                          title="Sin color"
+                          onClick={() => { setColorMode('select'); setCustomColor(''); setAddColor('') }}
+                          className={`flex h-7 items-center gap-1 rounded-md border px-1.5 text-[10px] transition-colors ${
+                            addColor === '' && colorMode === 'select'
+                              ? 'border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                              : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/60'
+                          }`}
+                        >
+                          <span className="h-3.5 w-3.5 rounded-full border border-dashed border-muted-foreground/50" />
+                          Sin color
+                        </button>
+                        {/* Swatches de colores ya usados en el modelo */}
+                        {model.colors.map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            title={c}
+                            onClick={() => { setColorMode('select'); setCustomColor(''); setAddColor(c) }}
+                            className={`flex h-7 items-center gap-1 rounded-md border px-1.5 text-[10px] transition-colors ${
+                              addColor === c && colorMode === 'select'
+                                ? 'border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                                : 'border-border bg-card hover:bg-muted/40'
+                            }`}
+                          >
+                            <ColorDot color={c} size="sm" />
+                            <span className="max-w-[60px] truncate">{c}</span>
+                          </button>
+                        ))}
+                        {/* Botón para nuevo color */}
+                        <button
+                          type="button"
+                          title="Nuevo color"
+                          onClick={() => { setColorMode('custom'); setAddColor('') }}
+                          className={`flex h-7 items-center gap-1 rounded-md border px-1.5 text-[10px] transition-colors ${
+                            colorMode === 'custom'
+                              ? 'border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                              : 'border-dashed border-border bg-card text-muted-foreground hover:border-blue-300 hover:text-blue-600'
+                          }`}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Nuevo
+                        </button>
+                      </div>
+                      {/* Panel de nuevo color — solo visible en modo custom */}
+                      {colorMode === 'custom' && (
+                        <div className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/50 p-2 dark:border-blue-900 dark:bg-blue-950/20">
+                          {/* Selector visual de color nativo */}
+                          <div className="relative h-8 w-8 shrink-0">
+                            <input
+                              type="color"
+                              value={customColor.startsWith('#') ? customColor : '#000000'}
+                              onChange={e => { setCustomColor(e.target.value); setAddColor(e.target.value) }}
+                              className="absolute inset-0 h-full w-full cursor-pointer rounded-md border border-border opacity-0"
+                              title="Abrir selector de color"
+                            />
+                            <span
+                              className="block h-8 w-8 rounded-md border border-border"
+                              style={{ background: customColor.startsWith('#') ? customColor : '#ccc' }}
+                            />
+                          </div>
+                          {/* Input de texto para nombre o hex manual */}
                           <input
                             autoFocus
                             value={customColor}
                             onChange={e => { setCustomColor(e.target.value); setAddColor(e.target.value) }}
-                            placeholder="Escribe el color"
-                            className="h-8 flex-1 rounded-lg border border-blue-300 bg-card px-2 text-xs outline-none focus:ring-1 focus:ring-blue-400"
+                            placeholder="#hex o Nombre (ej: Azul)"
+                            className="h-8 flex-1 rounded-lg border border-blue-300 bg-card px-2 text-xs outline-none focus:ring-1 focus:ring-blue-400 dark:border-blue-700"
                           />
                           <button type="button" onClick={() => { setColorMode('select'); setCustomColor(''); setAddColor('') }}
-                            className="flex h-8 w-6 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-muted/30">
+                            className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground/70 hover:bg-muted/40"
+                            title="Cancelar">
                             <X className="h-3 w-3" />
                           </button>
                         </div>
-                      ) : (
-                        <select
-                          value={addColor}
-                          onChange={e => {
-                            if (e.target.value === '__custom__') { setColorMode('custom'); setAddColor('') }
-                            else setAddColor(e.target.value)
-                          }}
-                          className="h-8 w-full rounded-lg border border-border bg-card px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        >
-                          <option value="">— sin color —</option>
-                          {model.colors.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                          <option value="__custom__">+ Otro color…</option>
-                        </select>
                       )}
                     </div>
                   </div>
