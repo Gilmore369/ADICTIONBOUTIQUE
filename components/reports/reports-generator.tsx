@@ -121,80 +121,50 @@ function normalizeBackupRowsForExcel(tableData: Record<string, unknown>[]) {
   }
 }
 
-// ─── Captura SVG de recharts como imagen PNG ──────────────────────────────────
+// ─── Captura el contenedor de gráficos con html2canvas ───────────────────────
+// html2canvas renderiza el DOM tal cual se ve en pantalla — resuelve CSS vars,
+// fuentes, gradientes y dark mode correctamente. Mucho más fiable que SVG serialization.
 async function captureChartsAsPng(
   container: HTMLElement
 ): Promise<{ data: string; w: number; h: number }[]> {
-  const svgs = Array.from(container.querySelectorAll('svg'))
+  // Importación dinámica para no incluir en el bundle inicial
+  const html2canvas = (await import('html2canvas')).default
+
   const images: { data: string; w: number; h: number }[] = []
 
-  for (const svg of svgs) {
+  // Buscar cada tarjeta de gráfico individualmente para mejor layout en PDF
+  const chartCards = Array.from(
+    container.querySelectorAll<HTMLElement>('[data-chart-card]')
+  )
+
+  // Si no hay tarjetas marcadas, capturar el contenedor completo
+  const targets: HTMLElement[] = chartCards.length > 0 ? chartCards : [container]
+
+  for (const target of targets) {
     try {
-      const bbox = svg.getBoundingClientRect()
-      const srcW = Math.round(bbox.width) || 800
-      const srcH = Math.round(bbox.height) || 380
+      const rect = target.getBoundingClientRect()
+      if (rect.width < 50 || rect.height < 50) continue
 
-      // Skip tiny/invisible SVGs (legend icons, etc.)
-      if (srcW < 50 || srcH < 50) continue
-
-      const clone = svg.cloneNode(true) as SVGElement
-      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-      clone.setAttribute('width', String(srcW))
-      clone.setAttribute('height', String(srcH))
-
-      // Fondo blanco
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      rect.setAttribute('width', '100%')
-      rect.setAttribute('height', '100%')
-      rect.setAttribute('fill', 'white')
-      clone.insertBefore(rect, clone.firstChild)
-
-      // Inline computed styles on all child elements (necesario para que SVG se vea igual fuera del DOM)
-      const allEls = Array.from(clone.querySelectorAll('*'))
-      const srcEls = Array.from(svg.querySelectorAll('*'))
-      for (let i = 0; i < Math.min(allEls.length, srcEls.length); i++) {
-        try {
-          const computed = window.getComputedStyle(srcEls[i] as Element)
-          const fill = computed.getPropertyValue('fill')
-          const stroke = computed.getPropertyValue('stroke')
-          const fontSize = computed.getPropertyValue('font-size')
-          const fontFamily = computed.getPropertyValue('font-family')
-          const el = allEls[i] as SVGElement
-          if (fill && fill !== 'none') el.style.fill = fill
-          if (stroke && stroke !== 'none') el.style.stroke = stroke
-          if (fontSize) el.style.fontSize = fontSize
-          if (fontFamily) el.style.fontFamily = fontFamily
-        } catch { /* skip */ }
-      }
-
-      const svgStr = new XMLSerializer().serializeToString(clone)
-      // Usar data URL base64 en vez de blob URL (más compatible con CSP)
-      const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)))
-
-      const imgData = await new Promise<string | null>((resolve) => {
-        const img = new window.Image()
-        const timeout = setTimeout(() => resolve(null), 5000)
-        img.onload = () => {
-          clearTimeout(timeout)
-          const scale = 1.5
-          const canvas = document.createElement('canvas')
-          canvas.width = srcW * scale
-          canvas.height = srcH * scale
-          const ctx = canvas.getContext('2d')!
-          ctx.scale(scale, scale)
-          ctx.fillStyle = '#ffffff'
-          ctx.fillRect(0, 0, srcW, srcH)
-          ctx.drawImage(img, 0, 0, srcW, srcH)
-          resolve(canvas.toDataURL('image/png', 0.9))
-        }
-        img.onerror = () => { clearTimeout(timeout); resolve(null) }
-        img.src = svgB64
+      const canvas = await html2canvas(target, {
+        backgroundColor: '#ffffff',
+        scale: 2,                    // alta resolución
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+        removeContainer: true,
+        // Ignorar elementos que no son gráficos (botones de acción, etc.)
+        ignoreElements: (el) =>
+          el.tagName === 'BUTTON' ||
+          el.classList.contains('no-pdf'),
       })
-      if (imgData) images.push({ data: imgData, w: srcW, h: srcH })
+
+      const data = canvas.toDataURL('image/png', 0.92)
+      images.push({ data, w: rect.width, h: rect.height })
     } catch {
-      // Skip failed captures silently
+      // skip silently
     }
   }
+
   return images
 }
 
@@ -280,23 +250,8 @@ interface ReportsGeneratorProps {
 }
 
 export function ReportsGenerator({ initialCategory, initialReport }: ReportsGeneratorProps) {
-  const [selectedReport, setSelectedReport] = useState<ReportTypeId | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory || null)
-  const [reportData, setReportData] = useState<any[]>([])
-  const [insights, setInsights] = useState<Insight[]>([])
-  const [loading, setLoading] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
-  const [activeTab, setActiveTab] = useState<'stats' | 'data'>('stats')
-  const [filters, setFilters] = useState<ReportFilters>({
-    startDate: daysAgoLima(30),
-    endDate: getTodayPeru(),
-    warehouse: undefined,
-  })
-
-  const chartContainerRef = useRef<HTMLDivElement | null>(null)
-  const currentReport = Object.values(REPORT_TYPES).find(r => r.id === selectedReport)
-
-  // Obtener contexto de tienda — si el usuario está bloqueado a 1 tienda
+  // Obtener contexto de tienda — DEBE ir antes del useState de filters para poder
+  // usarlo en el lazy initializer y así pre-poblar warehouse desde el primer render
   const storeCtx = useStore()
   const isLocked = storeCtx?.isStoreLocked ?? false
   const lockedStoreName = isLocked ? storeCtx?.selectedStore : null
@@ -305,6 +260,27 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     'MUJERES': 'Tienda Mujeres',
     'HOMBRES': 'Tienda Hombres',
   }
+
+  const [selectedReport, setSelectedReport] = useState<ReportTypeId | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory || null)
+  const [reportData, setReportData] = useState<any[]>([])
+  const [insights, setInsights] = useState<Insight[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [activeTab, setActiveTab] = useState<'stats' | 'data'>('stats')
+  // Lazy initializer: pre-pobla warehouse en el primer render según la tienda del usuario
+  // (evita que en el primer render el filtro salga vacío y luego lo corrija un useEffect)
+  const [filters, setFilters] = useState<ReportFilters>(() => {
+    const ctx = storeCtx?.selectedStore
+    const initialWarehouse = (ctx && ctx !== 'ALL')
+      ? (STORE_NAME_MAP[ctx] ?? ctx)
+      : undefined
+    return {
+      startDate: daysAgoLima(30),
+      endDate: getTodayPeru(),
+      warehouse: initialWarehouse,
+    }
+  })
 
   useEffect(() => {
     if (initialReport) {
@@ -601,6 +577,14 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     setLoading(true)
     const toastId = toast.loading('Generando PDF...')
     try {
+      // Si el usuario está en la pestaña de datos, cambiar a stats para capturar gráficos
+      const wasOnDataTab = activeTab === 'data'
+      if (wasOnDataTab) {
+        setActiveTab('stats')
+        // Dar tiempo al DOM para renderizar los gráficos
+        await new Promise(r => setTimeout(r, 600))
+      }
+
       const doc = new jsPDF('p', 'mm', 'a4')
       const pageW = doc.internal.pageSize.getWidth()
       const pageH = doc.internal.pageSize.getHeight()
@@ -609,7 +593,6 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
       // ── Encabezado con banda de color ──────────────────────────────────────
       doc.setFillColor(16, 185, 129)      // emerald-500
       doc.rect(0, 0, pageW, 26, 'F')
-      // Línea inferior del header
       doc.setFillColor(5, 150, 105)       // emerald-600
       doc.rect(0, 24, pageW, 2, 'F')
 
@@ -619,7 +602,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
       doc.text('ADICTION BOUTIQUE', 14, 11)
 
       doc.setFontSize(9)
-      doc.setTextColor(236, 253, 245)     // emerald-50
+      doc.setTextColor(236, 253, 245)
       doc.setFont('helvetica', 'normal')
       doc.text('Sistema de Gestión · Reporte', 14, 17)
 
@@ -628,18 +611,17 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
       doc.setFont('helvetica', 'bold')
       doc.text(currentReport.name, 14, 22)
 
-      // Fecha y periodo (derecha)
       doc.setFontSize(7)
-      doc.setTextColor(180, 180, 180)
+      doc.setTextColor(220, 252, 231)
       doc.setFont('helvetica', 'normal')
       doc.text(`Generado: ${fecha}`, pageW - 14, 17, { align: 'right' })
       doc.text(`Periodo: ${filters.startDate || 'N/A'} — ${filters.endDate || 'N/A'}`, pageW - 14, 22, { align: 'right' })
 
       let yPos = 36
 
-      // ── Gráficos capturados ────────────────────────────────────────────────
+      // ── Gráficos (siempre intentar capturar) ──────────────────────────────
       let chartsCaptured = 0
-      if (chartContainerRef.current && activeTab === 'stats') {
+      if (chartContainerRef.current) {
         toast.loading('Capturando gráficos...', { id: toastId })
         try {
           const images = await captureChartsAsPng(chartContainerRef.current)
@@ -650,28 +632,32 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
             doc.text('VISUALIZACIONES', 14, yPos)
             yPos += 2
             doc.setDrawColor(16, 185, 129)
-            doc.setLineWidth(0.3)
+            doc.setLineWidth(0.4)
             doc.line(14, yPos, pageW - 14, yPos)
-            yPos += 5
+            yPos += 6
           }
 
           for (const chart of images) {
             const maxW = pageW - 28
             const aspect = chart.h / chart.w
-            const imgH = Math.min(Math.round(aspect * maxW), 110)
+            // Limitar altura máxima por gráfico a 90mm para que quepan varios por página
+            const imgH = Math.min(Math.round(aspect * maxW), 90)
 
             if (yPos + imgH > pageH - 20) {
               doc.addPage()
               yPos = 15
             }
             doc.addImage(chart.data, 'PNG', 14, yPos, maxW, imgH)
-            yPos += imgH + 8
+            yPos += imgH + 10
             chartsCaptured++
           }
         } catch {
-          // Si falla la captura, continuar sin gráficos
+          // Continuar sin gráficos si falla
         }
       }
+
+      // Restaurar tab original si lo cambiamos
+      if (wasOnDataTab) setActiveTab('data')
 
       // ── Sección de datos tabulados ────────────────────────────────────────
       if (chartsCaptured > 0 || yPos > pageH - 60) {
