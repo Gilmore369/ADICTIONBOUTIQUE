@@ -309,12 +309,17 @@ export async function generateStockRotationReport(filters: ReportFilters) {
   // Default: ultimos 90 dias
   const ninetyAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
 
-  const { data: movements } = await supabase
+  let movQuery = supabase
     .from('movements')
     .select('*, products(id, name, barcode, purchase_price, price)')
     .eq('type', 'SALIDA')
     .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
     .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
+
+  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
+  if (filters.warehouse) movQuery = movQuery.eq('warehouse_id', filters.warehouse) as typeof movQuery
+
+  const { data: movements } = await movQuery
 
   const productSales = movements?.reduce((acc: any, mov: any) => {
     const productId = mov.product_id
@@ -326,7 +331,9 @@ export async function generateStockRotationReport(filters: ReportFilters) {
     return acc
   }, {}) || {}
 
-  const { data: stock } = await supabase.from('stock').select('product_id, quantity')
+  let stockQuery = supabase.from('stock').select('product_id, quantity')
+  if (filters.warehouse) stockQuery = stockQuery.eq('warehouse_id', filters.warehouse) as typeof stockQuery
+  const { data: stock } = await stockQuery
   const stockMap = stock?.reduce((acc: any, s: any) => {
     acc[s.product_id] = (acc[s.product_id] || 0) + s.quantity
     return acc
@@ -355,12 +362,12 @@ export async function generateStockValuationReport(filters: ReportFilters) {
 
   let query = supabase
     .from('stock')
-    .select('quantity, products(id, name, barcode, purchase_price, price, categories(name), lines(name))')
+    .select('quantity, warehouse_id, products(id, name, barcode, purchase_price, price, categories(name), lines(name))')
     .gt('quantity', 0)
 
-  if (filters.categoryId) {
-    query = query.eq('products.category_id', filters.categoryId)
-  }
+  if (filters.categoryId) query = query.eq('products.category_id', filters.categoryId)
+  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
+  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
 
   const { data: stock } = await query
 
@@ -369,6 +376,7 @@ export async function generateStockValuationReport(filters: ReportFilters) {
     name: item.products?.name || 'N/A',
     category: item.products?.categories?.name || 'Sin categoria',
     line: item.products?.lines?.name || 'Sin linea',
+    tienda: item.warehouse_id || 'N/A',
     quantity: item.quantity,
     costPrice: Number(item.products?.purchase_price || 0),
     salePrice: Number(item.products?.price || 0),
@@ -382,16 +390,22 @@ export async function generateLowStockReport(filters: ReportFilters) {
   const supabase = await createServerClient()
   const minStock = filters.minStock || 5
 
-  const { data: stock } = await supabase
+  let query = supabase
     .from('stock')
-    .select('quantity, products(name, barcode, purchase_price, price, categories(name))')
+    .select('quantity, warehouse_id, products(name, barcode, purchase_price, price, categories(name))')
     .lte('quantity', minStock)
     .order('quantity', { ascending: true })
+
+  // Filtrar por tienda — warehouse_id almacena el nombre de la tienda ("Tienda Mujeres")
+  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
+
+  const { data: stock } = await query
 
   return (stock || []).map((item: any) => ({
     barcode: item.products?.barcode || 'N/A',
     name: item.products?.name || 'N/A',
     category: item.products?.categories?.name || 'Sin categoria',
+    tienda: item.warehouse_id || 'N/A',
     currentStock: item.quantity,
     status: item.quantity === 0 ? 'Agotado' : 'Stock Bajo',
     costPrice: Number(item.products?.purchase_price || 0),
