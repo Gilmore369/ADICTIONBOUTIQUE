@@ -138,6 +138,59 @@
 }
 
 @layer components {
+  /* ─── Selects nativos HTML en dark mode ────────────────────────────────
+     Los <select> nativos heredan los colores del SO/navegador.
+     En dark mode, esto causa contraste pobre (texto gris claro sobre fondo
+     casi negro) o fondo blanco con texto negro al abrir el dropdown.
+
+     Soluciones aplicadas:
+       1. color-scheme: dark → indica al navegador que use sus paletas dark
+          (afecta scrollbars, autofill, popup del dropdown).
+       2. Estilos explícitos sobre <select> y <option> para forzar contraste.
+  */
+  .dark {
+    color-scheme: dark;
+  }
+
+  .dark select,
+  select.dark-aware {
+    color-scheme: dark;
+    background-color: var(--card) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+  }
+
+  .dark select:focus {
+    border-color: var(--ring) !important;
+    outline-color: var(--ring);
+  }
+
+  .dark select option,
+  .dark select optgroup {
+    background-color: var(--popover) !important;
+    color: var(--popover-foreground) !important;
+  }
+
+  .dark select option:checked,
+  .dark select option:hover {
+    background-color: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+  }
+
+  /* Estilos para los inputs date/datetime-local que tienen calendario nativo */
+  .dark input[type="date"],
+  .dark input[type="datetime-local"],
+  .dark input[type="time"],
+  .dark input[type="month"],
+  .dark input[type="week"] {
+    color-scheme: dark;
+  }
+
+  /* Number inputs flechas */
+  .dark input[type="number"] {
+    color-scheme: dark;
+  }
+
   .dark .bg-white {
     background-color: var(--card) !important;
     color: var(--card-foreground) !important;
