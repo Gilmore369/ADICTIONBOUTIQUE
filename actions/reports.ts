@@ -905,7 +905,7 @@ export async function generateDatabaseBackup() {
     const crmTables = [
       'clients', 'client_deactivations', 'client_action_logs', 'client_ratings',
       'credit_plans', 'installments', 'payment_allocations', 'payments',
-      'visits', 'client_visits', 'collection_actions'
+      'client_visits', 'collection_actions'
     ]
     // Tablas operativas
     const operationsTables = [
