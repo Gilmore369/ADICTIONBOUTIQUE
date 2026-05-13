@@ -65,6 +65,62 @@ import {
 import { useStore } from '@/contexts/store-context'
 import { getTodayPeru } from '@/lib/utils/timezone'
 
+const EXCEL_CELL_TEXT_LIMIT = 32767
+const EXCEL_TEXT_CHUNK_SIZE = 30000
+
+function normalizeBackupCellValue(value: unknown): string | number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : ''
+  if (typeof value === 'boolean') return value ? 'Si' : 'No'
+  if (value == null) return ''
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
+}
+
+function splitLongExcelText(value: string) {
+  if (value.length <= EXCEL_CELL_TEXT_LIMIT) return [value]
+  const chunks: string[] = []
+  for (let i = 0; i < value.length; i += EXCEL_TEXT_CHUNK_SIZE) {
+    chunks.push(value.slice(i, i + EXCEL_TEXT_CHUNK_SIZE))
+  }
+  return chunks
+}
+
+function normalizeBackupRowsForExcel(tableData: Record<string, unknown>[]) {
+  const sourceHeaders = Array.from(new Set(tableData.flatMap(row => Object.keys(row || {}))))
+  const normalizedRows: Record<string, string | number>[] = []
+  const headerSet = new Set<string>()
+
+  for (const row of tableData) {
+    const normalized: Record<string, string | number> = {}
+    for (const header of sourceHeaders) {
+      const value = normalizeBackupCellValue(row[header])
+      if (typeof value === 'string' && value.length > EXCEL_CELL_TEXT_LIMIT) {
+        const chunks = splitLongExcelText(value)
+        chunks.forEach((chunk, index) => {
+          const key = `${header}__parte_${index + 1}`
+          normalized[key] = chunk
+          headerSet.add(key)
+        })
+      } else {
+        normalized[header] = value
+        headerSet.add(header)
+      }
+    }
+    normalizedRows.push(normalized)
+  }
+
+  return {
+    headers: Array.from(headerSet),
+    rows: normalizedRows,
+  }
+}
+
 // ─── Captura SVG de recharts como imagen PNG ──────────────────────────────────
 async function captureChartsAsPng(
   container: HTMLElement
@@ -792,20 +848,12 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
             ])
             ws['!cols'] = [{ wch: 40 }]
           } else {
-            const headers = Object.keys(tableData[0])
+            const normalizedTable = normalizeBackupRowsForExcel(tableData as Record<string, unknown>[])
+            const headers = normalizedTable.headers
             const prettyHeaders = headers.map(prettifyHeader)
 
             // Datos con tipado correcto (números reales, fechas como strings ISO)
-            const rows = tableData.map((row: any) =>
-              headers.map(h => {
-                const v = row[h]
-                if (typeof v === 'number') return v
-                if (typeof v === 'boolean') return v ? 'Sí' : 'No'
-                if (v == null) return ''
-                if (typeof v === 'object') return JSON.stringify(v)
-                return String(v)
-              })
-            )
+            const rows = normalizedTable.rows.map(row => headers.map(h => row[h] ?? ''))
 
             ws = XLSX.utils.aoa_to_sheet([prettyHeaders, ...rows])
 
@@ -813,7 +861,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
             ws['!cols'] = headers.map((h, i) => {
               const maxLen = Math.max(
                 prettyHeaders[i].length,
-                ...tableData.slice(0, 50).map((r: any) => String(r[h] ?? '').length)
+                ...normalizedTable.rows.slice(0, 50).map(r => String(r[h] ?? '').length)
               )
               return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
             })
@@ -840,7 +888,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
             // Formato numérico para columnas conocidas
             for (let colIdx = 0; colIdx < headers.length; colIdx++) {
               const key = headers[colIdx]
-              if (typeof tableData[0]?.[key] !== 'number') continue
+              if (typeof normalizedTable.rows[0]?.[key] !== 'number') continue
               const fmt = isCurrencyKey(key) ? '"S/" #,##0.00' : '#,##0.##'
               for (let rowIdx = 1; rowIdx <= rows.length; rowIdx++) {
                 const ref = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx })

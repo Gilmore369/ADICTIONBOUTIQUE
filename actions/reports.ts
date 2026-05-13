@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { ReportFilters, ReportTypeId } from '@/lib/reports/report-types'
 import { PERU_TZ, peruMidnightUTC, peruEndOfDayUTC, getTodayPeru } from '@/lib/utils/timezone'
 
@@ -859,13 +860,38 @@ export async function generateCashFlowReport(filters: ReportFilters) {
 // ============================================================================
 
 export async function generateDatabaseBackup() {
-  const supabase = await createServerClient()
+  const authClient = await createServerClient()
+  const service = createServiceClient()
 
   try {
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'No autorizado' }
+    }
+
+    const { data: profile, error: profileError } = await service
+      .from('users')
+      .select('roles')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError) {
+      return { success: false, error: 'No se pudo validar el rol admin' }
+    }
+
+    const roles: string[] = ((profile as any)?.roles || []).map((role: string) => role.toLowerCase())
+    if (!roles.includes('admin')) {
+      return { success: false, error: 'Solo administradores pueden generar backup completo' }
+    }
+
+    const adminTables = [
+      'users', 'audit_logs', 'audit_log'
+    ]
+
     // Tablas de catálogo y configuración
     const catalogTables = [
       'stores', 'lines', 'line_stores', 'categories', 'brands', 'sizes', 'suppliers',
-      'warehouses', 'system_config'
+      'supplier_brands', 'colors', 'warehouses', 'system_config'
     ]
     // Tablas de productos e inventario
     const inventoryTables = [
@@ -877,8 +903,14 @@ export async function generateDatabaseBackup() {
     ]
     // Tablas de CRM y crédito
     const crmTables = [
-      'clients', 'credit_plans', 'installments', 'payments', 'visits',
-      'collection_actions'
+      'clients', 'client_deactivations', 'client_action_logs', 'client_ratings',
+      'credit_plans', 'installments', 'payment_allocations', 'payments',
+      'visits', 'client_visits', 'collection_actions'
+    ]
+    // Tablas operativas
+    const operationsTables = [
+      'agenda_reminders', 'agenda_scheduled_visits', 'tasks', 'routes', 'route_stops',
+      'legacy_import_batches'
     ]
     // Tablas de caja y auditoría
     const otherTables = [
@@ -886,10 +918,12 @@ export async function generateDatabaseBackup() {
     ]
 
     const allTables = [
+      ...adminTables,
       ...catalogTables,
       ...inventoryTables,
       ...salesTables,
       ...crmTables,
+      ...operationsTables,
       ...otherTables
     ]
 
@@ -904,7 +938,7 @@ export async function generateDatabaseBackup() {
 
     for (const table of allTables) {
       try {
-        const { data, error } = await supabase.from(table).select('*')
+        const { data, error } = await service.from(table).select('*')
         if (error) {
           console.warn(`[backup] Table ${table} error:`, error.message)
           errors.push(`${table}: ${error.message}`)
