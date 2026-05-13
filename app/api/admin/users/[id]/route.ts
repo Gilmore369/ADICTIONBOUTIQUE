@@ -33,8 +33,16 @@ export async function PATCH(
   let body: any
   try { body = await req.json() } catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }) }
 
-  const { name, roles, stores, active } = body
+  const { name, roles, stores, active, profile_photo_url } = body
   const updates: Record<string, any> = {}
+
+  if (profile_photo_url !== undefined) {
+    if (profile_photo_url === null || profile_photo_url === '') {
+      updates.profile_photo_url = null
+    } else if (typeof profile_photo_url === 'string') {
+      updates.profile_photo_url = profile_photo_url.trim()
+    }
+  }
 
   // ── Validar y armar updates ──────────────────────────────────────────────
   if (name !== undefined) {

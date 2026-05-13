@@ -702,15 +702,28 @@ function ModelDetailModal({
   const handleSetPrimary = useCallback(async (imgId: string) => {
     if (!model || imgId === '__fallback__') return
     const supabase = createBrowserClient()
+
+    // Identificar la imagen objetivo para saber si tiene color
+    const target = images.find(i => i.id === imgId)
+    const targetColor = target?.color ?? null
+
+    // Desmarcar TODAS las primaries del mismo grupo (mismo base_code + mismo color/null)
+    const update = supabase.from('product_images').update({ is_primary: false } as any)
+      .eq('base_code', model.base_code)
+    if (targetColor) {
+      // @ts-ignore
+      await update.eq('color', targetColor)
+    } else {
+      // @ts-ignore
+      await update.is('color', null)
+    }
+
     // @ts-ignore - product_images table types not yet generated
-    await supabase.from('product_images').update({ is_primary: false })
-      .eq('base_code', model.base_code).is('color', null)
-    // @ts-ignore - product_images table types not yet generated
-    await supabase.from('product_images').update({ is_primary: true }).eq('id', imgId)
+    await supabase.from('product_images').update({ is_primary: true } as any).eq('id', imgId)
     await loadImages(model)
     onRefresh()
-    toast.success('Imagen marcada como principal')
-  }, [model, loadImages, onRefresh])
+    toast.success(targetColor ? `Imagen marcada como principal del color ${targetColor}` : 'Imagen marcada como principal')
+  }, [model, images, loadImages, onRefresh])
 
   const handleDelete = useCallback(async (imgId: string) => {
     if (imgId === '__fallback__') return
@@ -1701,28 +1714,49 @@ export function VisualCatalog() {
     return grouped
   }, [])
 
-  /** Carga imágenes de product_images para una lista de base_codes y las aplica al grouped map. */
+  /** Carga imágenes de product_images para una lista de base_codes y las aplica al grouped map.
+   *  IMPORTANTE: ordena por is_primary DESC para que la imagen marcada como
+   *  principal de cada color tenga prioridad. Antes había un guard
+   *  `if (!color_images[colorKey])` que dejaba la PRIMERA imagen ganadora —
+   *  pero como las is_primary=true vienen primero, ese guard ya hacía lo
+   *  correcto. El bug era cuando el usuario cambiaba la imagen primaria de
+   *  un color: el state local no se actualizaba porque el guard preservaba
+   *  la anterior. Ahora siempre sobreescribimos con la is_primary del color.
+   */
   const applyImages = useCallback(async (supabase: any, grouped: Record<string, ModelCard>, newBaseCodes: string[]) => {
     if (newBaseCodes.length === 0) return
     try {
       const { data: imgs, error: imgErr } = await supabase
         .from('product_images')
-        .select('base_code, public_url, is_primary, color')
+        .select('base_code, public_url, is_primary, color, sort_order')
         .in('base_code', newBaseCodes)
         .order('is_primary', { ascending: false })
-        .order('sort_order' as any)
+        .order('sort_order', { ascending: true })
       if (imgErr || !imgs) return
+
+      // Track si ya asignamos primary para este color (la primera = primary o más antigua)
+      const colorPrimaryAssigned: Record<string, Set<string>> = {}
+
       for (const img of imgs) {
         const imgAny = img as any
         const group  = grouped[imgAny.base_code]
         if (!group || !imgAny.public_url) continue
-        if (imgAny.is_primary) group.primary_image_url = imgAny.public_url as string
+
+        if (imgAny.is_primary && !imgAny.color) {
+          group.primary_image_url = imgAny.public_url as string
+        }
+
         if (imgAny.color) {
-          const colorKey = (imgAny.color as string).toLowerCase()
-          if (!(group.color_images as any)[colorKey]) {
+          const colorKey = (imgAny.color as string).trim().toLowerCase()
+          colorPrimaryAssigned[imgAny.base_code] ??= new Set()
+          if (!colorPrimaryAssigned[imgAny.base_code].has(colorKey)) {
+            // Primera imagen para este color (ya viene ordenada por is_primary DESC)
             (group.color_images as any)[colorKey] = imgAny.public_url as string
+            colorPrimaryAssigned[imgAny.base_code].add(colorKey)
           }
         }
+
+        // Si todavía no hay primary del modelo, usar la primera disponible
         if (!group.primary_image_url) group.primary_image_url = imgAny.public_url as string
       }
     } catch { /* silently ignore */ }

@@ -200,22 +200,48 @@ export function QuickCreateDialog({
   }
 
   const saveSupplier = async () => {
-    if (!supplier.name.trim()) { toast.error('El nombre es obligatorio'); return }
+    const name = supplier.name.trim()
+    if (!name) { toast.error('El nombre es obligatorio'); return }
+
+    // Validar RUC antes para mensaje claro (no esperar al server)
+    const ruc = supplier.ruc.trim()
+    if (ruc && !/^\d{11}$/.test(ruc)) {
+      toast.error('El RUC debe tener exactamente 11 dígitos numéricos')
+      return
+    }
+
+    // Validar email antes (regex simple)
+    const email = supplier.email.trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('El email no tiene un formato válido')
+      return
+    }
+
     const fd = new FormData()
-    fd.append('name',         supplier.name.trim())
-    fd.append('ruc',          supplier.ruc.trim())
-    fd.append('contact_name', supplier.contact_name.trim())
-    fd.append('phone',        supplier.phone.trim())
-    fd.append('email',        supplier.email.trim())
-    fd.append('address',      supplier.address.trim())
-    fd.append('notes',        supplier.notes.trim())
-    const res = await createSupplier(fd)
-    if (res?.success && res.data) {
-      toast.success(`Proveedor "${res.data.name}" creado`)
-      onSuccess(res.data.id, res.data.name)
-      onOpenChange(false)
-    } else {
-      toast.error(typeof res?.error === 'string' ? res.error : 'Error al crear proveedor')
+    fd.append('name', name)
+    // Solo enviamos campos opcionales SI tienen valor — evita que el schema
+    // los reciba como '' y falle al parsear.
+    if (ruc) fd.append('ruc', ruc)
+    if (supplier.contact_name.trim()) fd.append('contact_name', supplier.contact_name.trim())
+    if (supplier.phone.trim()) fd.append('phone', supplier.phone.trim())
+    if (email) fd.append('email', email)
+    if (supplier.address.trim()) fd.append('address', supplier.address.trim())
+    if (supplier.notes.trim()) fd.append('notes', supplier.notes.trim())
+
+    try {
+      const res = await createSupplier(fd)
+      if (res?.success && res.data) {
+        toast.success(`Proveedor "${res.data.name}" creado`)
+        onSuccess(res.data.id, res.data.name)
+        onOpenChange(false)
+      } else {
+        const msg = typeof res?.error === 'string'
+          ? res.error
+          : Object.values(res?.error || {}).flat().filter(Boolean).join(' · ') || 'Error al crear proveedor'
+        toast.error(msg)
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error inesperado al crear proveedor')
     }
   }
 

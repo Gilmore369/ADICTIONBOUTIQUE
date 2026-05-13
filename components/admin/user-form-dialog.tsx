@@ -11,8 +11,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Shield, Store, User as UserIcon, Mail, Lock, Eye, EyeOff, Wand2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Shield, Store, User as UserIcon, Mail, Lock, Eye, EyeOff, Wand2, CheckCircle2, AlertCircle, Loader2, Upload, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { useRef } from 'react'
 
 export interface UserRow {
   id: string
@@ -22,6 +24,7 @@ export interface UserRow {
   stores: string[]
   active: boolean
   created_at: string
+  profile_photo_url?: string | null
 }
 
 const ROLE_OPTIONS = [
@@ -88,6 +91,9 @@ export function UserFormDialog({ open, onOpenChange, editUser, onSuccess }: Prop
   const [stores, setStores] = useState<string[]>(['MUJERES'])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Reset form al abrir/cambiar usuario
   useEffect(() => {
@@ -97,16 +103,48 @@ export function UserFormDialog({ open, onOpenChange, editUser, onSuccess }: Prop
       setEmail(editUser.email)
       setRoles(editUser.roles || [])
       setStores(editUser.stores || [])
+      setProfilePhotoUrl(editUser.profile_photo_url || '')
     } else {
       setName('')
       setEmail('')
       setPassword('')
       setRoles(['vendedor'])
       setStores(['MUJERES'])
+      setProfilePhotoUrl('')
     }
     setShowPwd(false)
     setError('')
   }, [open, editUser])
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten imágenes')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Máximo 5 MB')
+      return
+    }
+    setUploadingPhoto(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('type', 'photo')
+      const res = await fetch('/api/upload/client-photo', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (json.success && json.data?.public_url) {
+        setProfilePhotoUrl(json.data.public_url)
+        toast.success('Foto subida')
+      } else {
+        toast.error(json.error || 'Error al subir')
+      }
+    } finally {
+      setUploadingPhoto(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
 
   const toggle = (list: string[], val: string, setter: (v: string[]) => void) => {
     setter(list.includes(val) ? list.filter(x => x !== val) : [...list, val])
@@ -132,7 +170,7 @@ export function UserFormDialog({ open, onOpenChange, editUser, onSuccess }: Prop
         const res = await fetch(`/api/admin/users/${editUser.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), roles, stores }),
+          body: JSON.stringify({ name: name.trim(), roles, stores, profile_photo_url: profilePhotoUrl || null }),
         })
         if (!res.ok) {
           const data = await res.json()
@@ -143,7 +181,14 @@ export function UserFormDialog({ open, onOpenChange, editUser, onSuccess }: Prop
         const res = await fetch('/api/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password, roles, stores }),
+          body: JSON.stringify({
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+            password,
+            roles,
+            stores,
+            profile_photo_url: profilePhotoUrl || null,
+          }),
         })
         if (!res.ok) {
           const data = await res.json()
@@ -174,6 +219,59 @@ export function UserFormDialog({ open, onOpenChange, editUser, onSuccess }: Prop
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-2">
+          {/* Foto de perfil */}
+          <div className="flex items-center gap-4 pb-3 border-b">
+            <div className="relative">
+              {profilePhotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profilePhotoUrl}
+                  alt="Avatar"
+                  className="h-16 w-16 rounded-full object-cover border-2 border-border"
+                />
+              ) : (
+                <div className="h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-950/40 border-2 border-border flex items-center justify-center text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                  {(name || email || '?').slice(0, 1).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <Label className="text-sm">Foto de perfil</Label>
+              <p className="text-xs text-muted-foreground mb-1.5">Opcional · aparecerá en la barra superior del usuario.</p>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+              <div className="flex gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                >
+                  {uploadingPhoto ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
+                  {profilePhotoUrl ? 'Cambiar' : 'Subir foto'}
+                </Button>
+                {profilePhotoUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={() => setProfilePhotoUrl('')}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Datos básicos */}
           <div className="space-y-4">
             <div>

@@ -262,16 +262,31 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
                     {p.notes || '—'}
                   </TableCell>
                   <TableCell>
-                    {p.receipt_url && (
+                    {p.receipt_url ? (
                       <a
                         href={p.receipt_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                        className="inline-flex items-center gap-1.5 group"
+                        title="Ver comprobante en tamaño completo"
                       >
-                        <ExternalLink className="h-3 w-3" />
-                        Comprobante
+                        {/* Thumbnail si es imagen, link si no */}
+                        {/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(p.receipt_url) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.receipt_url}
+                            alt="Comprobante"
+                            className="h-10 w-10 rounded object-cover border border-border group-hover:ring-2 ring-primary transition"
+                          />
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
+                            <ExternalLink className="h-3 w-3" />
+                            Ver comprobante
+                          </span>
+                        )}
                       </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50">—</span>
                     )}
                   </TableCell>
                 </TableRow>

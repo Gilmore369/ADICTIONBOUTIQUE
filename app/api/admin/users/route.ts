@@ -29,7 +29,7 @@ export async function GET() {
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, email, roles, stores, active, created_at')
+    .select('id, name, email, roles, stores, active, created_at, profile_photo_url')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -48,6 +48,9 @@ export async function POST(req: Request) {
   const password = String(body.password || '')
   const roles: string[] = Array.isArray(body.roles) ? body.roles : []
   const stores: string[] = Array.isArray(body.stores) ? body.stores : []
+  const profilePhotoUrl: string | null = typeof body.profile_photo_url === 'string' && body.profile_photo_url.trim()
+    ? body.profile_photo_url.trim()
+    : null
 
   // ── Validaciones server-side ─────────────────────────────────────────────
   if (name.length < 2) return NextResponse.json({ error: 'El nombre debe tener al menos 2 caracteres' }, { status: 400 })
@@ -87,7 +90,8 @@ export async function POST(req: Request) {
       roles: normalizedRoles,
       stores: normalizedStores,
       active: true,
-    })
+      profile_photo_url: profilePhotoUrl,
+    } as any)
     .select()
     .single()
 

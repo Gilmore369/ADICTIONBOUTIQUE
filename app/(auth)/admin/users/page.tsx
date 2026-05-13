@@ -238,16 +238,25 @@ export default function AdminUsersPage() {
                   <tr key={u.id} className={cn('hover:bg-muted/30 transition-colors', !u.active && 'opacity-60')}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          'w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0',
-                          (u.roles || []).includes('admin')
-                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
-                            : (u.roles || []).includes('cobrador')
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
-                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
-                        )}>
-                          {u.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
-                        </div>
+                        {(u as any).profile_photo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={(u as any).profile_photo_url}
+                            alt={u.name}
+                            className="w-9 h-9 rounded-full object-cover border border-border flex-shrink-0"
+                          />
+                        ) : (
+                          <div className={cn(
+                            'w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0',
+                            (u.roles || []).includes('admin')
+                              ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                              : (u.roles || []).includes('cobrador')
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+                          )}>
+                            {u.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <div className="font-medium text-foreground">{u.name}</div>
                           <div className="text-xs text-muted-foreground">{u.email}</div>

@@ -61,6 +61,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { MapPin, AlertTriangle } from 'lucide-react'
+import { ClientPhotoUploader } from './client-photo-uploader'
 
 // Configuración de ratings con rangos de crédito
 const RATING_CONFIG = {
@@ -691,21 +692,20 @@ export function ClientForm({
           )}
         </div>
 
-        {/* Photo URLs */}
+        {/* Photo Uploads */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* DNI Photo URL */}
+          {/* DNI Photo */}
           <FormField
             control={form.control}
             name="dni_photo_url"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>URL Foto DNI</FormLabel>
+                <FormLabel>Foto del DNI</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="url" 
-                    placeholder="https://ejemplo.com/dni.jpg" 
-                    {...field} 
+                  <ClientPhotoUploader
+                    type="dni"
                     value={field.value || ''}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
@@ -713,19 +713,18 @@ export function ClientForm({
             )}
           />
 
-          {/* Client Photo URL */}
+          {/* Client Photo */}
           <FormField
             control={form.control}
             name="client_photo_url"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>URL Foto Cliente</FormLabel>
+                <FormLabel>Foto del Cliente</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="url" 
-                    placeholder="https://ejemplo.com/cliente.jpg" 
-                    {...field} 
+                  <ClientPhotoUploader
+                    type="photo"
                     value={field.value || ''}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
