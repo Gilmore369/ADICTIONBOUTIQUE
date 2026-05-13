@@ -733,6 +733,9 @@ export async function generateCollectionEffectivenessReport(filters: ReportFilte
     supabase
       .from('payments')
       .select('amount, payment_date')
+      // Excluir pagos importados del sistema anterior — no son cobros del
+      // trabajo de cobranza actual, son histórico migrado.
+      .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
       .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
       .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ })),
     supabase
@@ -830,6 +833,8 @@ export async function generateCashFlowReport(filters: ReportFilters) {
     supabase
       .from('payments')
       .select('amount, payment_date')
+      // Excluir pagos importados — son del sistema anterior, no flujo de caja real
+      .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
       .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
       .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ })),
     cashExpQ

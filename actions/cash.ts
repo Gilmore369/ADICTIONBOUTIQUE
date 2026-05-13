@@ -44,10 +44,17 @@ async function getCollectionPaymentsForStoreWindow(
     ? 'id, amount, notes, created_at, clients(name)'
     : 'id, amount'
 
+  // IMPORTANTE: excluir pagos importados del sistema anterior (imported_from_legacy=true).
+  // Esos son pagos históricos que el cliente YA hizo en el otro sistema antes de
+  // la migración. NO son ingresos reales del turno actual aunque se hayan creado
+  // (su `created_at`) dentro de la ventana del turno (cuando se ejecutó el import).
+  // El cobrador que registre un NUEVO pago a una deuda legacy (después de migrarla)
+  // sí entra a caja porque ese pago no tiene imported_from_legacy=true.
   const { data } = await supabase
     .from('payments')
     .select(selectFields)
     .in('plan_id', planIds)
+    .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
     .gte('created_at', startAt)
     .lte('created_at', endAt)
     .order('created_at', { ascending: false })
