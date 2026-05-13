@@ -32,6 +32,7 @@ interface CategoryFormProps {
 
 export function CategoryForm({ lines, defaultValues, isEditing = false }: CategoryFormProps) {
   const [lineId, setLineId] = useState(defaultValues?.line_id || '')
+  const [showError, setShowError] = useState(false)
 
   return (
     <div className="space-y-4">
@@ -52,11 +53,19 @@ export function CategoryForm({ lines, defaultValues, isEditing = false }: Catego
         <Label htmlFor="line_id">
           Línea <span className="text-destructive">*</span>
         </Label>
-        <Select value={lineId} onValueChange={setLineId}>
-          <SelectTrigger>
+        <Select
+          value={lineId}
+          onValueChange={(v) => { setLineId(v); setShowError(false) }}
+        >
+          <SelectTrigger className={!lineId && showError ? 'border-destructive' : ''}>
             <SelectValue placeholder="Seleccionar línea" />
           </SelectTrigger>
           <SelectContent>
+            {lines.length === 0 && (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                No hay líneas. Crea una primero en /catalogs/lines.
+              </div>
+            )}
             {lines.map((line) => (
               <SelectItem key={line.id} value={line.id}>
                 {line.name}
@@ -64,8 +73,15 @@ export function CategoryForm({ lines, defaultValues, isEditing = false }: Catego
             ))}
           </SelectContent>
         </Select>
-        {/* Hidden input to submit the selected line_id with the form */}
-        {lineId && <input type="hidden" name="line_id" value={lineId} />}
+        {/* SIEMPRE renderizar el hidden input (con string vacío si no hay selección)
+            para que FormData reciba el campo y Zod devuelva error claro. */}
+        <input type="hidden" name="line_id" value={lineId} />
+        {/* Mensaje inline al intentar submit sin línea */}
+        {!lineId && (
+          <p className="text-xs text-destructive/80">
+            Selecciona una línea (Hombres / Mujeres / Niños) antes de guardar.
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="description">Descripción</Label>
