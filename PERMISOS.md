@@ -17,20 +17,27 @@ El sistema tiene **4 roles**. Un usuario puede tener **uno o varios** (combinabl
 
 ---
 
-## 2. Matriz de permisos por rol
+## 2. Matriz de permisos por rol (actualizado 2026-05-13)
+
+**Decisión de negocio**: TODOS los roles tienen acceso a TODO el flujo
+operativo. Solo se restringen a admin: **gestión de usuarios**, **logs**
+y **configuración**.
 
 | Permiso | admin | vendedor | cajero | cobrador |
 |---|:---:|:---:|:---:|:---:|
-| **VIEW_DASHBOARD** — ver inicio + KPIs | ✅ | ✅ | ✅ | ✅ |
-| **MANAGE_PRODUCTS** — crear/editar productos, líneas, categorías, marcas, tallas, proveedores | ✅ | ✅ | ❌ | ❌ |
-| **CREATE_SALE** — vender en POS | ✅ | ✅ | ✅ | ❌ |
-| **VOID_SALE** — anular ventas | ✅ | ❌ | ❌ | ❌ |
-| **MANAGE_CLIENTS** — crear/editar clientes, blacklist | ✅ | ✅ | ❌ | ✅ |
-| **RECORD_PAYMENT** — registrar cobros de cuotas | ✅ | ✅ | ❌ | ✅ |
-| **RESCHEDULE_INSTALLMENT** — reprogramar fechas de cuotas | ✅ | ❌ | ❌ | ❌ |
-| **MANAGE_CASH** — abrir/cerrar caja, gastos | ✅ | ❌ | ✅ | ❌ |
-| **VIEW_REPORTS** — ver reportes y dashboards CRM | ✅ | ✅ | ❌ | ✅ |
-| **MANAGE_USERS** — crear/editar/borrar usuarios | ✅ | ❌ | ❌ | ❌ |
+| **VIEW_DASHBOARD** | ✅ | ✅ | ✅ | ✅ |
+| **MANAGE_PRODUCTS** (catálogo) | ✅ | ✅ | ✅ | ✅ |
+| **CREATE_SALE** (POS) | ✅ | ✅ | ✅ | ✅ |
+| **VOID_SALE** (anular ventas) | ✅ | ✅ | ✅ | ✅ |
+| **MANAGE_CLIENTS** | ✅ | ✅ | ✅ | ✅ |
+| **RECORD_PAYMENT** (cobros) | ✅ | ✅ | ✅ | ✅ |
+| **RESCHEDULE_INSTALLMENT** | ✅ | ✅ | ✅ | ✅ |
+| **MANAGE_CASH** (caja) | ✅ | ✅ | ✅ | ✅ |
+| **VIEW_REPORTS** | ✅ | ✅ | ✅ | ✅ |
+| **Importar Deudas Legacy** | ✅ | ✅ | ✅ | ✅ |
+| **MANAGE_USERS** (gestionar usuarios) | ✅ | ❌ | ❌ | ❌ |
+| **Logs / Auditoría** | ✅ | ❌ | ❌ | ❌ |
+| **Configuración del negocio** | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
