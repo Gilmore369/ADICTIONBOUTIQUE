@@ -33,31 +33,36 @@ export enum Permission {
 
 /**
  * Mapping of roles to their allowed permissions
- * 
- * - ADMIN: Full access to all system features
- * - VENDEDOR: Can manage products, create sales, manage clients, and view reports
- * - CAJERO: Can view dashboard, create sales, and manage cash
- * - COBRADOR: Can view dashboard, manage clients, record payments, and view reports
+ *
+ * Decisión de negocio (2026-05-13):
+ * - TODOS los roles tienen acceso a TODO el flujo operativo.
+ * - SOLO ADMIN tiene MANAGE_USERS (gestión de usuarios).
+ * - Las páginas /admin/logs y /settings tienen su propio gate adminOnly en
+ *   el sidebar (no requieren permiso adicional aquí porque ya están bloqueadas
+ *   en la UI y son consumidas solo por admins).
+ *
+ * Resultado:
+ *   - admin     → TODO
+ *   - vendedor  → TODO menos gestionar usuarios
+ *   - cajero    → TODO menos gestionar usuarios
+ *   - cobrador  → TODO menos gestionar usuarios
  */
+const OPERATIONAL_PERMISSIONS: Permission[] = [
+  Permission.VIEW_DASHBOARD,
+  Permission.MANAGE_PRODUCTS,
+  Permission.CREATE_SALE,
+  Permission.VOID_SALE,
+  Permission.MANAGE_CLIENTS,
+  Permission.RECORD_PAYMENT,
+  Permission.RESCHEDULE_INSTALLMENT,
+  Permission.MANAGE_CASH,
+  Permission.VIEW_REPORTS,
+  // NO incluye MANAGE_USERS
+]
+
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.ADMIN]: Object.values(Permission),
-  [Role.VENDEDOR]: [
-    Permission.VIEW_DASHBOARD,
-    Permission.MANAGE_PRODUCTS,
-    Permission.CREATE_SALE,
-    Permission.MANAGE_CLIENTS,
-    Permission.RECORD_PAYMENT,
-    Permission.VIEW_REPORTS
-  ],
-  [Role.CAJERO]: [
-    Permission.VIEW_DASHBOARD,
-    Permission.CREATE_SALE,
-    Permission.MANAGE_CASH
-  ],
-  [Role.COBRADOR]: [
-    Permission.VIEW_DASHBOARD,
-    Permission.MANAGE_CLIENTS,
-    Permission.RECORD_PAYMENT,
-    Permission.VIEW_REPORTS
-  ]
+  [Role.VENDEDOR]: OPERATIONAL_PERMISSIONS,
+  [Role.CAJERO]: OPERATIONAL_PERMISSIONS,
+  [Role.COBRADOR]: OPERATIONAL_PERMISSIONS,
 }

@@ -11,7 +11,9 @@
  *      - Cada fila es independiente: si una falla, las demás siguen
  *      - Cada fila es atómica internamente (cliente + plan + pagos en orden)
  *
- * Solo admins pueden importar.
+ * Acceso: cualquier usuario autenticado con un rol válido del sistema
+ * (admin, vendedor, cajero, cobrador). La gestión de usuarios y los
+ * logs/configuración siguen siendo admin-only.
  */
 
 import { revalidatePath } from 'next/cache'
@@ -28,7 +30,7 @@ import {
 } from '@/lib/legacy-import/schema'
 import { addDaysPeru, getTodayPeru, normalizeDateOnlyPeru } from '@/lib/utils/timezone'
 
-// ── Auth: solo admin puede importar ─────────────────────────────────────────
+// ── Auth: cualquier usuario con rol válido puede importar ────────────────
 async function requireAdmin() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -42,8 +44,10 @@ async function requireAdmin() {
     .single()
 
   const roles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-  if (!roles.includes('admin')) {
-    throw new Error('Solo administradores pueden importar deudas legacy')
+  const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+  const hasValidRole = roles.some(r => validRoles.includes(r))
+  if (!hasValidRole) {
+    throw new Error('Tu usuario no tiene un rol válido para importar deudas')
   }
   return { userId: user.id }
 }
