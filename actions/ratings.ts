@@ -35,7 +35,9 @@ export async function calculateAndUpdateRating(clientId: string) {
       .single()
 
     const roles1: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-    if (!profile || (!roles1.includes('admin') && !roles1.includes('vendedor'))) {
+    // Modelo unificado: cualquier rol operativo
+    const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+    if (!profile || !roles1.some(r => validRoles.includes(r))) {
       throw new Error('No tiene permisos para realizar esta acción')
     }
 

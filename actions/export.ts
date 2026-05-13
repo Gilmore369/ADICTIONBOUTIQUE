@@ -35,11 +35,13 @@ export async function exportFilteredClients(filters: ClientFilters) {
       .single()
 
     const userRoles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
-    if (!profile || (!userRoles.includes('admin') && !userRoles.includes('vendedor'))) {
+    // Modelo unificado: cualquier rol operativo puede exportar
+    const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+    if (!profile || !userRoles.some(r => validRoles.includes(r))) {
       throw new Error('No tiene permisos para realizar esta acción')
     }
 
-    // Determine if user is admin (for data masking)
+    // Para data masking (admin ve todo, otros roles ven datos enmascarados)
     const userRole = userRoles.includes('admin') ? 'admin' : 'vendedor'
     
     // Generate CSV

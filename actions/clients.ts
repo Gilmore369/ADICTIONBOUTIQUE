@@ -67,7 +67,10 @@ async function checkAuthorization(requiredRole?: 'admin' | 'vendedor') {
     throw new Error('Se requieren permisos de administrador')
   }
 
-  if (!roles.includes('admin') && !roles.includes('vendedor') && !roles.includes('cajero')) {
+  // Modelo unificado (2026-05-13): TODOS los roles operativos pueden gestionar clientes.
+  // Solo se bloquea si el usuario no tiene ningún rol válido del sistema.
+  const validRoles = ['admin', 'vendedor', 'cajero', 'cobrador']
+  if (!roles.some(r => validRoles.includes(r))) {
     throw new Error('No tiene permisos para realizar esta acción')
   }
 
