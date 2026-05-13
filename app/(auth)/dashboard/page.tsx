@@ -27,6 +27,44 @@ const STORE_KEY_MAP: Record<string, string> = {
   HOMBRES: 'Tienda Hombres',
 }
 
+type SaleTotalRow = {
+  id: string
+  total: number
+  sale_type?: string
+}
+
+async function getReturnTotalsBySaleId(saleIds: string[]) {
+  if (saleIds.length === 0) return new Map<string, number>()
+
+  const { data, error } = await createServiceClient()
+    .from('returns')
+    .select('sale_id,total_amount,status')
+    .in('sale_id', saleIds)
+    .neq('status', 'RECHAZADA')
+
+  if (error) {
+    console.error('[dashboard] return totals error:', error)
+    return new Map<string, number>()
+  }
+
+  return (data || []).reduce((map, row: any) => {
+    const saleId = String(row.sale_id || '')
+    if (!saleId) return map
+    map.set(saleId, (map.get(saleId) || 0) + Number(row.total_amount || 0))
+    return map
+  }, new Map<string, number>())
+}
+
+function netSaleTotal(row: SaleTotalRow, returnTotals: Map<string, number>) {
+  const gross = Number(row.total || 0)
+  const returned = Math.min(gross, returnTotals.get(row.id) || 0)
+  return Math.max(0, Math.round((gross - returned) * 100) / 100)
+}
+
+function sumNetSales(rows: SaleTotalRow[], returnTotals: Map<string, number>) {
+  return rows.reduce((sum, row) => sum + netSaleTotal(row, returnTotals), 0)
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -108,7 +146,7 @@ export default async function DashboardPage({
         p_limit: 30,
         ...(storeFilter ? { p_store_id: storeFilter } : {})
       }),
-      buildSalesQuery(supabase.from('sales').select('total')
+      buildSalesQuery(supabase.from('sales').select('id,total')
         .gte('created_at', yStr).lt('created_at', today).eq('voided', false)),
       // Recent sales widget — exclude voided so anuladas no aparecen como
       // tickets reales en la lista "Últimas ventas" del dashboard.
@@ -117,14 +155,14 @@ export default async function DashboardPage({
         .eq('voided', false)
         .order('created_at', { ascending: false }).limit(6)),
       supabase.from('collection_actions').select('result').gte('created_at', today),
-      buildSalesQuery(supabase.from('sales').select('total,sale_type')
+      buildSalesQuery(supabase.from('sales').select('id,total,sale_type')
         .gte('created_at', peruMidnightUTC(thirtyAgoStr)).eq('voided', false)),
       supabase.from('clients').select('address').eq('active', true).not('address', 'is', null),
       // Ventas hoy filtradas por tienda (override RPC)
-      buildSalesQuery(supabase.from('sales').select('total')
+      buildSalesQuery(supabase.from('sales').select('id,total')
         .gte('created_at', today).eq('voided', false)),
       // Ventas este mes filtradas por tienda (override RPC)
-      buildSalesQuery(supabase.from('sales').select('total')
+      buildSalesQuery(supabase.from('sales').select('id,total')
         .gte('created_at', monthStart).eq('voided', false)),
       // Stock bajo filtrado por tienda
       filteredWarehouseIds.length > 0
@@ -162,18 +200,25 @@ export default async function DashboardPage({
   // ── Compute derived values ──────────────────────────────────────────────
   const raw       = (metricsRes.data ?? {}) as Record<string, number>
   const trend     = ((trendRes.data ?? []) as TrendPoint[]).reverse()
-  const yTotal    = (yRes.data ?? []).reduce((s: number, r: any) => s + Number(r.total), 0)
+  const ySalesRows = (yRes.data ?? []) as SaleTotalRow[]
+  const todaySalesRows = (salesTodayRes.data ?? []) as SaleTotalRow[]
+  const monthSalesRows = (salesMonthRes.data ?? []) as SaleTotalRow[]
+  const cvcSalesRows = (cvcRes.data ?? []) as SaleTotalRow[]
+  const recentSalesRows = (recentRes.data ?? []) as Array<SaleTotalRow & Record<string, any>>
+  const dashboardSaleIds = Array.from(new Set([
+    ...ySalesRows,
+    ...todaySalesRows,
+    ...monthSalesRows,
+    ...cvcSalesRows,
+    ...recentSalesRows,
+  ].map(row => row.id).filter(Boolean)))
+  const returnTotalsBySaleId = await getReturnTotalsBySaleId(dashboardSaleIds)
+  const yTotal    = sumNetSales(ySalesRows, returnTotalsBySaleId)
 
   // When a store filter is active, override sales figures with filtered queries
-  const filteredSalesToday   = storeFilter
-    ? (salesTodayRes.data ?? []).reduce((s: number, r: any) => s + Number(r.total), 0)
-    : (raw.salesToday ?? 0)
-  const filteredSalesMonth   = storeFilter
-    ? (salesMonthRes.data ?? []).reduce((s: number, r: any) => s + Number(r.total), 0)
-    : (raw.salesThisMonth ?? 0)
-  const filteredCountToday   = storeFilter
-    ? (salesTodayRes.data ?? []).length
-    : (raw.salesCountToday ?? 0)
+  const filteredSalesToday   = sumNetSales(todaySalesRows, returnTotalsBySaleId)
+  const filteredSalesMonth   = sumNetSales(monthSalesRows, returnTotalsBySaleId)
+  const filteredCountToday   = todaySalesRows.length
 
   // Store-filtered debt counts
   const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
@@ -269,11 +314,19 @@ export default async function DashboardPage({
   const successCnt = actions.filter(a => a.result === 'PAGO' || a.result === 'PROMESA_PAGO').length
   const effRate    = actCount > 0 ? (successCnt / actCount) * 100 : 0
 
-  const salesCVC   = (cvcRes.data ?? []) as Array<{ total: number; sale_type: string }>
-  const cashTotal  = salesCVC.filter(s => s.sale_type === 'CONTADO').reduce((s, r) => s + Number(r.total), 0)
-  const creditTotal = salesCVC.filter(s => s.sale_type === 'CREDITO').reduce((s, r) => s + Number(r.total), 0)
+  const salesCVC   = cvcSalesRows as Array<SaleTotalRow & { sale_type: string }>
+  const cashTotal  = salesCVC
+    .filter(s => s.sale_type === 'CONTADO')
+    .reduce((s, r) => s + netSaleTotal(r, returnTotalsBySaleId), 0)
+  const creditTotal = salesCVC
+    .filter(s => s.sale_type === 'CREDITO')
+    .reduce((s, r) => s + netSaleTotal(r, returnTotalsBySaleId), 0)
 
-  const recentSales = (recentRes.data ?? []) as any[]
+  const recentSales = recentSalesRows.map((sale) => ({
+    ...sale,
+    returned_total: returnTotalsBySaleId.get(sale.id) || 0,
+    total: netSaleTotal(sale, returnTotalsBySaleId),
+  }))
 
   // ── District data (real) — parse "Street, District" address format ──────
   // Only count addresses that contain a comma (have an explicit district part)

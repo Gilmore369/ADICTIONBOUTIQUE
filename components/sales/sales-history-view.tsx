@@ -29,6 +29,8 @@ interface Sale {
   subtotal: number
   discount: number
   total: number
+  returned_total?: number
+  net_total?: number
   store_id: string
   voided: boolean
   clients: {
@@ -70,14 +72,20 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     }
   }, [selectedStore, lockedStore])
 
+  const getSaleNetTotal = (sale: Sale) => {
+    if (typeof sale.net_total === 'number') return sale.net_total
+    const returnedTotal = Number(sale.returned_total || 0)
+    return Math.max(0, Math.round((Number(sale.total || 0) - returnedTotal) * 100) / 100)
+  }
+
   // Calculate metrics — always based on filteredSales so cards react to filters
   // (filteredSales defined below, but metrics is computed lazily via useMemo deps)
   const computeMetrics = (data: Sale[]) => {
-    const total = data.reduce((s, x) => s + x.total, 0)
+    const total = data.reduce((s, x) => s + getSaleNetTotal(x), 0)
     const contadoSales = data.filter(s => s.sale_type === 'CONTADO')
     const creditoSales = data.filter(s => s.sale_type === 'CREDITO')
-    const contadoTotal = contadoSales.reduce((s, x) => s + x.total, 0)
-    const creditoTotal = creditoSales.reduce((s, x) => s + x.total, 0)
+    const contadoTotal = contadoSales.reduce((s, x) => s + getSaleNetTotal(x), 0)
+    const creditoTotal = creditoSales.reduce((s, x) => s + getSaleNetTotal(x), 0)
     return {
       total,
       count: data.length,
@@ -410,9 +418,16 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
                       {sale.store_id}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-right text-foreground">
-                      <span className={sale.voided ? 'line-through text-muted-foreground' : ''}>
-                        {formatCurrency(sale.total)}
-                      </span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={sale.voided ? 'line-through text-muted-foreground' : ''}>
+                          {formatCurrency(getSaleNetTotal(sale))}
+                        </span>
+                        {Number(sale.returned_total || 0) > 0 && !sale.voided && (
+                          <span className="text-[11px] font-normal text-muted-foreground">
+                            Venta {formatCurrency(sale.total)} - dev. {formatCurrency(Number(sale.returned_total || 0))}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
