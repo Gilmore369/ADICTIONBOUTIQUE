@@ -282,6 +282,9 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     }
   })
 
+  const chartContainerRef = useRef<HTMLDivElement | null>(null)
+  const currentReport = Object.values(REPORT_TYPES).find(r => r.id === selectedReport)
+
   useEffect(() => {
     if (initialReport) {
       const report = Object.values(REPORT_TYPES).find(r => r.id === initialReport)
