@@ -17,20 +17,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { ReportFilters, REPORT_CONFIGS } from '@/lib/reports/report-types'
 import { z } from 'zod'
+import { isoDateTime, uuid } from '@/lib/validations/zod-compat'
 
 // Validation schema for filters using Zod
 const FiltersSchema = z.object({
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: isoDateTime().optional(),
+  endDate: isoDateTime().optional(),
   storeId: z.string().optional(),
   warehouseId: z.string().optional(),
-  categoryId: z.string().uuid().optional(),
-  productId: z.string().uuid().optional(),
-  brandId: z.string().uuid().optional(),
-  supplierId: z.string().uuid().optional(),
+  categoryId: uuid().optional(),
+  productId: uuid().optional(),
+  brandId: uuid().optional(),
+  supplierId: uuid().optional(),
   minStock: z.number().int().positive().optional(),
   maxStock: z.number().int().positive().optional(),
-  clientId: z.string().uuid().optional(),
+  clientId: uuid().optional(),
   warehouse: z.string().optional()
 })
 

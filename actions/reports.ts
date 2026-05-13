@@ -22,6 +22,149 @@ function toPeruEnd(dateStr: string): string {
 }
 
 // Mapa de clave de tienda del usuario → nombre en BD
+const RETURN_STATUSES_FOR_NET = ['PENDIENTE', 'APROBADA', 'COMPLETADA']
+
+function money(value: unknown) {
+  const n = Number(value || 0)
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0
+}
+
+function getReturnTotal(ret: any) {
+  return money(ret?.total_amount ?? ret?.total_refund ?? ret?.refund_amount ?? 0)
+}
+
+function getReturnItemTotal(item: any) {
+  return money(
+    item?.refund_subtotal ??
+    item?.refund_amount ??
+    item?.subtotal ??
+    (Number(item?.unit_price || 0) * Number(item?.quantity || 0))
+  )
+}
+
+function describeReturn(ret: any) {
+  const items = Array.isArray(ret?.returned_items) ? ret.returned_items : []
+  const productText = items.length > 0
+    ? items.map((item: any) => {
+      const name = item?.product_name || item?.base_name || item?.product_barcode || 'Producto'
+      return `${Number(item?.quantity || 0)} x ${name}`
+    }).join('; ')
+    : 'sin detalle de productos'
+
+  const date = ret?.return_date
+    ? new Date(ret.return_date).toLocaleDateString('es-PE', { timeZone: PERU_TZ })
+    : 's/f'
+
+  return `${ret?.return_number || 'DEV'} (${ret?.status || 'N/A'}, ${date}): S/ ${getReturnTotal(ret).toFixed(2)} - ${productText}`
+}
+
+async function loadReturnsForSales(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  saleIds: string[]
+) {
+  const ids = Array.from(new Set(saleIds.filter(Boolean)))
+  if (ids.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('returns')
+    .select('id, sale_id, return_number, status, return_date, return_type, total_amount, refund_amount, returned_items')
+    .in('sale_id', ids)
+    .in('status', RETURN_STATUSES_FOR_NET)
+
+  if (error) {
+    console.warn('[reports] No se pudieron cargar devoluciones:', error.message)
+    return []
+  }
+
+  return data || []
+}
+
+function buildReturnMaps(returns: any[]) {
+  const bySale = new Map<string, { total: number; count: number; details: string[] }>()
+  const bySaleItem = new Map<string, { quantity: number; amount: number }>()
+
+  for (const ret of returns || []) {
+    const saleId = ret?.sale_id
+    if (!saleId) continue
+
+    const saleSummary = bySale.get(saleId) || { total: 0, count: 0, details: [] }
+    saleSummary.total = money(saleSummary.total + getReturnTotal(ret))
+    saleSummary.count += 1
+    saleSummary.details.push(describeReturn(ret))
+    bySale.set(saleId, saleSummary)
+
+    const items = Array.isArray(ret?.returned_items) ? ret.returned_items : []
+    for (const item of items) {
+      const saleItemId = item?.sale_item_id
+      if (!saleItemId) continue
+
+      const prev = bySaleItem.get(saleItemId) || { quantity: 0, amount: 0 }
+      bySaleItem.set(saleItemId, {
+        quantity: prev.quantity + Number(item?.quantity || 0),
+        amount: money(prev.amount + getReturnItemTotal(item)),
+      })
+    }
+  }
+
+  return { bySale, bySaleItem }
+}
+
+function saleNetFields(sale: any, bySale: Map<string, { total: number; count: number; details: string[] }>) {
+  const gross = money(sale?.total)
+  const summary = bySale.get(sale?.id)
+  const returned = money(summary?.total || 0)
+  const net = money(Math.max(0, gross - returned))
+
+  return {
+    gross,
+    returned,
+    net,
+    returnCount: summary?.count || 0,
+    returnDetails: summary?.details?.join(' | ') || 'Sin devoluciones',
+  }
+}
+
+function applyReturnToSaleItem(
+  item: any,
+  bySaleItem: Map<string, { quantity: number; amount: number }>,
+  adjustedGrossRevenue?: number
+) {
+  const grossQuantity = Number(item?.quantity || 0)
+  const grossRevenue = money(adjustedGrossRevenue ?? item?.subtotal)
+  const returned = bySaleItem.get(item?.id) || { quantity: 0, amount: 0 }
+  const returnedQuantity = Math.min(grossQuantity, Number(returned.quantity || 0))
+  const returnedAmount = Math.min(grossRevenue, money(returned.amount))
+  const netQuantity = Math.max(0, grossQuantity - returnedQuantity)
+  const netRevenue = money(Math.max(0, grossRevenue - returnedAmount))
+
+  return {
+    grossQuantity,
+    grossRevenue,
+    returnedQuantity,
+    returnedAmount,
+    netQuantity,
+    netRevenue,
+  }
+}
+
+function buildSaleItemSubtotalMap(items: any[]) {
+  return (items || []).reduce((acc: Map<string, number>, item: any) => {
+    const saleId = item?.sale_id
+    if (!saleId) return acc
+    acc.set(saleId, money((acc.get(saleId) || 0) + Number(item?.subtotal || 0)))
+    return acc
+  }, new Map<string, number>())
+}
+
+function adjustedItemGrossRevenue(item: any, saleItemSubtotals: Map<string, number>) {
+  const itemSubtotal = money(item?.subtotal)
+  const saleTotal = money(item?.sales?.total)
+  const saleItemsSubtotal = saleItemSubtotals.get(item?.sale_id) || itemSubtotal
+
+  if (itemSubtotal <= 0 || saleTotal <= 0 || saleItemsSubtotal <= 0) return itemSubtotal
+  return money(itemSubtotal * (saleTotal / saleItemsSubtotal))
+}
+
 const STORE_KEY_MAP: Record<string, string> = {
   'MUJERES':        'Tienda Mujeres',
   'HOMBRES':        'Tienda Hombres',
@@ -305,17 +448,26 @@ export async function generateSalesByPeriodReport(filters: ReportFilters) {
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
+  const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
+  const { bySale } = buildReturnMaps(returns)
 
-  return (sales || []).map((sale: any) => ({
-    fecha: new Date(sale.created_at).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
-    numeroVenta: sale.sale_number,
-    tienda: sale.store_id === 'Tienda Hombres' ? 'Tienda Hombres' : 'Tienda Mujeres',
-    tipo: sale.sale_type === 'CREDITO' ? 'Credito' : 'Contado',
-    metodoPago: sale.payment_type || 'N/A',
-    subtotal: Number(sale.subtotal),
-    descuento: Number(sale.discount || 0),
-    total: Number(sale.total)
-  }))
+  return (sales || []).map((sale: any) => {
+    const net = saleNetFields(sale, bySale)
+    return {
+      fecha: new Date(sale.created_at).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
+      numeroVenta: sale.sale_number,
+      tienda: sale.store_id === 'Tienda Hombres' ? 'Tienda Hombres' : 'Tienda Mujeres',
+      tipo: sale.sale_type === 'CREDITO' ? 'Credito' : 'Contado',
+      metodoPago: sale.payment_type || 'N/A',
+      subtotal: Number(sale.subtotal),
+      descuento: Number(sale.discount || 0),
+      totalBruto: net.gross,
+      devoluciones: net.returned,
+      total: net.net,
+      neto: net.net,
+      devolucionesDetalle: net.returnDetails
+    }
+  })
 }
 
 /**
@@ -340,12 +492,15 @@ export async function generateSalesByMonthReport(filters: ReportFilters) {
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
+  const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
+  const { bySale } = buildReturnMaps(returns)
 
   // Agrupar por MES (YYYY-MM)
   const salesByMonth = (sales || []).reduce((acc: any, sale: any) => {
     const d = new Date(sale.created_at)
     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     const monthLabel = d.toLocaleDateString('es-PE', { year: 'numeric', month: 'short', timeZone: PERU_TZ })
+    const net = saleNetFields(sale, bySale)
 
     if (!acc[monthKey]) {
       acc[monthKey] = {
@@ -354,16 +509,20 @@ export async function generateSalesByMonthReport(filters: ReportFilters) {
         cantidadVentas: 0,
         totalContado: 0,
         totalCredito: 0,
+        totalBruto: 0,
+        devoluciones: 0,
         total: 0
       }
     }
     acc[monthKey].cantidadVentas += 1
+    acc[monthKey].totalBruto += net.gross
+    acc[monthKey].devoluciones += net.returned
     if (sale.sale_type === 'CONTADO') {
-      acc[monthKey].totalContado += Number(sale.total)
+      acc[monthKey].totalContado += net.net
     } else {
-      acc[monthKey].totalCredito += Number(sale.total)
+      acc[monthKey].totalCredito += net.net
     }
-    acc[monthKey].total += Number(sale.total)
+    acc[monthKey].total += net.net
     return acc
   }, {})
 
@@ -385,18 +544,30 @@ export async function generateSalesSummaryReport(filters: ReportFilters) {
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
+  const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
+  const { bySale } = buildReturnMaps(returns)
+  const salesWithNet = (sales || []).map((sale: any) => ({
+    ...sale,
+    _net: saleNetFields(sale, bySale)
+  }))
 
-  const totalSales = sales?.length || 0
-  const totalRevenue = sales?.reduce((s: number, r: any) => s + Number(r.total), 0) || 0
-  const totalCash = sales?.filter((s: any) => s.sale_type === 'CONTADO').reduce((s: number, r: any) => s + Number(r.total), 0) || 0
-  const totalCredit = sales?.filter((s: any) => s.sale_type === 'CREDITO').reduce((s: number, r: any) => s + Number(r.total), 0) || 0
+  const totalSales = salesWithNet.length
+  const totalGross = salesWithNet.reduce((s: number, r: any) => s + r._net.gross, 0)
+  const totalReturns = salesWithNet.reduce((s: number, r: any) => s + r._net.returned, 0)
+  const totalRevenue = salesWithNet.reduce((s: number, r: any) => s + r._net.net, 0)
+  const cashSales = salesWithNet.filter((s: any) => s.sale_type === 'CONTADO')
+  const creditSales = salesWithNet.filter((s: any) => s.sale_type === 'CREDITO')
+  const totalCash = cashSales.reduce((s: number, r: any) => s + r._net.net, 0)
+  const totalCredit = creditSales.reduce((s: number, r: any) => s + r._net.net, 0)
   const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0
 
   return [
-    { concepto: 'Total Ventas', valor: totalSales, monto: totalRevenue },
-    { concepto: 'Ventas al Contado', valor: sales?.filter((s: any) => s.sale_type === 'CONTADO').length || 0, monto: totalCash },
-    { concepto: 'Ventas al Credito', valor: sales?.filter((s: any) => s.sale_type === 'CREDITO').length || 0, monto: totalCredit },
-    { concepto: 'Promedio por Venta', valor: 1, monto: avgSale }
+    { concepto: 'Ventas Netas', valor: totalSales, monto: money(totalRevenue) },
+    { concepto: 'Ventas Brutas', valor: totalSales, monto: money(totalGross) },
+    { concepto: 'Devoluciones', valor: returns.length, monto: money(totalReturns) },
+    { concepto: 'Ventas al Contado Netas', valor: cashSales.length, monto: money(totalCash) },
+    { concepto: 'Ventas al Credito Netas', valor: creditSales.length, monto: money(totalCredit) },
+    { concepto: 'Promedio por Venta Neto', valor: 1, monto: money(avgSale) }
   ]
 }
 
@@ -405,7 +576,7 @@ export async function generateSalesByProductReport(filters: ReportFilters) {
 
   let query = supabase
     .from('sale_items')
-    .select('quantity, unit_price, subtotal, sales!inner(created_at, voided, store_id), products(name, barcode, purchase_price)')
+    .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products(name, barcode, purchase_price)')
     .eq('sales.voided', false)
 
   if (filters.startDate) query = query.gte('sales.created_at', toPeruStart(filters.startDate))
@@ -413,22 +584,32 @@ export async function generateSalesByProductReport(filters: ReportFilters) {
   if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
 
   const { data: items } = await query
+  const returns = await loadReturnsForSales(supabase, (items || []).map((item: any) => item.sale_id))
+  const { bySaleItem } = buildReturnMaps(returns)
+  const saleItemSubtotals = buildSaleItemSubtotalMap(items || [])
 
   const productSales = (items || []).reduce((acc: any, item: any) => {
     const barcode = item.products?.barcode || 'N/A'
+    const net = applyReturnToSaleItem(item, bySaleItem, adjustedItemGrossRevenue(item, saleItemSubtotals))
     if (!acc[barcode]) {
       acc[barcode] = {
         barcode,
         name: item.products?.name || 'N/A',
         quantitySold: 0,
+        quantityReturned: 0,
+        grossRevenue: 0,
+        returnedAmount: 0,
         totalRevenue: 0,
         totalCost: 0,
         transactions: 0
       }
     }
-    acc[barcode].quantitySold += item.quantity
-    acc[barcode].totalRevenue += Number(item.subtotal)
-    acc[barcode].totalCost += item.quantity * Number(item.products?.purchase_price || 0)
+    acc[barcode].quantitySold += net.netQuantity
+    acc[barcode].quantityReturned += net.returnedQuantity
+    acc[barcode].grossRevenue += net.grossRevenue
+    acc[barcode].returnedAmount += net.returnedAmount
+    acc[barcode].totalRevenue += net.netRevenue
+    acc[barcode].totalCost += net.netQuantity * Number(item.products?.purchase_price || 0)
     acc[barcode].transactions += 1
     return acc
   }, {})
@@ -451,7 +632,7 @@ export async function generateSalesByCategoryReport(filters: ReportFilters) {
 
   let query = supabase
     .from('sale_items')
-    .select('quantity, unit_price, subtotal, sales!inner(created_at, voided, store_id), products!inner(name, barcode, purchase_price, categories(name))')
+    .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products!inner(name, barcode, purchase_price, categories(name))')
     .eq('sales.voided', false)
 
   query = query.gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
@@ -459,20 +640,30 @@ export async function generateSalesByCategoryReport(filters: ReportFilters) {
   if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
 
   const { data: items } = await query
+  const returns = await loadReturnsForSales(supabase, (items || []).map((item: any) => item.sale_id))
+  const { bySaleItem } = buildReturnMaps(returns)
+  const saleItemSubtotals = buildSaleItemSubtotalMap(items || [])
 
   const categoryData = (items || []).reduce((acc: any, item: any) => {
     const category = item.products?.categories?.name || 'Sin categoria'
+    const net = applyReturnToSaleItem(item, bySaleItem, adjustedItemGrossRevenue(item, saleItemSubtotals))
     if (!acc[category]) {
       acc[category] = {
         categoria: category,
         cantidadVendida: 0,
+        cantidadDevuelta: 0,
+        ingresosBrutos: 0,
+        devoluciones: 0,
         totalIngresos: 0,
         numeroTransacciones: 0,
         productos: new Set()
       }
     }
-    acc[category].cantidadVendida += item.quantity
-    acc[category].totalIngresos += Number(item.subtotal)
+    acc[category].cantidadVendida += net.netQuantity
+    acc[category].cantidadDevuelta += net.returnedQuantity
+    acc[category].ingresosBrutos += net.grossRevenue
+    acc[category].devoluciones += net.returnedAmount
+    acc[category].totalIngresos += net.netRevenue
     acc[category].numeroTransacciones += 1
     acc[category].productos.add(item.products?.name)
     return acc
@@ -481,6 +672,9 @@ export async function generateSalesByCategoryReport(filters: ReportFilters) {
   return Object.values(categoryData).map((cat: any) => ({
     categoria: cat.categoria,
     cantidadVendida: cat.cantidadVendida,
+    cantidadDevuelta: cat.cantidadDevuelta,
+    ingresosBrutos: cat.ingresosBrutos,
+    devoluciones: cat.devoluciones,
     totalIngresos: cat.totalIngresos,
     numeroTransacciones: cat.numeroTransacciones,
     productosUnicos: cat.productos.size
@@ -500,21 +694,28 @@ export async function generateCreditVsCashReport(filters: ReportFilters) {
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
-  const cashSales = (sales || []).filter((s: any) => s.sale_type === 'CONTADO')
-  const creditSales = (sales || []).filter((s: any) => s.sale_type === 'CREDITO')
+  const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
+  const { bySale } = buildReturnMaps(returns)
+  const salesWithNet = (sales || []).map((sale: any) => ({ ...sale, _net: saleNetFields(sale, bySale) }))
+  const cashSales = salesWithNet.filter((s: any) => s.sale_type === 'CONTADO')
+  const creditSales = salesWithNet.filter((s: any) => s.sale_type === 'CREDITO')
 
   return [
     {
       tipo: 'Contado',
       cantidad: cashSales.length,
-      total: cashSales.reduce((s: number, r: any) => s + Number(r.total), 0),
-      porcentaje: sales?.length ? ((cashSales.length / sales.length) * 100).toFixed(2) + '%' : '0%'
+      bruto: money(cashSales.reduce((s: number, r: any) => s + r._net.gross, 0)),
+      devoluciones: money(cashSales.reduce((s: number, r: any) => s + r._net.returned, 0)),
+      total: money(cashSales.reduce((s: number, r: any) => s + r._net.net, 0)),
+      porcentaje: salesWithNet.length ? ((cashSales.length / salesWithNet.length) * 100).toFixed(2) + '%' : '0%'
     },
     {
       tipo: 'Credito',
       cantidad: creditSales.length,
-      total: creditSales.reduce((s: number, r: any) => s + Number(r.total), 0),
-      porcentaje: sales?.length ? ((creditSales.length / sales.length) * 100).toFixed(2) + '%' : '0%'
+      bruto: money(creditSales.reduce((s: number, r: any) => s + r._net.gross, 0)),
+      devoluciones: money(creditSales.reduce((s: number, r: any) => s + r._net.returned, 0)),
+      total: money(creditSales.reduce((s: number, r: any) => s + r._net.net, 0)),
+      porcentaje: salesWithNet.length ? ((creditSales.length / salesWithNet.length) * 100).toFixed(2) + '%' : '0%'
     }
   ]
 }
@@ -532,18 +733,23 @@ export async function generateSalesByStoreReport(filters: ReportFilters) {
   if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
 
   const { data: sales } = await query
+  const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
+  const { bySale } = buildReturnMaps(returns)
 
   const storeData = (sales || []).reduce((acc: any, sale: any) => {
     const store = sale.store_id || 'Sin tienda'
     const storeName = store
+    const net = saleNetFields(sale, bySale)
 
     if (!acc[storeName]) {
-      acc[storeName] = { tienda: storeName, cantidadVentas: 0, totalContado: 0, totalCredito: 0, total: 0 }
+      acc[storeName] = { tienda: storeName, cantidadVentas: 0, totalBruto: 0, devoluciones: 0, totalContado: 0, totalCredito: 0, total: 0 }
     }
     acc[storeName].cantidadVentas += 1
-    if (sale.sale_type === 'CONTADO') acc[storeName].totalContado += Number(sale.total)
-    else acc[storeName].totalCredito += Number(sale.total)
-    acc[storeName].total += Number(sale.total)
+    acc[storeName].totalBruto += net.gross
+    acc[storeName].devoluciones += net.returned
+    if (sale.sale_type === 'CONTADO') acc[storeName].totalContado += net.net
+    else acc[storeName].totalCredito += net.net
+    acc[storeName].total += net.net
     return acc
   }, {})
 
@@ -768,27 +974,37 @@ export async function generateProfitMarginReport(filters: ReportFilters) {
 
   let profitQuery = supabase
     .from('sale_items')
-    .select('quantity, unit_price, subtotal, sales!inner(created_at, voided, store_id), products(name, barcode, purchase_price)')
+    .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products(name, barcode, purchase_price)')
     .eq('sales.voided', false)
     .gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
     .lte('sales.created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
   if (filters.warehouse) profitQuery = profitQuery.eq('sales.store_id', filters.warehouse)
   const { data: items } = await profitQuery
+  const returns = await loadReturnsForSales(supabase, (items || []).map((item: any) => item.sale_id))
+  const { bySaleItem } = buildReturnMaps(returns)
+  const saleItemSubtotals = buildSaleItemSubtotalMap(items || [])
 
   const byProduct = (items || []).reduce((acc: any, item: any) => {
     const key = item.products?.barcode || 'unknown'
+    const net = applyReturnToSaleItem(item, bySaleItem, adjustedItemGrossRevenue(item, saleItemSubtotals))
     if (!acc[key]) {
       acc[key] = {
         barcode: key,
         producto: item.products?.name || 'Desconocido',
         cantidadVendida: 0,
+        cantidadDevuelta: 0,
+        ingresosBrutos: 0,
+        devoluciones: 0,
         ingresos: 0,
         costo: 0
       }
     }
-    acc[key].cantidadVendida += item.quantity
-    acc[key].ingresos += Number(item.subtotal)
-    acc[key].costo += item.quantity * Number(item.products?.purchase_price || 0)
+    acc[key].cantidadVendida += net.netQuantity
+    acc[key].cantidadDevuelta += net.returnedQuantity
+    acc[key].ingresosBrutos += net.grossRevenue
+    acc[key].devoluciones += net.returnedAmount
+    acc[key].ingresos += net.netRevenue
+    acc[key].costo += net.netQuantity * Number(item.products?.purchase_price || 0)
     return acc
   }, {})
 
@@ -796,6 +1012,9 @@ export async function generateProfitMarginReport(filters: ReportFilters) {
     barcode: p.barcode,
     producto: p.producto,
     cantidadVendida: p.cantidadVendida,
+    cantidadDevuelta: p.cantidadDevuelta,
+    ingresosBrutos: p.ingresosBrutos,
+    devoluciones: p.devoluciones,
     ingresos: p.ingresos,
     costo: p.costo,
     ganancia: p.ingresos - p.costo,
@@ -817,7 +1036,7 @@ export async function generateCashFlowReport(filters: ReportFilters) {
 
   let salesQ = supabase
     .from('sales')
-    .select('total, created_at, sale_type, store_id')
+    .select('id, total, created_at, sale_type, store_id')
     .eq('voided', false)
     .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
     .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
@@ -825,7 +1044,7 @@ export async function generateCashFlowReport(filters: ReportFilters) {
 
   let cashExpQ = supabase
     .from('cash_expenses')
-    .select('amount, description, created_at')
+    .select('amount, category, description, created_at')
     .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
     .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
 
@@ -841,17 +1060,34 @@ export async function generateCashFlowReport(filters: ReportFilters) {
     cashExpQ
   ])
 
-  const cashSales = (sales || []).filter((s: any) => s.sale_type === 'CONTADO').reduce((a: number, s: any) => a + Number(s.total), 0)
-  const creditSales = (sales || []).filter((s: any) => s.sale_type === 'CREDITO').reduce((a: number, s: any) => a + Number(s.total), 0)
+  const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
+  const { bySale } = buildReturnMaps(returns)
+  const salesWithNet = (sales || []).map((sale: any) => ({ ...sale, _net: saleNetFields(sale, bySale) }))
+
+  const cashGross = salesWithNet.filter((s: any) => s.sale_type === 'CONTADO').reduce((a: number, s: any) => a + s._net.gross, 0)
+  const cashReturns = salesWithNet.filter((s: any) => s.sale_type === 'CONTADO').reduce((a: number, s: any) => a + s._net.returned, 0)
+  const cashSales = money(Math.max(0, cashGross - cashReturns))
+  const creditGross = salesWithNet.filter((s: any) => s.sale_type === 'CREDITO').reduce((a: number, s: any) => a + s._net.gross, 0)
+  const creditReturns = salesWithNet.filter((s: any) => s.sale_type === 'CREDITO').reduce((a: number, s: any) => a + s._net.returned, 0)
+  const creditSales = money(Math.max(0, creditGross - creditReturns))
   const cobros = (payments || []).reduce((a: number, p: any) => a + Number(p.amount), 0)
-  const egresos = (expenses || []).reduce((a: number, e: any) => a + Number(e.amount), 0)
+  const returnExpenses = (expenses || [])
+    .filter((e: any) => String(e.category || '').toUpperCase() === 'DEVOLUCION')
+    .reduce((a: number, e: any) => a + Number(e.amount), 0)
+  const egresos = (expenses || [])
+    .filter((e: any) => String(e.category || '').toUpperCase() !== 'DEVOLUCION')
+    .reduce((a: number, e: any) => a + Number(e.amount), 0)
+  const returnExpensesOutsideFilteredSales = money(Math.max(0, returnExpenses - cashReturns))
+  const totalCashEgress = money(egresos + returnExpensesOutsideFilteredSales)
 
   return [
-    { concepto: 'Ventas al contado', ingreso: cashSales, egreso: 0, neto: cashSales },
+    { concepto: 'Ventas al contado netas', ingreso: cashSales, egreso: 0, neto: cashSales, bruto: money(cashGross), devoluciones: money(cashReturns) },
     { concepto: 'Cobros de credito', ingreso: cobros, egreso: 0, neto: cobros },
-    { concepto: 'Ventas al credito (devengado)', ingreso: creditSales, egreso: 0, neto: creditSales },
-    { concepto: 'Egresos de caja', ingreso: 0, egreso: egresos, neto: -egresos },
-    { concepto: 'FLUJO NETO', ingreso: cashSales + cobros, egreso: egresos, neto: cashSales + cobros - egresos }
+    { concepto: 'Ventas al credito netas (devengado)', ingreso: creditSales, egreso: 0, neto: creditSales, bruto: money(creditGross), devoluciones: money(creditReturns) },
+    { concepto: 'Devoluciones descontadas de ventas', ingreso: 0, egreso: 0, neto: 0, bruto: money(cashReturns + creditReturns), devoluciones: money(cashReturns + creditReturns), egresosCajaRegistrados: money(returnExpenses) },
+    { concepto: 'Devoluciones de caja fuera del filtro de ventas', ingreso: 0, egreso: returnExpensesOutsideFilteredSales, neto: -returnExpensesOutsideFilteredSales },
+    { concepto: 'Otros egresos de caja', ingreso: 0, egreso: egresos, neto: -egresos },
+    { concepto: 'FLUJO NETO', ingreso: cashSales + cobros, egreso: totalCashEgress, neto: cashSales + cobros - totalCashEgress }
   ]
 }
 

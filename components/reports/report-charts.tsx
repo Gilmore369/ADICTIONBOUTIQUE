@@ -158,7 +158,7 @@ export const ReportCharts = forwardRef<HTMLDivElement, ReportChartsProps>(
           return <CashFlowCharts data={data} />
         default:
           return (
-            <Card className="p-5 text-center text-gray-400 text-sm">
+            <Card className="p-5 text-center text-muted-foreground text-sm">
               Gráfico no disponible para este tipo de reporte
             </Card>
           )
@@ -426,12 +426,16 @@ function KardexCharts({ data }: { data: any[] }) {
 // ────────────────────────────────────────────────────────────────────────────
 function SalesByPeriodCharts({ data }: { data: any[] }) {
   const totalRevenue = data.reduce((s, d) => s + (d.total || 0), 0)
+  const totalGross = data.reduce((s, d) => s + (d.totalBruto || d.total || 0), 0)
+  const totalReturns = data.reduce((s, d) => s + (d.devoluciones || 0), 0)
   const avgPerSale = data.length > 0 ? totalRevenue / data.length : 0
 
   const byDate = Object.values(
     data.reduce((acc: any, d) => {
       const date = d.fecha || 'N/A'
-      if (!acc[date]) acc[date] = { fecha: date, total: 0, contado: 0, credito: 0, ventas: 0 }
+      if (!acc[date]) acc[date] = { fecha: date, bruto: 0, devoluciones: 0, total: 0, contado: 0, credito: 0, ventas: 0 }
+      acc[date].bruto += d.totalBruto || d.total || 0
+      acc[date].devoluciones += d.devoluciones || 0
       acc[date].total += d.total || 0
       acc[date].ventas += 1
       if (d.tipo === 'Contado') acc[date].contado += d.total || 0
@@ -443,14 +447,14 @@ function SalesByPeriodCharts({ data }: { data: any[] }) {
   return (
     <>
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Total periodo" value={fCur(totalRevenue)} color={C.emerald} />
-        <StatCard label="Transacciones" value={fNum(data.length)} color={C.blue} />
+        <StatCard label="Venta neta periodo" value={fCur(totalRevenue)} sub={`Bruto ${fCur(totalGross)}`} color={C.emerald} />
+        <StatCard label="Devoluciones" value={fCur(totalReturns)} color={C.rose} />
         <StatCard label="Ticket promedio" value={fCur(avgPerSale)} color={C.violet} />
       </div>
 
-      <ChartCard title="Tendencia de Ventas Diarias">
+      <ChartCard title="Tendencia de Ventas Diarias Netas">
         <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={byDate}>
+          <ComposedChart data={byDate}>
             <defs>
               <linearGradient id={GRADIENT_ID('tot')} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={C.emerald} stopOpacity={0.3} />
@@ -462,8 +466,9 @@ function SalesByPeriodCharts({ data }: { data: any[] }) {
             <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={fK} />
             <Tooltip content={<CustomTooltipCur />} />
             <Legend />
-            <Area type="monotone" dataKey="total" stroke={C.emerald} fill={`url(#${GRADIENT_ID('tot')})`} strokeWidth={2} name="Total" />
-          </AreaChart>
+            <Area type="monotone" dataKey="total" stroke={C.emerald} fill={`url(#${GRADIENT_ID('tot')})`} strokeWidth={2} name="Venta neta" />
+            <Line type="monotone" dataKey="devoluciones" stroke={C.rose} strokeWidth={2} dot={{ r: 3 }} name="Devoluciones" />
+          </ComposedChart>
         </ResponsiveContainer>
       </ChartCard>
 
@@ -489,6 +494,7 @@ function SalesByPeriodCharts({ data }: { data: any[] }) {
 // ────────────────────────────────────────────────────────────────────────────
 function SalesByMonthCharts({ data }: { data: any[] }) {
   const totalRevenue = data.reduce((s, d) => s + (d.total || 0), 0)
+  const totalReturns = data.reduce((s, d) => s + (d.devoluciones || 0), 0)
   const totalVentas  = data.reduce((s, d) => s + (d.cantidadVentas || 0), 0)
   const bestMonth    = data.reduce((a, b) => (b.total || 0) > (a.total || 0) ? b : a, data[0] || {})
   const avgMonthly   = data.length > 0 ? totalRevenue / data.length : 0
@@ -497,6 +503,7 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
     mes:     d.mes || 'N/A',
     contado: d.totalContado || 0,
     credito: d.totalCredito || 0,
+    devoluciones: d.devoluciones || 0,
     total:   d.total || 0,
     ventas:  d.cantidadVentas || 0
   }))
@@ -511,7 +518,7 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
     <>
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total del periodo"  value={fCur(totalRevenue)} color={C.emerald} />
+        <StatCard label="Total neto del periodo"  value={fCur(totalRevenue)} sub={`Devuelto ${fCur(totalReturns)}`} color={C.emerald} />
         <StatCard label="Mejor mes"          value={bestMonth.mes || 'N/A'} sub={fCur(bestMonth.total)} color={C.blue} />
         <StatCard label="Promedio mensual"   value={fCur(avgMonthly)} color={C.violet} />
         <StatCard
@@ -525,7 +532,7 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
       {/* Gráfico de tendencia — área apilada con línea de cantidad */}
       <ChartCard title="Tendencia de Ingresos Mensuales (Contado + Crédito)">
         <ResponsiveContainer width="100%" height={320}>
-          <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 40 }}>
+          <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 40 }}>
             <defs>
               <linearGradient id={GRADIENT_ID('mcont')} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor={C.emerald} stopOpacity={0.45} />
@@ -539,16 +546,16 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
             <XAxis
               dataKey="mes"
-              tick={{ fontSize: 11, fill: '#6b7280' }}
+              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
               angle={-30}
               textAnchor="end"
               height={55}
               tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
+              axisLine={{ stroke: 'hsl(var(--border))' }}
             />
             <YAxis
               tickFormatter={fK}
-              tick={{ fontSize: 10, fill: '#9ca3af' }}
+              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
               width={60}
@@ -557,16 +564,16 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
               content={({ active, payload, label }) => {
                 if (!active || !payload?.length) return null
                 return (
-                  <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-xs">
-                    <p className="font-bold text-gray-800 mb-2">{label}</p>
+                  <div className="bg-popover/95 backdrop-blur text-popover-foreground border border-border rounded-xl shadow-lg p-3 text-xs">
+                    <p className="font-bold text-foreground mb-2">{label}</p>
                     {payload.map((p: any, i: number) => (
                       <p key={i} style={{ color: p.color }} className="flex justify-between gap-4">
                         <span>{p.name}</span>
                         <span className="font-semibold tabular-nums">{fCur(p.value)}</span>
                       </p>
                     ))}
-                    <p className="text-gray-500 mt-1 pt-1 border-t">
-                      Total: {fCur((payload[0]?.value || 0) + (payload[1]?.value || 0))}
+                    <p className="text-muted-foreground mt-1 pt-1 border-t border-border">
+                      Neto: {fCur((payload[0]?.value || 0) + (payload[1]?.value || 0))}
                     </p>
                   </div>
                 )
@@ -599,7 +606,16 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
               dot={{ r: 3, fill: C.amber, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
             />
-          </AreaChart>
+            <Line
+              type="monotone"
+              dataKey="devoluciones"
+              stroke={C.rose}
+              strokeWidth={2}
+              name="Devoluciones"
+              dot={{ r: 3, fill: C.rose, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </ChartCard>
 
@@ -616,16 +632,16 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
             <XAxis
               dataKey="mes"
-              tick={{ fontSize: 11, fill: '#6b7280' }}
+              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
               angle={-30}
               textAnchor="end"
               height={55}
               tickLine={false}
-              axisLine={{ stroke: '#e5e7eb' }}
+              axisLine={{ stroke: 'hsl(var(--border))' }}
             />
             <YAxis
               allowDecimals={false}
-              tick={{ fontSize: 10, fill: '#9ca3af' }}
+              tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
               width={40}
@@ -633,7 +649,7 @@ function SalesByMonthCharts({ data }: { data: any[] }) {
             <Tooltip
               formatter={(v: any) => [fNum(v), '# Ventas']}
               labelStyle={{ fontWeight: 600 }}
-              contentStyle={{ borderRadius: 10, fontSize: 12, border: '1px solid #e5e7eb' }}
+              contentStyle={{ borderRadius: 10, fontSize: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
             />
             <ReferenceLine
               y={totalVentas / Math.max(data.length, 1)}
@@ -698,8 +714,8 @@ function SalesSummaryCharts({ data }: { data: any[] }) {
           <StatCard
             key={i}
             label={d.concepto}
-            value={i === 3 ? fCur(d.monto) : d.concepto === 'Total Ventas' ? fNum(d.valor) : fCur(d.monto)}
-            sub={i > 0 && i < 3 ? `${d.valor} transacciones` : undefined}
+            value={fCur(d.monto)}
+            sub={d.valor ? `${d.valor} ${d.concepto?.toLowerCase().includes('devol') ? 'devoluciones' : 'transacciones'}` : undefined}
             color={[C.emerald, C.teal, C.amber, C.violet][i] || C.blue}
           />
         ))}
@@ -727,6 +743,7 @@ function SalesSummaryCharts({ data }: { data: any[] }) {
 // ────────────────────────────────────────────────────────────────────────────
 function SalesByProductCharts({ data }: { data: any[] }) {
   const totalRevenue = data.reduce((s, d) => s + (d.totalRevenue || 0), 0)
+  const totalReturned = data.reduce((s, d) => s + (d.returnedAmount || 0), 0)
   const totalProfit = data.reduce((s, d) => s + (d.profit || 0), 0)
 
   const top10Rev = data.slice(0, 10).map(d => ({
@@ -738,7 +755,7 @@ function SalesByProductCharts({ data }: { data: any[] }) {
   return (
     <>
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Total ingresos" value={fCur(totalRevenue)} color={C.emerald} />
+        <StatCard label="Ingresos netos" value={fCur(totalRevenue)} sub={`Devuelto ${fCur(totalReturned)}`} color={C.emerald} />
         <StatCard label="Ganancia bruta" value={fCur(totalProfit)} color={C.violet} />
         <StatCard label="Productos" value={fNum(data.length)} color={C.blue} />
       </div>
@@ -765,6 +782,7 @@ function SalesByProductCharts({ data }: { data: any[] }) {
 // ────────────────────────────────────────────────────────────────────────────
 function SalesByCategoryCharts({ data }: { data: any[] }) {
   const totalRevenue = data.reduce((s, d) => s + (d.totalIngresos || 0), 0)
+  const totalReturned = data.reduce((s, d) => s + (d.devoluciones || 0), 0)
 
   const chartData = data.slice(0, 10).map(d => ({
     categoria: truncate(d.categoria, 18),
@@ -775,7 +793,7 @@ function SalesByCategoryCharts({ data }: { data: any[] }) {
   return (
     <>
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Total ingresos" value={fCur(totalRevenue)} color={C.emerald} />
+        <StatCard label="Ingresos netos" value={fCur(totalRevenue)} sub={`Devuelto ${fCur(totalReturned)}`} color={C.emerald} />
         <StatCard label="Categorias" value={fNum(data.length)} color={C.blue} />
         <StatCard label="Lider" value={truncate(data[0]?.categoria || 'N/A', 16)} sub={fCur(data[0]?.totalIngresos)} color={C.violet} />
       </div>
@@ -1279,10 +1297,10 @@ function CollectionEffectivenessCharts({ data }: { data: any[] }) {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-bold text-gray-800">{efectividad.toFixed(0)}%</span>
+                <span className="text-2xl font-bold text-foreground">{efectividad.toFixed(0)}%</span>
               </div>
             </div>
-            <span className="text-xs text-gray-500 text-center">
+            <span className="text-xs text-muted-foreground text-center">
               {efectividad >= 70 ? 'Buena efectividad' : efectividad >= 40 ? 'Efectividad moderada' : 'Baja efectividad — accion requerida'}
             </span>
           </div>
@@ -1382,11 +1400,11 @@ function CashFlowCharts({ data }: { data: any[] }) {
   const netoTotal = data.find(d => d.concepto?.includes('NETO') || d.concepto?.includes('Neto'))?.neto
     ?? data.reduce((s, d) => s + (d.neto || 0), 0)
 
-  const totalIngreso = data.reduce((s, d) => s + (d.ingreso || 0), 0)
-  const totalEgreso = data.reduce((s, d) => s + (d.egreso || 0), 0)
+  const rowsForTotals = data.filter(d => !d.concepto?.includes('FLUJO') && !d.concepto?.includes('NETO'))
+  const totalIngreso = rowsForTotals.reduce((s, d) => s + (d.ingreso || 0), 0)
+  const totalEgreso = rowsForTotals.reduce((s, d) => s + (d.egreso || 0), 0)
 
-  const barData = data
-    .filter(d => !d.concepto?.includes('FLUJO'))
+  const barData = rowsForTotals
     .map(d => ({
       concepto: truncate(d.concepto, 26),
       ingreso: d.ingreso || 0,
