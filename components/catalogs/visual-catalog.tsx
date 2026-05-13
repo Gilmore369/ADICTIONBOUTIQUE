@@ -1678,7 +1678,7 @@ export function VisualCatalog() {
           total_stock:    0, variant_count: 0,
           size_names: [], colors: [],
           primary_image_url: pAny.image_url ?? null,
-          color_images: [], variants: [],
+          color_images: {}, variants: [],
           catalog_visible: Boolean(pAny.catalog_visible),
         } as any
       } else if (pAny.catalog_visible) {
