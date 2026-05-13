@@ -13,10 +13,14 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 
 async function requireAdmin() {
-  const supabase = createServiceClient()
+  // IMPORTANTE: usar createServerClient (lee cookies/sesión del usuario)
+  // NO usar createServiceClient aquí — ese cliente no tiene sesión de usuario
+  const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+  // Para leer roles bypasseando RLS, usamos service client
   const service = createServiceClient()
+  if (!service) return null
   const { data: profile } = await service.from('users').select('roles').eq('id', user.id).single()
   const roles: string[] = ((profile as any)?.roles || []).map((r: string) => r.toLowerCase())
   if (!roles.includes('admin')) return null
