@@ -788,6 +788,8 @@ export async function generatePurchasesBySupplierReport(filters: ReportFilters) 
 
   query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
   query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
+  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
+  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
 
   const { data: movements } = await query
 
@@ -826,6 +828,8 @@ export async function generatePurchasesByPeriodReport(filters: ReportFilters) {
 
   query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
   query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
+  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
+  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
 
   const { data: movements } = await query
 
