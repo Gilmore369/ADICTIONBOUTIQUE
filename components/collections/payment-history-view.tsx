@@ -6,7 +6,7 @@
  * Shows payments with period filter and totals.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -18,7 +18,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { ExternalLink, Search, TrendingUp, Calendar } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ExternalLink, Search, TrendingUp, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,8 @@ interface Payment {
   clients?: { name: string; dni: string | null } | null
   users?: { name: string; stores: string[] } | null
 }
+
+const ITEMS_PER_PAGE = 50
 
 type Period = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'custom'
 
@@ -92,6 +95,7 @@ function periodRange(period: Period): { from: string; to: string } {
 export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Props) {
   const [period, setPeriod] = useState<Period>(initialPeriod)
   const [search, setSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Custom date range state
   const [customFrom, setCustomFrom] = useState(thisMonthStart)
@@ -121,6 +125,16 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
   const avg     = filtered.length > 0 ? total / filtered.length : 0
   const maxPay  = filtered.length > 0 ? Math.max(...filtered.map(p => Number(p.amount))) : 0
   const periodLabel = PERIODS.find(p => p.key === period)?.label ?? ''
+
+  // Paginación
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
+  const pagedPayments = useMemo(
+    () => filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [filtered, currentPage]
+  )
+
+  // Reset página al cambiar filtros
+  useEffect(() => { setCurrentPage(1) }, [period, search, customFrom, customTo])
 
   return (
     <div className="space-y-4">
@@ -241,7 +255,7 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map(p => (
+              {pagedPayments.map(p => (
                 <TableRow key={p.id}>
                   <TableCell className="whitespace-nowrap text-sm">
                     {formatSafeDate(p.payment_date)}
@@ -294,8 +308,60 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
             </TableBody>
           </Table>
         </div>
-        <div className="px-4 py-2 border-t text-xs text-muted-foreground">
-          {filtered.length} registro{filtered.length !== 1 ? 's' : ''} · Mayor pago: {formatCurrency(maxPay)}
+        {/* Footer: resumen + paginación */}
+        <div className="px-4 py-2 border-t flex items-center justify-between gap-4 flex-wrap">
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} registro{filtered.length !== 1 ? 's' : ''} · Mayor pago: {formatCurrency(maxPay)}
+          </p>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground mr-2">
+                Pág. {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline" size="sm"
+                className="h-7 w-7 p-0"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
+
+              {/* Botones de página — máx 7 visibles */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('…')
+                  acc.push(p)
+                  return acc
+                }, [])
+                .map((p, i) =>
+                  p === '…'
+                    ? <span key={`e${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    : (
+                      <Button
+                        key={p}
+                        variant={currentPage === p ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 w-7 p-0 text-xs"
+                        onClick={() => setCurrentPage(p as number)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                )}
+
+              <Button
+                variant="outline" size="sm"
+                className="h-7 w-7 p-0"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
     </div>
