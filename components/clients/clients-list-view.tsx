@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation'
 import { ClientFilters } from './client-filters'
 import { ClientsTableEnhanced } from './clients-table-enhanced'
 import { CreateClientDialog } from './create-client-dialog'
-import { filterClientsAction } from '@/actions/clients'
 import { exportFilteredClients } from '@/actions/export'
 import { toast } from '@/lib/toast'
 import type { ClientFilters as ClientFiltersType } from '@/lib/types/crm'
@@ -32,153 +31,92 @@ interface Client {
   imported_from_legacy?: boolean | null
 }
 
-interface ClientsListViewProps {
-  initialClients: Client[]
-}
-
-export function ClientsListView({ initialClients }: ClientsListViewProps) {
-  const searchParams = useSearchParams()
+/** No props — all data fetched from /api/clients/paginated */
+export function ClientsListView() {
+  const searchParams   = useSearchParams()
   const isBirthdayFilter = searchParams.get('filter') === 'birthday'
-  const currentMonth = new Date().getMonth() + 1
+  const currentMonth   = new Date().getMonth() + 1
 
-  const [clients, setClients] = useState<Client[]>(initialClients)
-  const [filters, setFilters] = useState<ClientFiltersType>(
+  const [clients,      setClients]      = useState<Client[]>([])
+  const [serverTotal,  setServerTotal]  = useState(0)
+  const [serverPages,  setServerPages]  = useState(1)
+  const [blTotal,      setBlTotal]      = useState<number | null>(null)
+  const [isLoading,    setIsLoading]    = useState(true)
+  const [currentPage,  setCurrentPage]  = useState(1)
+  const [searchQuery,  setSearchQuery]  = useState('')
+  const [showOnlyBlacklisted, setShowOnlyBlacklisted] = useState(false)
+  const [filters,      setFilters]      = useState<ClientFiltersType>(
     isBirthdayFilter
       ? { status: 'ACTIVO', birthdayMonth: currentMonth }
       : { status: 'ACTIVO' }
   )
-  const [isLoading, setIsLoading] = useState(false)
-  const [showOnlyBlacklisted, setShowOnlyBlacklisted] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [searchQuery, setSearchQuery] = useState('')
-  const debouncedSearch = useDebounce(searchQuery, 200)
 
-  const blacklistedCount = useMemo(() => clients.filter(c => c.blacklisted).length, [clients])
+  const debouncedSearch = useDebounce(searchQuery, 300)
 
-  // Filter clients based on current filters + search query
-  const filteredClients = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase()
+  // ── Fetch page from server ───────────────────────────────────────────────
+  const fetchClients = useCallback(async (
+    page: number,
+    search: string,
+    f: ClientFiltersType,
+    blacklistedOnly: boolean
+  ) => {
+    setIsLoading(true)
+    try {
+      const qs = new URLSearchParams({ page: String(page), per_page: String(PAGE_SIZE) })
+      if (search)            qs.set('search', search)
+      if (f.status)          qs.set('status', f.status)
+      if (f.rating?.length)  qs.set('rating', f.rating.join(','))
+      if (f.debtStatus)      qs.set('debt_status', f.debtStatus)
+      if (f.birthdayMonth)   qs.set('birthday_month', String(f.birthdayMonth))
+      if (f.daysSinceLastPurchase) qs.set('days_since', String(f.daysSinceLastPurchase))
+      if (blacklistedOnly)   qs.set('blacklisted', 'true')
 
-    return clients.filter(client => {
-      // Text search — name, DNI, phone
-      if (q) {
-        const matchName = client.name.toLowerCase().includes(q)
-        const matchDni = client.dni?.toLowerCase().includes(q) ?? false
-        const matchPhone = client.phone?.toLowerCase().includes(q) ?? false
-        if (!matchName && !matchDni && !matchPhone) return false
+      const res  = await fetch(`/api/clients/paginated?${qs}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Error al cargar clientes')
+
+      setClients(json.clients || [])
+      setServerTotal(json.total ?? 0)
+      setServerPages(json.pages ?? 1)
+      if (json.blacklisted_total !== null && json.blacklisted_total !== undefined) {
+        setBlTotal(json.blacklisted_total)
       }
-
-      if (Object.keys(filters).length === 0) return true
-      // Debt status filter
-      if (filters.debtStatus) {
-        if (filters.debtStatus === 'MOROSO') {
-          // Would need to check for overdue installments - simplified for now
-          if (client.credit_used === 0) return false
-        } else if (filters.debtStatus === 'CON_DEUDA') {
-          if (client.credit_used === 0) return false
-        } else if (filters.debtStatus === 'AL_DIA') {
-          if (client.credit_used === 0) return false
-          // Would need to check no overdue installments
-        }
-      }
-
-      // Rating filter
-      if (filters.rating && filters.rating.length > 0) {
-        if (!client.rating || !filters.rating.includes(client.rating)) {
-          return false
-        }
-      }
-
-      // Days since last purchase filter
-      if (filters.daysSinceLastPurchase) {
-        if (!client.last_purchase_date) return false
-        const daysSince = Math.floor(
-          (Date.now() - new Date(client.last_purchase_date).getTime()) / (1000 * 60 * 60 * 24)
-        )
-        if (daysSince <= filters.daysSinceLastPurchase) return false
-      }
-
-      // Birthday month filter
-      if (filters.birthdayMonth) {
-        if (!client.birthday) return false
-        const bMonth = new Date(client.birthday).getUTCMonth() + 1
-        if (bMonth !== filters.birthdayMonth) return false
-      }
-
-      // Status filter
-      if (filters.status) {
-        if (filters.status === 'ACTIVO' && !client.active) return false
-        if (filters.status === 'INACTIVO' && client.active) return false
-        if (filters.status === 'BAJA' && client.active) return false
-      }
-
-      // Deactivation reason filter
-      if (filters.deactivationReason && filters.deactivationReason.length > 0) {
-        if (!client.deactivation_reason || !filters.deactivationReason.includes(client.deactivation_reason)) {
-          return false
-        }
-      }
-
-        // Blacklist quick filter
-      if (showOnlyBlacklisted && !client.blacklisted) return false
-
-      return true
-    })
-  }, [clients, filters, showOnlyBlacklisted, debouncedSearch])
-
-  // Paginated slice of filteredClients
-  const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE))
-  const paginatedClients = useMemo(
-    () => filteredClients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [filteredClients, currentPage]
-  )
-
-  // Reset to page 1 when search changes
-  useEffect(() => { setCurrentPage(1) }, [debouncedSearch])
-
-  const handleFilterChange = useCallback(async (newFilters: ClientFiltersType) => {
-    setFilters(newFilters)
-    setCurrentPage(1) // reset to page 1 on filter change
-
-    // If filters are applied, fetch filtered clients from server
-    if (Object.keys(newFilters).length > 0) {
-      setIsLoading(true)
-      try {
-        const result = await filterClientsAction(newFilters)
-        if (result.success && result.data) {
-          setClients(result.data)
-        } else {
-          throw new Error(result.error || 'Error al filtrar clientes')
-        }
-      } catch (error) {
-        console.error('Error filtering clients:', error)
-        toast.error('Error', 'No se pudieron filtrar los clientes')
-      } finally {
-        setIsLoading(false)
-      }
+    } catch (err) {
+      console.error('[ClientsListView] fetch error:', err)
+      toast.error('Error', 'No se pudieron cargar los clientes')
+    } finally {
+      setIsLoading(false)
     }
+  }, [])
+
+  // Re-fetch whenever page / search / filters / blacklisted toggle change
+  useEffect(() => {
+    fetchClients(currentPage, debouncedSearch, filters, showOnlyBlacklisted)
+  }, [fetchClients, currentPage, debouncedSearch, filters, showOnlyBlacklisted])
+
+  // Reset to page 1 when search or filters change
+  useEffect(() => { setCurrentPage(1) }, [debouncedSearch, filters, showOnlyBlacklisted])
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleFilterChange = useCallback((newFilters: ClientFiltersType) => {
+    setFilters(newFilters)
+    // page reset is handled by the effect above
   }, [])
 
   const handleExport = async () => {
     try {
       toast.info('Exportando', 'Generando archivo CSV...')
       const result = await exportFilteredClients(filters)
-      
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Error al exportar')
-      }
-      
-      // Create download link
+      if (!result.success || !result.data) throw new Error(result.error || 'Error al exportar')
       const blob = new Blob([result.data], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
+      const url  = URL.createObjectURL(blob)
       link.setAttribute('href', url)
       link.setAttribute('download', `clientes-${new Date().toISOString().split('T')[0]}.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      
       toast.success('Exportado', 'Archivo CSV descargado correctamente')
     } catch (error) {
       console.error('Error exporting clients:', error)
@@ -187,23 +125,14 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
   }
 
   const handleClientCreated = (newClient: { id: string; name: string; dni?: string | null }) => {
-    // Add the new client to the top of the list with minimal data
-    setClients(prev => [{
-      id: newClient.id,
-      dni: newClient.dni ?? null,
-      name: newClient.name,
-      phone: null,
-      rating: null,
-      rating_score: null,
-      last_purchase_date: null,
-      credit_used: 0,
-      active: true,
-      deactivation_reason: null,
-      blacklisted: false,
-    }, ...prev])
+    // Refresh page 1 to show the new client
+    setCurrentPage(1)
+    fetchClients(1, debouncedSearch, filters, showOnlyBlacklisted)
   }
 
   const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+  const blacklistedCount = blTotal ?? 0
 
   return (
     <div className="space-y-4">
@@ -224,14 +153,14 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold">Clientes</h1>
           <span className="text-sm text-muted-foreground hidden sm:inline">
-            {filteredClients.length} resultado{filteredClients.length !== 1 ? 's' : ''}
+            {isLoading ? '…' : `${serverTotal} resultado${serverTotal !== 1 ? 's' : ''}`}
           </span>
           {blacklistedCount > 0 && (
             <Button
               variant={showOnlyBlacklisted ? 'destructive' : 'outline'}
               size="sm"
               className="gap-1 h-7 text-xs"
-              onClick={() => { setShowOnlyBlacklisted(v => !v); setCurrentPage(1) }}
+              onClick={() => setShowOnlyBlacklisted(v => !v)}
             >
               <AlertTriangle className="h-3 w-3" />
               Lista Negra ({blacklistedCount})
@@ -264,33 +193,32 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
 
       {isLoading ? (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Cargando clientes...</p>
+          <p className="text-muted-foreground text-sm">Cargando clientes…</p>
         </div>
       ) : (
         <>
           <ClientsTableEnhanced
-            clients={paginatedClients}
+            clients={clients}
             onExport={handleExport}
           />
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {serverPages > 1 && (
             <div className="flex items-center justify-between gap-2 pt-1">
               <p className="text-xs text-muted-foreground">
-                Página {currentPage} de {totalPages} · {filteredClients.length} clientes
+                Página {currentPage} de {serverPages} · {serverTotal} clientes
               </p>
               <div className="flex items-center gap-1">
                 <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
+                  variant="outline" size="icon" className="h-7 w-7"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(p => p - 1)}
                 >
                   <ChevronLeft className="h-3 w-3" />
                 </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+
+                {Array.from({ length: serverPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === serverPages || Math.abs(p - currentPage) <= 2)
                   .reduce<(number | '...')[]>((acc, p, idx, arr) => {
                     if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
                     acc.push(p)
@@ -311,11 +239,10 @@ export function ClientsListView({ initialClients }: ClientsListViewProps) {
                       </Button>
                     )
                   )}
+
                 <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={currentPage === totalPages}
+                  variant="outline" size="icon" className="h-7 w-7"
+                  disabled={currentPage === serverPages}
                   onClick={() => setCurrentPage(p => p + 1)}
                 >
                   <ChevronRight className="h-3 w-3" />
