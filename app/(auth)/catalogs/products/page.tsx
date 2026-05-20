@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { createServerClient } from '@/lib/supabase/server'
 import { ProductsManager } from '@/components/products/products-manager'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 /**
  * Products Catalog Page
@@ -17,23 +18,20 @@ import { TableSkeleton } from '@/components/shared/loading-skeleton'
 async function ProductsData() {
   const supabase = await createServerClient()
   
-  // Fetch up to 10,000 active products for initial load.
-  // Search/filter is handled client-side with debouncing.
-  const { data: products, error } = await supabase
-    .from('products')
-    .select(`
-      *,
-      lines:line_id(id, name),
-      categories:category_id(id, name),
-      brands:brand_id(id, name)
-    `)
-    .eq('active', true)
-    .order('name')
-    .limit(10000)
-  
-  if (error) {
-    throw new Error(`Error loading products: ${error.message}`)
-  }
+  // Fetch ALL active products — paginated to bypass Supabase PostgREST max_rows cap (1000/request)
+  const products = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from('products')
+      .select(`
+        *,
+        lines:line_id(id, name),
+        categories:category_id(id, name),
+        brands:brand_id(id, name)
+      `)
+      .eq('active', true)
+      .order('name')
+      .range(from, to)
+  )
 
   // Fetch stock separately and merge with products
   const { data: stockData } = await supabase

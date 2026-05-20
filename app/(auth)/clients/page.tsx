@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { ClientsListView } from '@/components/clients/clients-list-view'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 /**
  * Clients Page
@@ -67,47 +68,48 @@ async function ClientsData() {
     }
   }
 
-  // Fetch clients — try with blacklisted column first, fall back without it
-  let clients: any[] | null = null
+  // Fetch clients — paginated to bypass Supabase PostgREST max_rows cap (1000/request)
+  // Probe: check if blacklisted column exists (added in migration, may be absent in dev)
+  const { error: probeErr } = await supabase.from('clients').select('blacklisted').limit(1)
+  const hasBlacklistedCol = !probeErr
 
-  let queryWithBL = supabase
-    .from('clients')
-    .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted, birthday, imported_from_legacy')
-    .eq('active', true)
-    .order('blacklisted', { ascending: false })
-    .order('name')
-    .limit(10000)
+  // Guard: if clientIds filter is very large (>2000), skip it to avoid huge URL params
+  const effectiveClientIds = clientIds !== null && clientIds.length > 2000 ? null : clientIds
 
-  if (clientIds !== null) {
-    queryWithBL = queryWithBL.in('id', clientIds.length > 0 ? clientIds : ['00000000-0000-0000-0000-000000000000'])
-  }
+  let clients: any[] = []
 
-  const { data: clientsWithBL, error: errorWithBL } = await queryWithBL
-
-  if (errorWithBL) {
-    // Columna blacklisted aún no existe en BD — cargar sin ella
-    console.warn('blacklisted column not available:', errorWithBL.message)
-    let queryNoBL = supabase
-      .from('clients')
-      .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, birthday')
-      .eq('active', true)
-      .order('name')
-      .limit(10000)
-    if (clientIds !== null) {
-      queryNoBL = queryNoBL.in('id', clientIds.length > 0 ? clientIds : ['00000000-0000-0000-0000-000000000000'])
-    }
-    const { data: clientsNoBL, error: errorNoBL } = await queryNoBL
-
-    if (errorNoBL) {
-      console.error('Error loading clients:', errorNoBL)
-      throw new Error(`Error loading clients: ${errorNoBL.message}`)
-    }
-    clients = clientsNoBL
+  if (hasBlacklistedCol) {
+    clients = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('clients')
+        .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, blacklisted, birthday, imported_from_legacy')
+        .eq('active', true)
+        .order('blacklisted', { ascending: false })
+        .order('name')
+        .range(from, to)
+      if (effectiveClientIds !== null) {
+        q = q.in('id', effectiveClientIds.length > 0 ? effectiveClientIds : ['00000000-0000-0000-0000-000000000000'])
+      }
+      return q
+    })
   } else {
-    clients = clientsWithBL
+    // Columna blacklisted aún no existe en BD — cargar sin ella
+    console.warn('blacklisted column not available, loading without it')
+    clients = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('clients')
+        .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, birthday')
+        .eq('active', true)
+        .order('name')
+        .range(from, to)
+      if (effectiveClientIds !== null) {
+        q = q.in('id', effectiveClientIds.length > 0 ? effectiveClientIds : ['00000000-0000-0000-0000-000000000000'])
+      }
+      return q
+    })
   }
 
-  return <ClientsListView initialClients={(clients || []) as any} />
+  return <ClientsListView initialClients={clients as any} />
 }
 
 

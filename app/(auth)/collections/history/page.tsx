@@ -10,6 +10,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getTodayPeru } from '@/lib/utils/timezone'
 import { PaymentHistoryView } from '@/components/collections/payment-history-view'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const metadata = {
   title: 'Historial de Cobros | Adiction Boutique',
@@ -59,42 +60,40 @@ export default async function PaymentHistoryPage({
   oneYearAgo.setUTCFullYear(oneYearAgo.getUTCFullYear() - 1)
   const fromDate = oneYearAgo.toISOString().slice(0, 10)
 
-  // Fetch payments with client and user info
-  let query = supabase
-    .from('payments')
-    .select(`
-      id,
-      amount,
-      payment_date,
-      notes,
-      receipt_url,
-      created_at,
-      client_id,
-      user_id,
-      clients (name, dni),
-      users (name, stores)
-    `)
-    .order('payment_date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  if (fromDate) {
-    query = query.gte('payment_date', fromDate) as typeof query
-  }
-
-  const { data: payments, error } = await query
-
-  if (error) console.error('[PaymentHistoryPage]', error)
+  // Fetch ALL payments within the date window — paginated to bypass Supabase max_rows cap
+  const payments = await fetchAllRows<any>((from, to) => {
+    let q = supabase
+      .from('payments')
+      .select(`
+        id,
+        amount,
+        payment_date,
+        notes,
+        receipt_url,
+        created_at,
+        client_id,
+        user_id,
+        clients (name, dni),
+        users (name, stores)
+      `)
+      .order('payment_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .range(from, to)
+    if (fromDate) {
+      q = q.gte('payment_date', fromDate) as typeof q
+    }
+    return q
+  })
 
   // Filter by store: only show payments recorded by users in the same store(s)
   const filtered = userStores.length === 1
-    ? (payments || []).filter((p: any) => {
+    ? payments.filter((p: any) => {
         const recorderStores: string[] = p.users?.stores || []
         return recorderStores.some((s: string) =>
           userStores.some((us: string) => s.toUpperCase() === us.toUpperCase())
         )
       })
-    : (payments || [])
+    : payments
 
   return (
     <div className="p-6 space-y-4">

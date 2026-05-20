@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { MovementsTable } from '@/components/inventory/movements-table'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const metadata = {
   title: 'Movimientos | Adiction Boutique',
@@ -35,31 +36,34 @@ async function MovementsData() {
   const cookieStore = await cookies()
   const cookieSelected = cookieStore.get('selected-store')?.value
 
-  let query = supabase
-    .from('movements')
-    .select('*, products(name, barcode)')
-    .order('created_at', { ascending: false })
-    .limit(5000)
-
+  // Determine warehouse filter
+  let warehouseFilter: string | null = null
   if (!hasAllAccess && userStores.length > 0) {
     const storeCode = userStores[0].toUpperCase()
-    const warehouseName = STORE_NAME_MAP[storeCode] ?? userStores[0]
-    query = query.eq('warehouse_id', warehouseName) as typeof query
+    warehouseFilter = STORE_NAME_MAP[storeCode] ?? userStores[0]
   } else if (hasAllAccess && cookieSelected && cookieSelected !== 'ALL') {
-    const warehouseName = STORE_NAME_MAP[cookieSelected.toUpperCase()]
-    if (warehouseName) {
-      query = query.eq('warehouse_id', warehouseName) as typeof query
+    warehouseFilter = STORE_NAME_MAP[cookieSelected.toUpperCase()] ?? null
+  }
+
+  // Fetch ALL movements — paginated to bypass Supabase PostgREST max_rows cap (1000/request)
+  const movements = await fetchAllRows<any>((from, to) => {
+    let q = supabase
+      .from('movements')
+      .select('*, products(name, barcode)')
+      .order('created_at', { ascending: false })
+      .range(from, to)
+    if (warehouseFilter) {
+      q = q.eq('warehouse_id', warehouseFilter) as typeof q
     }
+    return q
+  })
+
+  if (!movements.length && warehouseFilter) {
+    // Check if it was an error vs genuinely empty — non-critical, show empty table
+    console.info('[MovementsPage] 0 movements returned for warehouse:', warehouseFilter)
   }
 
-  const { data: movements, error } = await query
-
-  if (error) {
-    console.error('Error loading movements:', error)
-    return <div className="text-center text-muted-foreground py-8">Error al cargar movimientos</div>
-  }
-
-  const normalizedMovements = (movements || []).map(m => ({
+  const normalizedMovements = movements.map(m => ({
     ...m,
     type: m.type === 'ENTRADA' || m.type === 'IN' ? 'IN' : 'OUT'
   }))

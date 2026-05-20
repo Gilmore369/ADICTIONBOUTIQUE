@@ -10,6 +10,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { SalesHistoryView } from '@/components/sales/sales-history-view'
 import { redirect } from 'next/navigation'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const metadata = {
   title: 'Historial de Ventas | Adiction Boutique',
@@ -25,20 +26,27 @@ async function getReturnTotalsBySaleId(saleIds: string[]) {
   if (saleIds.length === 0) return new Map<string, number>()
 
   const service = createServiceClient()
-  const { data, error } = await service
-    .from('returns')
-    .select('sale_id,total_amount,status')
-    .in('sale_id', saleIds)
-    .neq('status', 'RECHAZADA')
+
+  // If there are many sale IDs, fetch all returns (avoids huge URL params in .in())
+  // Returns table is small so this is safe
+  const query = saleIds.length > 500
+    ? service.from('returns').select('sale_id,total_amount,status').neq('status', 'RECHAZADA')
+    : service.from('returns').select('sale_id,total_amount,status').in('sale_id', saleIds).neq('status', 'RECHAZADA')
+
+  const { data, error } = await query
 
   if (error) {
     console.error('Error fetching sale return totals:', error)
     return new Map<string, number>()
   }
 
+  // Build a set for fast lookup when filtering by saleIds
+  const saleIdSet = saleIds.length > 500 ? null : new Set(saleIds)
+
   return (data || []).reduce((map, row: any) => {
     const saleId = String(row.sale_id || '')
     if (!saleId) return map
+    if (saleIdSet && !saleIdSet.has(saleId)) return map
     map.set(saleId, (map.get(saleId) || 0) + Number(row.total_amount || 0))
     return map
   }, new Map<string, number>())
@@ -80,49 +88,47 @@ export default async function SalesHistoryPage({
     lockedStore = STORE_KEY_MAP[cookieSelected.toUpperCase()] ?? null
   }
 
-  // Build query — filter by store if restricted
-  let query = supabase
-    .from('sales')
-    .select(`
+  // Fetch ALL sales — paginated to bypass Supabase PostgREST max_rows cap (1000/request)
+  const SELECT_FIELDS = `
+    id,
+    sale_number,
+    created_at,
+    sale_type,
+    subtotal,
+    discount,
+    total,
+    store_id,
+    voided,
+    clients (
       id,
-      sale_number,
-      created_at,
-      sale_type,
+      name,
+      dni
+    ),
+    sale_items (
+      id,
+      quantity,
+      unit_price,
       subtotal,
-      discount,
-      total,
-      store_id,
-      voided,
-      clients (
-        id,
-        name,
-        dni
-      ),
-      sale_items (
-        id,
-        quantity,
-        unit_price,
-        subtotal,
-        products (
-          name
-        )
+      products (
+        name
       )
-    `)
-    .order('created_at', { ascending: false })
-    .limit(50000)
+    )
+  `
 
-  if (lockedStore) {
-    query = query.eq('store_id', lockedStore) as typeof query
-  }
+  const sales = await fetchAllRows<any>((from, to) => {
+    let q = supabase
+      .from('sales')
+      .select(SELECT_FIELDS)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+    if (lockedStore) {
+      q = q.eq('store_id', lockedStore) as typeof q
+    }
+    return q
+  })
 
-  const { data: sales, error } = await query
-
-  if (error) {
-    console.error('Error fetching sales:', error)
-  }
-
-  const returnTotals = await getReturnTotalsBySaleId((sales || []).map((sale: any) => sale.id))
-  const salesWithNetTotals = (sales || []).map((sale: any) => {
+  const returnTotals = await getReturnTotalsBySaleId(sales.map((sale: any) => sale.id))
+  const salesWithNetTotals = sales.map((sale: any) => {
     const returnedTotal = Math.min(Number(sale.total || 0), returnTotals.get(sale.id) || 0)
     const netTotal = Math.max(0, Math.round((Number(sale.total || 0) - returnedTotal) * 100) / 100)
     return {
@@ -138,5 +144,5 @@ export default async function SalesHistoryPage({
     ? (params.period!.toUpperCase() as 'TODAY' | 'WEEK' | 'MONTH' | 'ALL')
     : 'ALL'
 
-  return <SalesHistoryView initialSales={salesWithNetTotals} lockedStore={lockedStore} initialPeriod={initialPeriod} />
+  return <SalesHistoryView initialSales={salesWithNetTotals as any[]} lockedStore={lockedStore} initialPeriod={initialPeriod} />
 }

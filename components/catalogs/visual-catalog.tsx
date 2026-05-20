@@ -45,8 +45,7 @@ import { createSize } from '@/actions/catalogs'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ITEMS_PER_PAGE = 60   // modelos por página — 60 da buena densidad sin sobrecargar
-const FIRST_BATCH    = 800  // productos en primera carga (rápida, ~60-80 modelos)
-const SECOND_BATCH   = 2000 // productos en segunda carga (background, completa el catálogo)
+const FIRST_BATCH    = 800  // productos en primera carga (rápida, ~60-80 modelos visibles)
 const CART_KEY = 'boutique_visual_cart'
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'UNICA', 'ÚNICA']
 
@@ -1914,7 +1913,7 @@ export function VisualCatalog() {
     setBrands(brandsRes.data || [])
 
     // 4. Helper para construir la query de productos con filtros de tienda
-    const buildProductsQuery = (supabase: any) => {
+    const buildProductsQuery = (from: number, to: number) => {
       const q = supabase
         .from('products')
         .select(`
@@ -1927,12 +1926,13 @@ export function VisualCatalog() {
         `)
         .eq('active', true)
         .order('base_code', { nullsFirst: false })
+        .range(from, to)
       if (availableLineIds.length > 0) q.in('line_id', availableLineIds)
       return q
     }
 
-    // ── FASE 1: primera carga (FIRST_BATCH productos) — rápida ──────────
-    const { data: phase1, error: err1 } = await buildProductsQuery(supabase).limit(FIRST_BATCH)
+    // ── FASE 1: primera carga (FIRST_BATCH productos) — muestra UI rápido ──
+    const { data: phase1, error: err1 } = await buildProductsQuery(0, FIRST_BATCH - 1)
     if (err1) { console.error('[VisualCatalog] phase1 error:', err1); setLoading(false); return }
 
     const grouped1 = groupProducts(phase1 || [])
@@ -1940,27 +1940,35 @@ export function VisualCatalog() {
     setModels(finalizeGrouped(grouped1))
     setLoading(false)   // ← UI visible después de fase 1
 
-    // ── FASE 2: el resto (en background, sin bloquear UI) ───────────────
+    // ── FASE 2+: cargar el resto en batches de FIRST_BATCH (background) ───
     const needsMore = (phase1?.length ?? 0) >= FIRST_BATCH
-    if (!needsMore) return   // ya llegamos al final
+    if (!needsMore) return   // ya llegamos al final en fase 1
     setLoadingMore(true)
     try {
-      const { data: phase2 } = await buildProductsQuery(supabase)
-        .range(FIRST_BATCH, SECOND_BATCH - 1)
-      if (phase2 && phase2.length > 0) {
-        // Merged en el mismo map para manejar modelos que cruzan el límite
-        const grouped2 = groupProducts(phase2, grouped1)
-        const newKeys = phase2.map((p: any) => {
-          const pAny = p as any
-          return (pAny.base_code as string | null)?.trim() ||
-            (pAny.barcode ? (pAny.barcode as string).replace(/-[^-]+$/, '') : pAny.id)
+      let accGrouped = { ...grouped1 }
+      let offset = FIRST_BATCH
+      const BATCH = FIRST_BATCH  // mismo tamaño de batch
+
+      while (true) {
+        const { data: batch, error: batchErr } = await buildProductsQuery(offset, offset + BATCH - 1)
+        if (batchErr) { console.warn('[VisualCatalog] background batch error:', batchErr); break }
+        if (!batch || batch.length === 0) break
+
+        // Merge: los modelos que crucen el límite de batch se agrupan correctamente
+        accGrouped = groupProducts(batch, accGrouped)
+        const newKeys = batch.map((p: any) => {
+          return (p.base_code as string | null)?.trim() ||
+            (p.barcode ? (p.barcode as string).replace(/-[^-]+$/, '') : p.id)
         })
         const newBaseCodes = [...new Set(newKeys)].filter(k => !Object.keys(grouped1).includes(k))
-        await applyImages(supabase, grouped2, newBaseCodes)
-        setModels(finalizeGrouped(grouped2))
+        await applyImages(supabase, accGrouped, newBaseCodes)
+        setModels(finalizeGrouped(accGrouped))
+
+        if (batch.length < BATCH) break   // última página
+        offset += BATCH
       }
     } catch (err) {
-      console.warn('[VisualCatalog] phase2 error (non-fatal):', err)
+      console.warn('[VisualCatalog] background load error (non-fatal):', err)
     } finally {
       setLoadingMore(false)
     }

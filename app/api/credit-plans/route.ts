@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { getTodayPeru } from '@/lib/utils/timezone'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,27 +45,21 @@ export async function GET(request: NextRequest) {
     //
     // This is a lightweight query — no plans, no installments embedded.
 
-    let clientsQuery = supabase
-      .from('clients')
-      .select('id, name, phone, dni, credit_limit, credit_used, imported_from_legacy')
-      .gt('credit_used', 0)
-      .order('credit_used', { ascending: false })
-      .range(0, 9999)  // override Supabase default 1000 cap
-
-    // Apply text search (name / phone / DNI)
-    // Supabase doesn't support OR across columns natively without .or() — but .or() works
-    if (search) {
-      clientsQuery = clientsQuery.or(
-        `name.ilike.%${search}%,phone.ilike.%${search}%,dni.ilike.%${search}%`
-      ) as typeof clientsQuery
-    }
-
-    const { data: allClients, error: clientsError } = await clientsQuery
-    if (clientsError) {
-      return NextResponse.json({ error: clientsError.message }, { status: 500 })
-    }
-
-    const clientsList = allClients || []
+    // Fetch ALL clients with active plans — paginated to bypass Supabase max_rows cap (1000/request)
+    const clientsList = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('clients')
+        .select('id, name, phone, dni, credit_limit, credit_used, imported_from_legacy')
+        .gt('credit_used', 0)
+        .order('credit_used', { ascending: false })
+        .range(from, to)
+      if (search) {
+        q = q.or(
+          `name.ilike.%${search}%,phone.ilike.%${search}%,dni.ilike.%${search}%`
+        ) as typeof q
+      }
+      return q
+    })
 
     // ── Filter: only clients that actually have ACTIVE/OVERDUE plans ────────────
     // (credit_used > 0 is a good proxy but not perfect — get definitive list)
