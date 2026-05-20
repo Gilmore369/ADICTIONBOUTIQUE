@@ -67,7 +67,8 @@ function ChartCard({ title, subtitle, children, className = '' }: {
   className?: string
 }) {
   return (
-    <Card className={`p-5 shadow-sm hover:shadow transition-shadow ${className}`}>
+    // data-chart-card es leído por captureChartsAsPng para capturar tarjeta por tarjeta
+    <Card data-chart-card className={`p-5 shadow-sm hover:shadow transition-shadow ${className}`}>
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground tracking-tight">{title}</h3>

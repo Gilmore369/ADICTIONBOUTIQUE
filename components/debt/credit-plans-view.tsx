@@ -1,20 +1,21 @@
 'use client'
 
 /**
- * Credit Plans View — grouped by client
+ * Credit Plans View — grouped by client, server-side paginated
  *
- * Shows all clients with active credit, each expandable to reveal
- * their credit plans (sale tickets), which expand further to reveal
- * individual installments.
+ * Performance fix: replaced a single "load-everything" Supabase query
+ * (2,600+ plans × all installments) with a paginated API call that
+ * loads 25 clients at a time, each with their plans + installments
+ * (~750 rows max per page instead of 20,000+).
  */
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { createBrowserClient } from '@/lib/supabase/client'
 import { useStore } from '@/contexts/store-context'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate, getSafeTimestamp, isValidDate } from '@/lib/utils/date'
-import { addDaysPeru, getTodayPeru } from '@/lib/utils/timezone'
+import { getTodayPeru, addDaysPeru } from '@/lib/utils/timezone'
+import { createBrowserClient } from '@/lib/supabase/client'
 import { InstallmentStatusBadge } from './installment-status-badge'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -23,10 +24,11 @@ import { Input } from '@/components/ui/input'
 import {
   AlertCircle, Clock, ChevronRight, User, Phone,
   Receipt, Search, DollarSign, FileText, ChevronsDownUp,
-  ChevronsUpDown, TrendingUp, Users, ExternalLink
+  ChevronsUpDown, TrendingUp, Users, ExternalLink,
+  ChevronLeft, Loader2, X,
 } from 'lucide-react'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface InstallmentRow {
   id: string
@@ -68,152 +70,112 @@ interface ClientRow {
   imported_from_legacy?: boolean
 }
 
+interface PageMeta {
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+}
+
+const PER_PAGE = 25
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function CreditPlansView() {
   const [clients, setClients] = useState<ClientRow[]>([])
   const [alerts, setAlerts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [pageLoading, setPageLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [inputValue, setInputValue] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PageMeta>({ total: 0, page: 1, per_page: PER_PAGE, total_pages: 1 })
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
   const { selectedStore, storeId } = useStore()
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Esperar a que storeId esté disponible antes de cargar
-  // Evita race condition: selectedStore cambia, storeId llega después async
+  // ─── Load page ─────────────────────────────────────────────────────────────
+
+  const loadPage = useCallback(async (page: number, searchTerm: string, store: string) => {
+    if (page === 1) setLoading(true)
+    else setPageLoading(true)
+
+    try {
+      const url = new URL('/api/credit-plans', window.location.origin)
+      url.searchParams.set('page', String(page))
+      url.searchParams.set('per_page', String(PER_PAGE))
+      if (searchTerm) url.searchParams.set('search', searchTerm)
+      url.searchParams.set('store', store)
+
+      const res = await fetch(url.toString())
+      if (!res.ok) throw new Error('Error loading credit plans')
+      const json = await res.json()
+
+      setClients(json.data || [])
+      setMeta({
+        total: json.total,
+        page: json.page,
+        per_page: json.per_page,
+        total_pages: json.total_pages,
+      })
+      // Collapse everything on page/search change
+      setExpandedClients(new Set())
+      setExpandedPlans(new Set())
+    } catch (err) {
+      console.error('[CreditPlansView] loadPage error:', err)
+    } finally {
+      setLoading(false)
+      setPageLoading(false)
+    }
+  }, [])
+
+  // ─── Trigger: page, store ─────────────────────────────────────────────────
+
   useEffect(() => {
-    if (selectedStore === 'ALL') {
-      loadData()  // sin filtro de tienda, cargar de inmediato
-    } else if (storeId !== null) {
-      loadData()  // con filtro, esperar el UUID de la tienda
+    if (selectedStore === 'ALL' || storeId !== null) {
+      loadPage(currentPage, search, selectedStore)
     }
-  }, [selectedStore, storeId])
+  }, [currentPage, selectedStore, storeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Data loading ──────────────────────────────────────────────────────────
+  // ─── Trigger: search (debounced 400ms) ───────────────────────────────────
 
-  const loadData = async () => {
-    const supabase = createBrowserClient()
-
-    // Fetch all active/overdue plans with client + sale + installments
-    // Incluir ACTIVE y OVERDUE (planes con cuotas vencidas cambian su status a OVERDUE)
-    let query = supabase
-      .from('credit_plans')
-      .select(`
-        id,
-        total_amount,
-        installments_count,
-        sale_id,
-        status,
-        created_at,
-        imported_from_legacy,
-        legacy_purchase_description,
-        legacy_purchase_date,
-        legacy_source,
-        sale:sales ( id, sale_number, created_at, store_id ),
-        client:clients ( id, name, phone, dni, credit_limit, credit_used, imported_from_legacy ),
-        installments ( id, installment_number, amount, paid_amount, due_date, status )
-      `)
-      .in('status', ['ACTIVE', 'OVERDUE'])
-      .order('created_at', { ascending: false })
-
-    const { data: plans } = await query
-
-    // Group by client — filter by selected store if not ALL
-    const byClient: Record<string, ClientRow> = {}
-
-    for (const plan of plans || []) {
-      const c = plan.client as any
-      if (!c) continue
-
-      // Filter by store: skip plans from other stores
-      // sales.store_id guarda texto ("Tienda Mujeres"), no UUID
-      if (selectedStore !== 'ALL') {
-        const STORE_TEXT: Record<string, string> = {
-          MUJERES: 'Tienda Mujeres',
-          HOMBRES: 'Tienda Hombres',
-        }
-        const expectedText = STORE_TEXT[selectedStore]
-        const saleStoreId = (plan.sale as any)?.store_id
-        if (expectedText && saleStoreId && saleStoreId !== expectedText) continue
-      }
-
-      if (!byClient[c.id]) {
-        byClient[c.id] = {
-          client_id: c.id,
-          name: c.name,
-          phone: c.phone || null,
-          dni: c.dni || null,
-          credit_limit: Number(c.credit_limit || 0),
-          plans: [],
-          total_debt: 0,
-          overdue_count: 0,
-          overdue_amount: 0,
-          imported_from_legacy: !!c.imported_from_legacy,
-        }
-      }
-
-      const insts = (plan.installments as InstallmentRow[] || [])
-        .sort((a, b) => getSafeTimestamp(a.due_date) - getSafeTimestamp(b.due_date))
-
-      const paidAmt = insts.reduce((s, i) => s + Number(i.paid_amount || 0), 0)
-      const pendingAmt = Number(plan.total_amount) - paidAmt
-
-      // Vencidas: cuotas con saldo real pendiente y due_date < hoy.
-      // No depender solo del campo status: hay cuotas PARTIAL/OVERDUE en BD
-      // cuyo paid_amount cubre el monto pero el status nunca se actualizó a
-      // PAID; esas no deben contar como vencidas.
-      const todayDateStr = getTodayPeru()
-      const overdueInsts = insts.filter(i => {
-        const balance = Number(i.amount) - Number(i.paid_amount || 0)
-        return balance > 0.009 &&
-          i.status !== 'PAID' &&
-          (i.due_date as string).split('T')[0] < todayDateStr
-      })
-      const overdueAmt = overdueInsts.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0)
-      const sale = plan.sale as any
-
-      byClient[c.id].plans.push({
-        plan_id: plan.id,
-        sale_id: plan.sale_id || null,
-        sale_number: sale?.sale_number || null,
-        sale_date: sale?.created_at || null,
-        total_amount: Number(plan.total_amount),
-        paid_amount: paidAmt,
-        pending_amount: pendingAmt,
-        installments_count: plan.installments_count || insts.length,
-        overdue_count: overdueInsts.length,
-        overdue_amount: overdueAmt,
-        installments: insts,
-        imported_from_legacy: !!(plan as any).imported_from_legacy,
-        legacy_purchase_description: (plan as any).legacy_purchase_description || null,
-        legacy_purchase_date: (plan as any).legacy_purchase_date || null,
-        legacy_source: (plan as any).legacy_source || null,
-      })
-
-      byClient[c.id].total_debt += pendingAmt
-      byClient[c.id].overdue_count += overdueInsts.length
-      byClient[c.id].overdue_amount += overdueAmt
-    }
-
-    const sorted = Object.values(byClient)
-      .sort((a, b) => b.overdue_amount - a.overdue_amount || b.total_debt - a.total_debt)
-    setClients(sorted)
-
-    // Alerts: overdue or due in next 7 days
-    const { data: alertsData } = await supabase
-      .from('installments')
-      .select(`
-        id, installment_number, amount, due_date, status,
-        credit_plans!inner ( id, clients!inner ( id, name ) )
-      `)
-      .in('status', ['OVERDUE'])
-      .lte('due_date', addDaysPeru(7))
-      .order('due_date', { ascending: true })
-      .limit(15)
-    setAlerts(alertsData || [])
-
-    setLoading(false)
+  const handleSearchChange = (value: string) => {
+    setInputValue(value)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
+      setSearch(value)
+      setCurrentPage(1)
+      loadPage(1, value, selectedStore)
+    }, 400)
   }
+
+  const clearSearch = () => {
+    setInputValue('')
+    setSearch('')
+    setCurrentPage(1)
+    loadPage(1, '', selectedStore)
+  }
+
+  // ─── Load alerts (overdue) — lightweight, separate query ─────────────────
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const supabase = createBrowserClient()
+        const { data } = await supabase
+          .from('installments')
+          .select(`id, installment_number, amount, due_date, status,
+            credit_plans!inner ( id, clients!inner ( id, name ) )`)
+          .in('status', ['OVERDUE'])
+          .lte('due_date', addDaysPeru(7))
+          .order('due_date', { ascending: true })
+          .limit(15)
+        setAlerts(data || [])
+      } catch { /* non-critical */ }
+    }
+    fetchAlerts()
+  }, [])
 
   // ─── Toggle helpers ────────────────────────────────────────────────────────
 
@@ -223,41 +185,25 @@ export function CreditPlansView() {
   const togglePlan = (id: string) =>
     setExpandedPlans(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const expandAll = () => {
-    setExpandedClients(new Set(clients.map(c => c.client_id)))
-  }
-  const collapseAll = () => {
-    setExpandedClients(new Set())
-    setExpandedPlans(new Set())
-  }
+  const expandAll = () => setExpandedClients(new Set(clients.map(c => c.client_id)))
+  const collapseAll = () => { setExpandedClients(new Set()); setExpandedPlans(new Set()) }
 
   // ─── Derived values ────────────────────────────────────────────────────────
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return clients
-    const q = search.toLowerCase()
-    return clients.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.phone?.includes(q) ||
-      c.dni?.includes(q) ||
-      c.plans.some(p => p.sale_number?.toLowerCase().includes(q))
-    )
-  }, [clients, search])
-
-  const totalDebt = clients.reduce((s, c) => s + c.total_debt, 0)
-  const totalOverdue = clients.reduce((s, c) => s + c.overdue_amount, 0)
+  const totalDebt     = clients.reduce((s, c) => s + c.total_debt, 0)
+  const totalOverdue  = clients.reduce((s, c) => s + c.overdue_amount, 0)
   const overdueClients = clients.filter(c => c.overdue_count > 0).length
 
   const now = Date.now()
-  const overdueAlerts = alerts.filter(a => isValidDate(a.due_date) && getSafeTimestamp(a.due_date) < now)
+  const overdueAlerts  = alerts.filter(a => isValidDate(a.due_date) && getSafeTimestamp(a.due_date) < now)
   const upcomingAlerts = alerts.filter(a => isValidDate(a.due_date) && getSafeTimestamp(a.due_date) >= now)
 
-  // ─── Loading ───────────────────────────────────────────────────────────────
+  // ─── Loading skeleton ──────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3, 4].map(i => (
+        {[1, 2, 3, 4, 5].map(i => (
           <div key={i} className="h-14 rounded-xl border bg-muted/30 animate-pulse" />
         ))}
       </div>
@@ -269,12 +215,12 @@ export function CreditPlansView() {
   return (
     <div className="space-y-5">
 
-      {/* Summary KPIs */}
+      {/* Summary KPIs — reflect current page */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Clientes con crédito" value={String(clients.length)} sub={`${clients.length} activos`} icon={Users} color="blue" />
-        <KpiCard label="Con cuotas vencidas" value={String(overdueClients)} sub={overdueClients > 0 ? 'Requieren atención' : 'Todo al día'} icon={AlertCircle} color={overdueClients > 0 ? 'rose' : 'green'} />
-        <KpiCard label="Deuda total" value={formatCurrency(totalDebt)} sub="Saldo pendiente" icon={TrendingUp} color="amber" />
-        <KpiCard label="Monto vencido" value={formatCurrency(totalOverdue)} sub={totalOverdue > 0 ? 'En mora' : 'Sin mora'} icon={AlertCircle} color={totalOverdue > 0 ? 'rose' : 'green'} />
+        <KpiCard label="Total clientes" value={String(meta.total)} sub="Con crédito activo" icon={Users} color="blue" />
+        <KpiCard label="Esta página" value={String(clients.length)} sub={`Página ${meta.page} de ${meta.total_pages}`} icon={TrendingUp} color="amber" />
+        <KpiCard label="Deuda total (pág.)" value={formatCurrency(totalDebt)} sub="Saldo pendiente" icon={TrendingUp} color="amber" />
+        <KpiCard label="Vencido (pág.)" value={formatCurrency(totalOverdue)} sub={totalOverdue > 0 ? 'En mora' : 'Sin mora'} icon={AlertCircle} color={totalOverdue > 0 ? 'rose' : 'green'} />
       </div>
 
       {/* Alerts */}
@@ -285,11 +231,11 @@ export function CreditPlansView() {
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-rose-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-rose-900 mb-1">
+                  <p className="text-xs font-semibold text-rose-900 dark:text-rose-200 mb-1">
                     {overdueAlerts.length} cuota{overdueAlerts.length !== 1 ? 's' : ''} vencida{overdueAlerts.length !== 1 ? 's' : ''}
                   </p>
                   {overdueAlerts.slice(0, 3).map((a: any) => (
-                    <p key={a.id} className="text-xs text-rose-700">
+                    <p key={a.id} className="text-xs text-rose-700 dark:text-rose-300">
                       <span className="font-medium">{a.credit_plans?.clients?.name}</span>
                       {' '}- Cuota #{a.installment_number} ({formatSafeDate(a.due_date, 'dd/MM/yy')})
                     </p>
@@ -303,11 +249,11 @@ export function CreditPlansView() {
               <div className="flex items-start gap-2">
                 <Clock className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-amber-900 mb-1">
-                    {upcomingAlerts.length} vencimiento{upcomingAlerts.length !== 1 ? 's' : ''} en 7 dias
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                    {upcomingAlerts.length} vencimiento{upcomingAlerts.length !== 1 ? 's' : ''} en 7 días
                   </p>
                   {upcomingAlerts.slice(0, 3).map((a: any) => (
-                    <p key={a.id} className="text-xs text-amber-700">
+                    <p key={a.id} className="text-xs text-amber-700 dark:text-amber-300">
                       <span className="font-medium">{a.credit_plans?.clients?.name}</span>
                       {' '}- Cuota #{a.installment_number} ({formatSafeDate(a.due_date, 'dd/MM/yy')})
                     </p>
@@ -320,48 +266,130 @@ export function CreditPlansView() {
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
           <Input
-            placeholder="Buscar cliente, DNI, ticket..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 h-9 text-sm"
+            placeholder="Buscar cliente, DNI, teléfono..."
+            value={inputValue}
+            onChange={e => handleSearchChange(e.target.value)}
+            className="pl-9 pr-8 h-9 text-sm"
           />
+          {inputValue && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+
         <Button variant="outline" size="sm" onClick={expandAll} className="gap-1.5 text-xs h-9">
           <ChevronsUpDown className="h-3.5 w-3.5" />Expandir todo
         </Button>
         <Button variant="outline" size="sm" onClick={collapseAll} className="gap-1.5 text-xs h-9">
           <ChevronsDownUp className="h-3.5 w-3.5" />Colapsar
         </Button>
-        <Badge variant="secondary" className="h-9 px-3 text-xs">
-          {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
+        <Badge variant="secondary" className="h-9 px-3 text-xs tabular-nums">
+          {overdueClients} en mora · {clients.length} en página
         </Badge>
       </div>
 
       {/* Client accordion list */}
-      {filtered.length === 0 && (
+      {pageLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-14 rounded-xl border bg-muted/30 animate-pulse" />
+          ))}
+        </div>
+      ) : clients.length === 0 ? (
         <Card className="p-12 text-center text-muted-foreground/70 text-sm">
-          {search ? 'Sin resultados para la busqueda' : 'No hay clientes con credito activo'}
+          {search ? 'Sin resultados para la búsqueda' : 'No hay clientes con crédito activo'}
         </Card>
+      ) : (
+        <div className="space-y-2">
+          {clients.map(client => (
+            <ClientAccordion
+              key={client.client_id}
+              client={client}
+              isExpanded={expandedClients.has(client.client_id)}
+              expandedPlans={expandedPlans}
+              onToggleClient={() => toggleClient(client.client_id)}
+              onTogglePlan={togglePlan}
+            />
+          ))}
+        </div>
       )}
 
-      <div className="space-y-2">
-        {filtered.map(client => (
-          <ClientAccordion
-            key={client.client_id}
-            client={client}
-            isExpanded={expandedClients.has(client.client_id)}
-            expandedPlans={expandedPlans}
-            onToggleClient={() => toggleClient(client.client_id)}
-            onTogglePlan={togglePlan}
-          />
-        ))}
-      </div>
+      {/* Pagination */}
+      {meta.total_pages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground tabular-nums">
+            Mostrando {(meta.page - 1) * meta.per_page + 1}–{Math.min(meta.page * meta.per_page, meta.total)} de {meta.total} clientes
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={currentPage <= 1 || pageLoading}
+              onClick={() => { setCurrentPage(p => p - 1) }}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            {/* Page number pills — show at most 5 around current */}
+            {getPaginationRange(currentPage, meta.total_pages).map((item, idx) =>
+              item === '...' ? (
+                <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+              ) : (
+                <Button
+                  key={item}
+                  variant={item === currentPage ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 w-8 p-0 text-xs"
+                  disabled={pageLoading}
+                  onClick={() => { setCurrentPage(item as number) }}
+                >
+                  {item}
+                </Button>
+              )
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={currentPage >= meta.total_pages || pageLoading}
+              onClick={() => { setCurrentPage(p => p + 1) }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          {pageLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        </div>
+      )}
     </div>
   )
+}
+
+// ─── Pagination range helper ──────────────────────────────────────────────────
+
+function getPaginationRange(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const range: (number | '...')[] = []
+  // Always show first, last, and window around current
+  const delta = 2
+  const left  = Math.max(2, current - delta)
+  const right = Math.min(total - 1, current + delta)
+
+  range.push(1)
+  if (left > 2) range.push('...')
+  for (let i = left; i <= right; i++) range.push(i)
+  if (right < total - 1) range.push('...')
+  range.push(total)
+  return range
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -423,7 +451,7 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
       {/* Client header row */}
       <div
         onClick={onToggleClient}
-        className="w-full px-4 py-3 flex items-center gap-3 text-left rounded-xl hover:bg-black/5 transition-colors cursor-pointer"
+        className="w-full px-4 py-3 flex items-center gap-3 text-left rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
       >
         <ChevronRight
           className={`h-4 w-4 text-muted-foreground/70 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
@@ -434,24 +462,16 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
 
           {/* Name + phone */}
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <User className="h-3.5 w-3.5 text-muted-foreground/70 flex-shrink-0" />
               <span className="font-semibold text-sm text-foreground truncate">{client.name}</span>
               {client.imported_from_legacy && (
-                <Badge
-                  variant="outline"
-                  className="h-4 px-1 text-[9px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 flex-shrink-0"
-                  title="Cliente importado del sistema anterior"
-                >
+                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 flex-shrink-0">
                   LEGACY
                 </Badge>
               )}
               {client.plans.some(p => p.imported_from_legacy) && !client.imported_from_legacy && (
-                <Badge
-                  variant="outline"
-                  className="h-4 px-1 text-[9px] bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 flex-shrink-0"
-                  title="Cliente con deudas importadas del sistema anterior"
-                >
+                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 flex-shrink-0">
                   Deuda legacy
                 </Badge>
               )}
@@ -487,18 +507,18 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
             {isOverdue ? (
               <p className="text-sm font-bold text-rose-600 tabular-nums">{formatCurrency(client.overdue_amount)}</p>
             ) : (
-              <Badge variant="success" className="text-[10px] h-5">Al dia</Badge>
+              <Badge variant="success" className="text-[10px] h-5">Al día</Badge>
             )}
           </div>
 
           {/* Action buttons */}
           <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-            <Link href={`/collections/payments`} title="Registrar pago">
+            <Link href="/collections/payments" title="Registrar pago">
               <Button size="icon-sm" variant="ghost" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
                 <DollarSign className="h-3.5 w-3.5" />
               </Button>
             </Link>
-            <Link href={`/collections/actions`} title="Registrar gestión">
+            <Link href="/collections/actions" title="Registrar gestión">
               <Button size="icon-sm" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
                 <FileText className="h-3.5 w-3.5" />
               </Button>
@@ -535,6 +555,7 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
 
 function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpanded: boolean; onToggle: () => void }) {
   const pct = plan.total_amount > 0 ? Math.min((plan.paid_amount / plan.total_amount) * 100, 100) : 0
+  const todayStr = getTodayPeru()
 
   return (
     <div className={`border-b last:border-b-0 ${plan.overdue_count > 0 ? 'bg-rose-50 dark:bg-rose-950/20' : 'bg-card'}`}>
@@ -542,7 +563,7 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
       {/* Plan row */}
       <button
         onClick={onToggle}
-        className="w-full px-6 py-2.5 flex items-center gap-3 text-left hover:bg-gray-50/80 transition-colors"
+        className="w-full px-6 py-2.5 flex items-center gap-3 text-left hover:bg-gray-50/80 dark:hover:bg-white/5 transition-colors"
       >
         <ChevronRight
           className={`h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
@@ -562,18 +583,14 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
                     : 'Sin ticket asociado'}
               </p>
               {plan.imported_from_legacy && (
-                <Badge
-                  variant="outline"
-                  className="h-4 px-1 text-[9px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
-                  title={`Importada de: ${plan.legacy_source ?? 'sistema anterior'}`}
-                >
+                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300">
                   LEGACY
                 </Badge>
               )}
             </div>
             <p className="text-[10px] text-muted-foreground/70">
               {plan.imported_from_legacy && plan.legacy_purchase_description
-                ? `${plan.legacy_purchase_description}`
+                ? plan.legacy_purchase_description
                 : `${plan.installments_count} cuota${plan.installments_count !== 1 ? 's' : ''}`}
               {plan.imported_from_legacy && plan.legacy_purchase_date
                 ? ` · Compra: ${formatSafeDate(plan.legacy_purchase_date, 'dd/MM/yy')}`
@@ -608,7 +625,6 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
             )}
             <Link
               href={`/debt/plans/${plan.plan_id}`}
-              title="Abrir plan completo"
               className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary hover:underline whitespace-nowrap"
             >
               Ver plan
@@ -632,7 +648,7 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
       </div>
 
       {/* Expanded: installments table */}
-      {isExpanded && (
+      {isExpanded && plan.installments.length > 0 && (
         <div className="px-6 pb-4 pt-1">
           <div className="rounded-lg border border-border overflow-hidden shadow-sm">
             <table className="w-full text-xs">
@@ -650,27 +666,21 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
                 {plan.installments.map(inst => {
                   const balance = Number(inst.amount) - Number(inst.paid_amount)
                   const isPaid = inst.status === 'PAID' || balance <= 0
-                  // Vencida por fecha real (due_date < hoy) sin importar status en BD
-                  const todayStr2 = getTodayPeru()
-                  const isOverdue = !isPaid && (inst.due_date as string).split('T')[0] < todayStr2
+                  const isOverdueRow = !isPaid && (inst.due_date as string).split('T')[0] < todayStr
                   return (
                     <tr
                       key={inst.id}
-                      className={`transition-colors ${isOverdue ? 'bg-rose-50 dark:bg-rose-950/20' : isPaid ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'hover:bg-gray-50'}`}
+                      className={`transition-colors ${isOverdueRow ? 'bg-rose-50 dark:bg-rose-950/20' : isPaid ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}
                     >
-                      <td className="px-3 py-2 font-semibold text-foreground/85">
-                        #{inst.installment_number}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-foreground/85">
-                        {formatCurrency(inst.amount)}
-                      </td>
-                      <td className={`px-3 py-2 text-center tabular-nums ${isOverdue ? 'text-rose-600 font-semibold' : 'text-muted-foreground'}`}>
+                      <td className="px-3 py-2 font-semibold text-foreground/85">#{inst.installment_number}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground/85">{formatCurrency(inst.amount)}</td>
+                      <td className={`px-3 py-2 text-center tabular-nums ${isOverdueRow ? 'text-rose-600 font-semibold' : 'text-muted-foreground'}`}>
                         {formatSafeDate(inst.due_date, 'dd/MM/yy')}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-emerald-600">
                         {inst.paid_amount > 0 ? formatCurrency(inst.paid_amount) : '—'}
                       </td>
-                      <td className={`px-3 py-2 text-right tabular-nums font-semibold ${balance > 0 ? (isOverdue ? 'text-rose-600' : 'text-amber-600') : 'text-muted-foreground/70'}`}>
+                      <td className={`px-3 py-2 text-right tabular-nums font-semibold ${balance > 0 ? (isOverdueRow ? 'text-rose-600' : 'text-amber-600') : 'text-muted-foreground/70'}`}>
                         {balance > 0 ? formatCurrency(balance) : '—'}
                       </td>
                       <td className="px-3 py-2 text-center">
@@ -680,18 +690,13 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
                   )
                 })}
               </tbody>
-              {/* Plan totals footer */}
               <tfoot>
                 <tr className="bg-muted/30 border-t-2 border-border">
                   <td colSpan={3} className="px-3 py-2 font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
                     Totales del plan
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums font-bold text-emerald-600 text-xs">
-                    {formatCurrency(plan.paid_amount)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums font-bold text-amber-600 text-xs">
-                    {formatCurrency(plan.pending_amount)}
-                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-bold text-emerald-600 text-xs">{formatCurrency(plan.paid_amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-bold text-amber-600 text-xs">{formatCurrency(plan.pending_amount)}</td>
                   <td />
                 </tr>
               </tfoot>
