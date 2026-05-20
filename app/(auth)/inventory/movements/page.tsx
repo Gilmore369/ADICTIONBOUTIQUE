@@ -39,7 +39,7 @@ async function MovementsData() {
     .from('movements')
     .select('*, products(name, barcode)')
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(5000)
 
   if (!hasAllAccess && userStores.length > 0) {
     const storeCode = userStores[0].toUpperCase()

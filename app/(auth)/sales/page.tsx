@@ -109,7 +109,7 @@ export default async function SalesHistoryPage({
       )
     `)
     .order('created_at', { ascending: false })
-    .limit(300)
+    .limit(50000)
 
   if (lockedStore) {
     query = query.eq('store_id', lockedStore) as typeof query

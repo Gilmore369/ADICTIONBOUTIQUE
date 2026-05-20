@@ -17,8 +17,8 @@ import { TableSkeleton } from '@/components/shared/loading-skeleton'
 async function ProductsData() {
   const supabase = await createServerClient()
   
-  // Fetch only first 100 products for initial load (performance optimization)
-  // Full search will be handled client-side with debouncing
+  // Fetch up to 10,000 active products for initial load.
+  // Search/filter is handled client-side with debouncing.
   const { data: products, error } = await supabase
     .from('products')
     .select(`
@@ -29,7 +29,7 @@ async function ProductsData() {
     `)
     .eq('active', true)
     .order('name')
-    .limit(100)
+    .limit(10000)
   
   if (error) {
     throw new Error(`Error loading products: ${error.message}`)

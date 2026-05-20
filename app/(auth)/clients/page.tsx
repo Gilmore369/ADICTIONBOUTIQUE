@@ -76,7 +76,7 @@ async function ClientsData() {
     .eq('active', true)
     .order('blacklisted', { ascending: false })
     .order('name')
-    .limit(500)
+    .limit(10000)
 
   if (clientIds !== null) {
     queryWithBL = queryWithBL.in('id', clientIds.length > 0 ? clientIds : ['00000000-0000-0000-0000-000000000000'])
@@ -92,7 +92,7 @@ async function ClientsData() {
       .select('id, dni, name, phone, rating, rating_score, last_purchase_date, credit_used, active, deactivation_reason, birthday')
       .eq('active', true)
       .order('name')
-      .limit(500)
+      .limit(10000)
     if (clientIds !== null) {
       queryNoBL = queryNoBL.in('id', clientIds.length > 0 ? clientIds : ['00000000-0000-0000-0000-000000000000'])
     }

@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
       .select('id, name, phone, dni, credit_limit, credit_used, imported_from_legacy')
       .gt('credit_used', 0)
       .order('credit_used', { ascending: false })
+      .range(0, 9999)  // override Supabase default 1000 cap
 
     // Apply text search (name / phone / DNI)
     // Supabase doesn't support OR across columns natively without .or() — but .or() works
