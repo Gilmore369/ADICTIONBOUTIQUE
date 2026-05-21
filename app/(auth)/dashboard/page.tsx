@@ -272,12 +272,29 @@ export default async function DashboardPage({
     filteredTotalOverdue = 0
   }
 
-  // ── Compute filtered payments this month (via client_id of filtered plans) ─
-  // Antes filtraba por plan_id + created_at — bug: pagos migrados tienen plan_id=NULL
-  // y created_at=hoy (fecha del INSERT, no del pago real). Usar client_id + payment_date.
+  // ── Compute filtered payments this month ───────────────────────────────────
+  // Bug 1: antes filtraba por plan_id + created_at — los pagos migrados tienen
+  //        plan_id=NULL y created_at=hoy (fecha del INSERT, no del pago real).
+  // Bug 2: filteredDebtPlans usa sales!inner → excluye planes legacy (sale_id=NULL).
+  //        Solución: cuando store=MUJERES, agregar también planes legacy
+  //        (todos los datos migrados son MUJERES).
   let filteredPaymentsMonth: number | null = null
   if (filteredDebtPlans !== null) {
-    const clientIds = [...new Set(filteredDebtPlans.map((p: any) => p.client_id).filter(Boolean))]
+    // Si el filtro es MUJERES, incluir también planes legacy (sale_id IS NULL)
+    let allClientIds = new Set(
+      filteredDebtPlans.map((p: any) => p.client_id).filter(Boolean) as string[]
+    )
+    if (storeFilter === 'Tienda Mujeres') {
+      const { data: legacyPlans } = await createServiceClient()
+        .from('credit_plans')
+        .select('client_id')
+        .is('sale_id', null)
+        .eq('status', 'ACTIVE')
+      for (const p of legacyPlans || []) {
+        if ((p as any).client_id) allClientIds.add((p as any).client_id)
+      }
+    }
+    const clientIds = [...allClientIds]
     const monthStartDate = monthStart.slice(0, 10) // YYYY-MM-DD
     if (clientIds.length > 0) {
       const { data: payRows } = await createServiceClient()
