@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { getTodayPeru } from '@/lib/utils/timezone'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 const STORE_KEY_MAP: Record<string, string> = {
   MUJERES: 'Tienda Mujeres',
@@ -78,12 +79,17 @@ export async function GET(req: NextRequest) {
   }[] = []
 
   // ── 1. Birthdays this month ─────────────────────────────────────────────────
+  // fetchAllRows pagina en lotes de 1000 — sin esto, con 4,784 clientes con birthday
+  // solo se traían los primeros 1000 (cap PostgREST) y mayo mostraba ~67 en vez de 236.
   try {
-    const { data: clients } = await supabase
-      .from('clients')
-      .select('id, name, phone, birthday')
-      .eq('active', true)
-      .not('birthday', 'is', null)
+    const clients = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from('clients')
+        .select('id, name, phone, birthday')
+        .eq('active', true)
+        .not('birthday', 'is', null)
+        .range(from, to)
+    )
 
     if (clients) {
       for (const c of clients) {
