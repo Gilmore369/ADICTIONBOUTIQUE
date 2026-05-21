@@ -54,14 +54,14 @@ export async function GET(request: NextRequest) {
       lockedStore = STORE_KEY_MAP[cookieSelected.toUpperCase()] ?? null
     }
 
-    // Build base query with count
+    // Build base query — sin JOIN a sale_items para evitar timeout en paginación profunda.
+    // sale_items se obtiene on-demand al abrir el PDF/ticket (otra API)
     let q = supabase
       .from('sales')
       .select(`
         id, sale_number, created_at, sale_type, subtotal, discount, total, store_id, voided,
-        clients ( id, name, dni ),
-        sale_items ( id, quantity, unit_price, subtotal, products ( name ) )
-      `, { count: 'exact' })
+        clients ( id, name, dni )
+      `, { count: 'estimated' })
       .order('created_at', { ascending: false })
 
     if (lockedStore) q = q.eq('store_id', lockedStore) as typeof q
