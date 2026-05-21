@@ -25,11 +25,10 @@ WITH micro AS (
 upd_inst AS (
   UPDATE installments
   SET status     = 'PAID',
-      paid_amount = amount,
-      updated_at  = NOW()
-  WHERE credit_plan_id IN (SELECT id FROM micro)
+      paid_amount = amount
+  WHERE plan_id IN (SELECT id FROM micro)
     AND status != 'PAID'
-  RETURNING credit_plan_id
+  RETURNING plan_id
 ),
 
 -- Cerrar los planes

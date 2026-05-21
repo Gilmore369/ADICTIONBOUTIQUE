@@ -35,7 +35,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Plus, Printer } from 'lucide-react'
+import { Plus, Printer, ChevronLeft, ChevronRight } from 'lucide-react'
 import { generateBarcodePdf, type BarcodeItem } from '@/lib/barcodes/generate-barcode-pdf'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
@@ -83,6 +83,8 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
   const [filterLine, setFilterLine] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 100
   const router = useRouter()
 
   // Re-load products/lines/categories when store filter changes
@@ -224,6 +226,15 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
     return filtered
   }, [products, filterLine, filterCategory, debouncedSearch])
 
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1) }, [filterLine, filterCategory, debouncedSearch])
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
+  const pagedProducts = useMemo(
+    () => filteredProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filteredProducts, currentPage]
+  )
+
   return (
     <div className="space-y-6">
       {/* Header with title and create button */}
@@ -316,12 +327,53 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
         </div>
       </div>
 
-      {/* Products Table */}
+      {/* Products Table — paginada (100 por página, total {filteredProducts.length}) */}
       <ProductsTable
-        products={filteredProducts}
+        products={pagedProducts}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">
+            Página {currentPage} de {totalPages} · {filteredProducts.length} productos
+            (mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredProducts.length)})
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => p - 1)}>
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, idx) =>
+                p === '...' ? (
+                  <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                ) : (
+                  <Button key={p}
+                    variant={currentPage === p ? 'default' : 'outline'}
+                    size="sm" className="h-7 min-w-[28px] px-2 text-xs"
+                    onClick={() => setCurrentPage(p as number)}>
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}>
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* New unified create modal */}
       <ProductCreateModal

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -12,8 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react'
 import { formatSafeDate } from '@/lib/utils/date'
+import { useDebounce } from '@/hooks/use-debounce'
 
 interface Movement {
   id: string
@@ -41,10 +43,43 @@ type SortOrder = 'asc' | 'desc'
 
 type StoreFilter = 'all' | 'Tienda Mujeres' | 'Tienda Hombres'
 
-export function MovementsTable({ data, singleStore }: MovementsTableProps) {
+export function MovementsTable({ data: initialData, singleStore: initialSingleStore }: MovementsTableProps) {
   const [sortField, setSortField] = useState<SortField>('fecha')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [storeFilter, setStoreFilter] = useState<StoreFilter>('all')
+  const [singleStore, setSingleStore] = useState<string | undefined>(initialSingleStore)
+
+  // Server-side pagination
+  const PAGE_SIZE = 50
+  const [data, setData] = useState<Movement[]>(initialData)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [serverTotal, setServerTotal] = useState(0)
+  const [serverPages, setServerPages] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const debouncedSearch = useDebounce(searchTerm, 300)
+
+  const fetchMovements = useCallback(async (page: number, search: string) => {
+    setIsLoading(true)
+    try {
+      const qs = new URLSearchParams({ page: String(page), per_page: String(PAGE_SIZE) })
+      if (search) qs.set('search', search)
+      const res = await fetch(`/api/inventory/movements/paginated?${qs}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Error al cargar movimientos')
+      setData(json.movements || [])
+      setServerTotal(json.total ?? 0)
+      setServerPages(json.total_pages ?? 1)
+      if (json.single_store) setSingleStore(json.single_store)
+    } catch (err) {
+      console.error('[MovementsTable] fetch error:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchMovements(currentPage, debouncedSearch) }, [fetchMovements, currentPage, debouncedSearch])
+  useEffect(() => { setCurrentPage(1) }, [debouncedSearch])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -110,14 +145,6 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
     )
   }
 
-  if (data.length === 0) {
-    return (
-      <Card className="p-8 text-center text-muted-foreground">
-        No hay movimientos registrados
-      </Card>
-    )
-  }
-
   const storeOptions: { value: StoreFilter; label: string }[] = [
     { value: 'all',              label: 'Ambas tiendas' },
     { value: 'Tienda Mujeres',   label: 'Tienda Mujeres' },
@@ -125,7 +152,24 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
   ]
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 space-y-4">
+      {/* Search + count */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por producto o código de barras…"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 text-sm"
+          />
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {isLoading ? 'Cargando…' : `${serverTotal.toLocaleString()} movimientos`}
+          {isLoading && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
+        </span>
+      </div>
+
       {/* Store filter — hidden for single-store users */}
       {!singleStore && (
         <div className="flex items-center gap-2 mb-4">
@@ -271,6 +315,47 @@ export function MovementsTable({ data, singleStore }: MovementsTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {serverPages > 1 && (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Página {currentPage} de {serverPages} · {serverTotal.toLocaleString()} movimientos
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-7 w-7"
+              disabled={currentPage === 1 || isLoading}
+              onClick={() => setCurrentPage(p => p - 1)}>
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: serverPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === serverPages || Math.abs(p - currentPage) <= 2)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, idx) =>
+                p === '...' ? (
+                  <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                ) : (
+                  <Button key={p}
+                    variant={currentPage === p ? 'default' : 'outline'}
+                    size="sm" className="h-7 min-w-[28px] px-2 text-xs"
+                    disabled={isLoading}
+                    onClick={() => setCurrentPage(p as number)}>
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="icon" className="h-7 w-7"
+              disabled={currentPage === serverPages || isLoading}
+              onClick={() => setCurrentPage(p => p + 1)}>
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

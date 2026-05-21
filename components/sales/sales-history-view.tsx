@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Ban, Download, Search, Calendar, DollarSign, ShoppingCart, TrendingUp } from 'lucide-react'
+import { Ban, Download, Search, Calendar, DollarSign, ShoppingCart, TrendingUp, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { useDebounce } from '@/hooks/use-debounce'
 import { formatCurrency } from '@/lib/utils/currency'
 import { useStore } from '@/contexts/store-context'
 import { formatSafeDate } from '@/lib/utils/date'
@@ -64,6 +65,14 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
   const [showVoided, setShowVoided] = useState(false)
   const [voidingId, setVoidingId] = useState<string | null>(null)
 
+  // Server-side pagination state
+  const PAGE_SIZE = 50
+  const [currentPage, setCurrentPage] = useState(1)
+  const [serverTotal, setServerTotal] = useState(0)
+  const [serverPages, setServerPages] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
+  const debouncedSearch = useDebounce(searchTerm, 300)
+
   // Sincronizar con el selector global de tienda del header
   const { selectedStore } = useStore()
   useEffect(() => {
@@ -71,6 +80,34 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
       setFilterStore(STORE_CTX_MAP[selectedStore] ?? 'ALL')
     }
   }, [selectedStore, lockedStore])
+
+  // Fetch paginated sales from API
+  const fetchSales = useCallback(async (page: number, search: string, period: string, store: string) => {
+    setIsLoading(true)
+    try {
+      const qs = new URLSearchParams({ page: String(page), per_page: String(PAGE_SIZE), period })
+      if (search) qs.set('search', search)
+      const res = await fetch(`/api/sales/paginated?${qs}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Error al cargar ventas')
+      setSales(json.sales || [])
+      setServerTotal(json.total ?? 0)
+      setServerPages(json.total_pages ?? 1)
+    } catch (err) {
+      console.error('[SalesHistoryView] fetch error:', err)
+      toast.error('Error al cargar ventas')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Trigger fetch when page / search / period / store changes
+  useEffect(() => {
+    fetchSales(currentPage, debouncedSearch, filterPeriod, filterStore)
+  }, [fetchSales, currentPage, debouncedSearch, filterPeriod, filterStore])
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1) }, [debouncedSearch, filterPeriod, filterStore])
 
   const getSaleNetTotal = (sale: Sale) => {
     if (typeof sale.net_total === 'number') return sale.net_total
@@ -326,7 +363,10 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted-foreground flex-wrap">
-          <span>Mostrando {filteredSales.length} de {sales.length} ventas</span>
+          <span>
+            {isLoading ? 'Cargando…' : `Mostrando ${filteredSales.length} de ${serverTotal.toLocaleString()} ventas`}
+            {serverPages > 1 && ` (página ${currentPage}/${serverPages})`}
+          </span>
           <div className="flex items-center gap-3">
             {/* Toggle anuladas */}
             <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -462,6 +502,48 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
           </table>
         </div>
       </Card>
+
+      {/* Pagination */}
+      {serverPages > 1 && (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Página {currentPage} de {serverPages} · {serverTotal.toLocaleString()} ventas
+            {isLoading && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-7 w-7"
+              disabled={currentPage === 1 || isLoading}
+              onClick={() => setCurrentPage(p => p - 1)}>
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: serverPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === serverPages || Math.abs(p - currentPage) <= 2)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, idx) =>
+                p === '...' ? (
+                  <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                ) : (
+                  <Button key={p}
+                    variant={currentPage === p ? 'default' : 'outline'}
+                    size="sm" className="h-7 min-w-[28px] px-2 text-xs"
+                    disabled={isLoading}
+                    onClick={() => setCurrentPage(p as number)}>
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="icon" className="h-7 w-7"
+              disabled={currentPage === serverPages || isLoading}
+              onClick={() => setCurrentPage(p => p + 1)}>
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/server'
 import { StockManager } from '@/components/inventory/stock-manager'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const metadata = {
   title: 'Stock | Adiction Boutique',
@@ -36,37 +37,33 @@ async function StockData() {
   const cookieStore = await cookies()
   const cookieSelected = cookieStore.get('selected-store')?.value  // 'ALL' | 'MUJERES' | 'HOMBRES'
 
-  // INNER JOIN con products + filtro active=true para excluir stock huérfano
-  // de productos eliminados (soft-deleted). Bug reportado: usuario eliminó
-  // productos pero seguían apareciendo en Stock. Causa: el LEFT JOIN
-  // implícito traía stock de productos con active=false.
-  let stockQuery = supabase
-    .from('stock')
-    .select('*, products!inner(id, name, barcode, min_stock, active)')
-    .eq('products.active', true)
-    .order('warehouse_id')
-
+  // Determinar filtro de warehouse antes de fetchAllRows
+  let warehouseFilter: string | null = null
   if (!hasAllAccess && userStores.length > 0) {
-    // Restricted user: always filter to their assigned store
     const storeCode = userStores[0].toUpperCase()
-    const warehouseName = STORE_NAME_MAP[storeCode] ?? userStores[0]
-    stockQuery = stockQuery.eq('warehouse_id', warehouseName) as typeof stockQuery
+    warehouseFilter = STORE_NAME_MAP[storeCode] ?? userStores[0]
   } else if (hasAllAccess && cookieSelected && cookieSelected !== 'ALL') {
-    // Multi-store user with specific store selected: filter by selected store
-    const warehouseName = STORE_NAME_MAP[cookieSelected.toUpperCase()]
-    if (warehouseName) {
-      stockQuery = stockQuery.eq('warehouse_id', warehouseName) as typeof stockQuery
-    }
+    warehouseFilter = STORE_NAME_MAP[cookieSelected.toUpperCase()] ?? null
   }
 
-  const [stockRes, storesRes] = await Promise.all([
-    stockQuery,
-    supabase.from('stores').select('id, name, code')
-  ])
+  // INNER JOIN con products + filtro active=true (excluye stock huérfano de soft-deleted)
+  // fetchAllRows pagina en lotes de 1000 para superar el cap de PostgREST (5857 productos × 2 tiendas)
+  const stockData = await fetchAllRows<any>((from, to) => {
+    let q = supabase
+      .from('stock')
+      .select('*, products!inner(id, name, barcode, min_stock, active)')
+      .eq('products.active', true)
+      .order('warehouse_id')
+      .range(from, to)
+    if (warehouseFilter) {
+      q = q.eq('warehouse_id', warehouseFilter) as typeof q
+    }
+    return q
+  })
 
-  if (stockRes.error) throw new Error(stockRes.error.message)
+  const { data: storesData } = await supabase.from('stores').select('id, name, code')
 
-  return <StockManager initialData={stockRes.data || []} stores={storesRes.data || []} />
+  return <StockManager initialData={stockData} stores={storesData || []} />
 }
 
 export default function StockPage() {

@@ -33,10 +33,10 @@ async function ProductsData() {
       .range(from, to)
   )
 
-  // Fetch stock separately and merge with products
-  const { data: stockData } = await supabase
-    .from('stock')
-    .select('product_id, quantity')
+  // Fetch stock separately and merge with products — paginated (5857+ rows)
+  const stockData = await fetchAllRows<any>((from, to) =>
+    supabase.from('stock').select('product_id, quantity').range(from, to)
+  )
   
   // Create a map of product_id -> total quantity
   const stockMap = new Map<string, number>()
