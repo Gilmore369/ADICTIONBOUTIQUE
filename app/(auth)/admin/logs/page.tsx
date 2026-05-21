@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { formatSafeDate } from '@/lib/utils/date'
 import { getTodayPeru, peruMidnightUTC, peruEndOfDayUTC } from '@/lib/utils/timezone'
-import { RefreshCw, Loader2, ShoppingCart, DollarSign, Package, Phone, Filter, Edit2, Calendar, RotateCcw } from 'lucide-react'
+import { RefreshCw, Loader2, ShoppingCart, DollarSign, Package, Phone, Filter, Edit2, Calendar, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Category = 'all' | 'ventas' | 'cobros' | 'inventario' | 'cobranzas' | 'devoluciones' | 'ediciones'
@@ -94,6 +94,9 @@ export default function AdminLogsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      // Pedimos 500 entradas como buffer; la UI muestra 100 por página.
+      // Cada subquery del API trae los 500 más recientes (orden DESC), después merge+slice.
+      // En la práctica los queries individuales con .limit(500) son rápidos (~200ms cada uno).
       const params = new URLSearchParams({ category, limit: '500' })
       if (userId) params.set('user_id', userId)
       if (dateFrom) params.set('date_from', peruMidnightUTC(dateFrom))
@@ -119,6 +122,13 @@ export default function AdminLogsPage() {
     e.user_name.toLowerCase().includes(search.toLowerCase()) ||
     (e.store || '').toLowerCase().includes(search.toLowerCase())
   )
+
+  // Paginación cliente — 100 por página (los logs DOM-pesados laguean cuando se renderizan 500 filas)
+  const PAGE_SIZE = 100
+  const [currentPage, setCurrentPage] = useState(1)
+  useEffect(() => { setCurrentPage(1) }, [category, userId, dateFrom, dateTo, search])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return (
     <div className="space-y-6">
@@ -264,7 +274,7 @@ export default function AdminLogsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map(e => (
+                {paged.map(e => (
                   <tr key={e.id} className="hover:bg-muted/40 transition-colors">
                     <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">
                       {formatSafeDate(e.created_at, 'dd/MM/yy HH:mm:ss')}
@@ -286,8 +296,51 @@ export default function AdminLogsPage() {
                 ))}
               </tbody>
             </table>
-            <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
-              {filtered.length} registros mostrados
+            <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-xs text-muted-foreground">
+                Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} de {filtered.length} registros
+                {filtered.length >= 500 && <span className="ml-1 italic">(máx. 500 — ajusta los filtros de fecha si necesitas más antiguos)</span>}
+              </p>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                    .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                      if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('…')
+                      acc.push(p)
+                      return acc
+                    }, [])
+                    .map((p, idx) =>
+                      p === '…' ? (
+                        <span key={`d${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                      ) : (
+                        <button key={p}
+                          onClick={() => setCurrentPage(p as number)}
+                          className={cn(
+                            'h-7 min-w-[28px] px-2 text-xs rounded-md border',
+                            currentPage === p ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'
+                          )}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
