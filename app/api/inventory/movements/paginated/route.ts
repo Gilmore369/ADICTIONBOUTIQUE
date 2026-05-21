@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
     const perPage = Math.min(200, Math.max(10, parseInt(params.get('per_page') || '50')))
     const search  = params.get('search')?.trim() || ''
     const typeFilter = params.get('type') || 'ALL'
+    const fromDate = params.get('from') || ''   // YYYY-MM-DD
+    const toDate   = params.get('to')   || ''   // YYYY-MM-DD
     const offset  = (page - 1) * perPage
 
     // Resolve warehouse filter
@@ -63,6 +65,8 @@ export async function GET(request: NextRequest) {
     if (warehouseFilter) q = q.eq('warehouse_id', warehouseFilter) as typeof q
     if (typeFilter === 'IN')  q = q.in('type', ['IN', 'ENTRADA']) as typeof q
     if (typeFilter === 'OUT') q = q.in('type', ['OUT', 'SALIDA']) as typeof q
+    if (fromDate) q = q.gte('created_at', `${fromDate}T00:00:00Z`) as typeof q
+    if (toDate)   q = q.lte('created_at', `${toDate}T23:59:59Z`)   as typeof q
 
     q = q.range(offset, offset + perPage - 1)
 

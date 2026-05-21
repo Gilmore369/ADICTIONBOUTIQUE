@@ -58,12 +58,21 @@ export function MovementsTable({ data: initialData, singleStore: initialSingleSt
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearch = useDebounce(searchTerm, 300)
+  // Filtro de fechas (rango)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const debouncedFrom = useDebounce(dateFrom, 400)
+  const debouncedTo = useDebounce(dateTo, 400)
 
-  const fetchMovements = useCallback(async (page: number, search: string) => {
+  const fetchMovements = useCallback(async (
+    page: number, search: string, from: string, to: string,
+  ) => {
     setIsLoading(true)
     try {
       const qs = new URLSearchParams({ page: String(page), per_page: String(PAGE_SIZE) })
       if (search) qs.set('search', search)
+      if (from) qs.set('from', from)
+      if (to) qs.set('to', to)
       const res = await fetch(`/api/inventory/movements/paginated?${qs}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Error al cargar movimientos')
@@ -78,8 +87,12 @@ export function MovementsTable({ data: initialData, singleStore: initialSingleSt
     }
   }, [])
 
-  useEffect(() => { fetchMovements(currentPage, debouncedSearch) }, [fetchMovements, currentPage, debouncedSearch])
-  useEffect(() => { setCurrentPage(1) }, [debouncedSearch])
+  useEffect(() => {
+    fetchMovements(currentPage, debouncedSearch, debouncedFrom, debouncedTo)
+  }, [fetchMovements, currentPage, debouncedSearch, debouncedFrom, debouncedTo])
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, debouncedFrom, debouncedTo])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -153,7 +166,7 @@ export function MovementsTable({ data: initialData, singleStore: initialSingleSt
 
   return (
     <Card className="p-4 space-y-4">
-      {/* Search + count */}
+      {/* Search + date range + count */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -164,7 +177,34 @@ export function MovementsTable({ data: initialData, singleStore: initialSingleSt
             className="pl-9 h-9 text-sm"
           />
         </div>
-        <span className="text-xs text-muted-foreground">
+
+        {/* Date range */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Desde:</span>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="h-9 text-sm w-[140px]"
+          />
+          <span className="text-xs text-muted-foreground">Hasta:</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="h-9 text-sm w-[140px]"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              onClick={() => { setDateFrom(''); setDateTo('') }}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              limpiar
+            </button>
+          )}
+        </div>
+
+        <span className="text-xs text-muted-foreground ml-auto">
           {isLoading ? 'Cargando…' : `${serverTotal.toLocaleString()} movimientos`}
           {isLoading && <Loader2 className="inline h-3 w-3 ml-2 animate-spin" />}
         </span>
