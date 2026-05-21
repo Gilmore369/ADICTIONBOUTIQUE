@@ -273,30 +273,22 @@ export default async function DashboardPage({
   }
 
   // ── Compute filtered payments this month ───────────────────────────────────
-  // Bug 1: antes filtraba por plan_id + created_at — los pagos migrados tienen
-  //        plan_id=NULL y created_at=hoy (fecha del INSERT, no del pago real).
-  // Bug 2: filteredDebtPlans usa sales!inner → excluye planes legacy (sale_id=NULL).
-  //        Solución: cuando store=MUJERES, agregar también planes legacy
-  //        (todos los datos migrados son MUJERES).
+  // Antes intentábamos filtrar por plan_id o por client_id IN [...] pero:
+  //   1. plan_id falla porque pagos migrados tienen plan_id=NULL
+  //   2. created_at falla porque para migrados = hoy
+  //   3. .in('client_id', [miles de UUIDs]) excede el límite del URL de PostgREST
+  //      y devuelve vacío → filteredPaymentsMonth=0 sobrescribe el raw correcto.
+  //
+  // Solución: para MUJERES (donde está toda la data histórica) confiar en el
+  // raw.paymentsThisMonth del RPC. Para HOMBRES (sin data histórica todavía),
+  // contar pagos cuyo cliente tiene plan_id contra venta de HOMBRES (lista corta).
   let filteredPaymentsMonth: number | null = null
-  if (filteredDebtPlans !== null) {
-    // Si el filtro es MUJERES, incluir también planes legacy (sale_id IS NULL)
-    let allClientIds = new Set(
+  if (filteredDebtPlans !== null && storeFilter === 'Tienda Hombres') {
+    const clientIds = [...new Set(
       filteredDebtPlans.map((p: any) => p.client_id).filter(Boolean) as string[]
-    )
-    if (storeFilter === 'Tienda Mujeres') {
-      const { data: legacyPlans } = await createServiceClient()
-        .from('credit_plans')
-        .select('client_id')
-        .is('sale_id', null)
-        .eq('status', 'ACTIVE')
-      for (const p of legacyPlans || []) {
-        if ((p as any).client_id) allClientIds.add((p as any).client_id)
-      }
-    }
-    const clientIds = [...allClientIds]
-    const monthStartDate = monthStart.slice(0, 10) // YYYY-MM-DD
-    if (clientIds.length > 0) {
+    )]
+    const monthStartDate = monthStart.slice(0, 10)
+    if (clientIds.length > 0 && clientIds.length < 500) {
       const { data: payRows } = await createServiceClient()
         .from('payments')
         .select('amount')
@@ -307,6 +299,7 @@ export default async function DashboardPage({
       filteredPaymentsMonth = 0
     }
   }
+  // Para 'ALL' y 'MUJERES': filteredPaymentsMonth queda null → usa raw.paymentsThisMonth (correcto)
 
   const metrics: DashboardMetrics = {
     totalActiveClients:       raw.totalActiveClients       ?? 0,
