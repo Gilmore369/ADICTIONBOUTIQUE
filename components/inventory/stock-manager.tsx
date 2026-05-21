@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Search, AlertTriangle, SlidersHorizontal } from 'lucide-react'
+import { Search, AlertTriangle, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '@/contexts/store-context'
 import { useRouter } from 'next/navigation'
 
@@ -216,7 +216,14 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
     }).length,
   }
 
-  const groupedByWarehouse = filteredStock.reduce((acc, item) => {
+  // Pagination — 50 per page over filteredStock
+  const PAGE_SIZE = 50
+  const [currentPage, setCurrentPage] = useState(1)
+  useEffect(() => { setCurrentPage(1) }, [search, statusFilter])
+  const totalPages = Math.max(1, Math.ceil(filteredStock.length / PAGE_SIZE))
+  const pagedStock = filteredStock.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  const groupedByWarehouse = pagedStock.reduce((acc, item) => {
     if (!acc[item.warehouse_id]) acc[item.warehouse_id] = []
     acc[item.warehouse_id].push(item)
     return acc
@@ -341,6 +348,47 @@ export function StockManager({ initialData, stores = [] }: StockManagerProps) {
         <Card className="p-8 text-center text-muted-foreground">
           No se encontraron productos
         </Card>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">
+            Página {currentPage} de {totalPages} · {filteredStock.length} items
+            (mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredStock.length)})
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-7 w-7"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => p - 1)}>
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, idx) =>
+                p === '...' ? (
+                  <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                ) : (
+                  <Button key={p}
+                    variant={currentPage === p ? 'default' : 'outline'}
+                    size="sm" className="h-7 min-w-[28px] px-2 text-xs"
+                    onClick={() => setCurrentPage(p as number)}>
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="icon" className="h-7 w-7"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}>
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Adjust Stock Dialog */}
