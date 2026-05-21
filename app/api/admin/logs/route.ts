@@ -68,17 +68,26 @@ export async function GET(request: NextRequest) {
   }
 
   // ── Cobros ────────────────────────────────────────────────────────────────
+  // IMPORTANTE: ordenar y filtrar por payment_date (fecha real del cobro),
+  // no por created_at — los pagos migrados tienen created_at=hoy pero el
+  // payment_date refleja la fecha histórica real (2009-2025).
   if (category === 'all' || category === 'cobros') {
     let q = supabase
       .from('payments')
       .select('id, created_at, user_id, amount, payment_date, installment_id, users:user_id(name)')
+      .order('payment_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit)
     if (filterUserId) q = q.eq('user_id', filterUserId) as typeof q
-    if (dateFrom) q = q.gte('created_at', dateFrom) as typeof q
-    if (dateTo) q = q.lte('created_at', dateTo) as typeof q
+    if (dateFrom) q = q.gte('payment_date', dateFrom.slice(0, 10)) as typeof q
+    if (dateTo)   q = q.lte('payment_date', dateTo.slice(0, 10))   as typeof q
     const { data } = await q
     for (const r of data || []) {
+      // Usar payment_date como timestamp del evento (cobro real)
+      // Si payment_date es solo fecha (YYYY-MM-DD), lo combinamos con un timestamp T12:00 para evitar TZ skew
+      const eventTs = r.payment_date
+        ? (String(r.payment_date).includes('T') ? r.payment_date : `${r.payment_date}T12:00:00Z`)
+        : r.created_at
       entries.push({
         id: `pay-${r.id}`,
         category: 'cobro',
@@ -87,7 +96,7 @@ export async function GET(request: NextRequest) {
         store: null,
         user_id: r.user_id,
         user_name: (r.users as any)?.name || '—',
-        created_at: r.created_at,
+        created_at: eventTs,
         severity: 'success',
       })
     }
