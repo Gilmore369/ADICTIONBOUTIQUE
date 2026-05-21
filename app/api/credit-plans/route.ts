@@ -30,12 +30,14 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-    const params = request.nextUrl.searchParams
-    const page    = Math.max(1, parseInt(params.get('page') || '1'))
-    const perPage = Math.min(Math.max(1, parseInt(params.get('per_page') || '25')), 50)
-    const search  = params.get('search')?.trim() || ''
-    const store   = params.get('store') || 'ALL'
-    const offset  = (page - 1) * perPage
+    const params     = request.nextUrl.searchParams
+    const page       = Math.max(1, parseInt(params.get('page') || '1'))
+    const perPage    = Math.min(Math.max(1, parseInt(params.get('per_page') || '25')), 50)
+    const search     = params.get('search')?.trim() || ''
+    const store      = params.get('store') || 'ALL'
+    // min_credit: hide clients with credit_used below this threshold (default 0 = show all)
+    const minCredit  = parseFloat(params.get('min_credit') || '0')
+    const offset     = (page - 1) * perPage
 
     // ── Query 1: Get ALL clients with active plans (just IDs + name + credit_used) ─
     // We need the full list to:
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
       let q = supabase
         .from('clients')
         .select('id, name, phone, dni, credit_limit, credit_used, imported_from_legacy')
-        .gt('credit_used', 0)
+        .gt('credit_used', minCredit > 0 ? minCredit : 0)  // filter micro-debts if requested
         .order('credit_used', { ascending: false })
         .range(from, to)
       if (search) {

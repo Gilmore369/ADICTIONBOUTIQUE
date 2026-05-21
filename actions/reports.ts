@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { ReportFilters, ReportTypeId } from '@/lib/reports/report-types'
 import { PERU_TZ, peruMidnightUTC, peruEndOfDayUTC, getTodayPeru } from '@/lib/utils/timezone'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 /**
  * Convert a YYYY-MM-DD filter string to Peru-aware UTC start (00:00 Lima = 05:00 UTC).
@@ -1192,15 +1193,14 @@ export async function generateDatabaseBackup() {
 
     for (const table of allTables) {
       try {
-        const { data, error } = await service.from(table).select('*')
-        if (error) {
-          console.warn(`[backup] Table ${table} error:`, error.message)
-          errors.push(`${table}: ${error.message}`)
-        } else if (data) {
-          backup.data[table] = data
-        }
-      } catch (e) {
-        errors.push(`${table}: ${e}`)
+        // fetchAllRows paginates in batches of 1000 to bypass PostgREST max_rows cap
+        const rows = await fetchAllRows<any>(
+          (from, to) => service.from(table).select('*').range(from, to)
+        )
+        backup.data[table] = rows
+      } catch (e: any) {
+        console.warn(`[backup] Table ${table} error:`, e?.message ?? e)
+        errors.push(`${table}: ${e?.message ?? e}`)
       }
     }
 
