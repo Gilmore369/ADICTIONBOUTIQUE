@@ -431,13 +431,35 @@ function SupplierProductsModal({
     const supabase = createBrowserClient()
 
     // 1. Products with current stock
-    const { data: productsData } = await supabase
+    // Estrategia dual: primero busca por supplier_id directo (productos creados
+    // post-migración con vínculo explícito). Si no hay, cae a buscar por marcas
+    // vinculadas en supplier_brands (productos migrados sin supplier_id).
+    let productsData: any[] = []
+    const direct = await supabase
       .from('products')
       .select('id, barcode, name, base_name, base_code, size, color, created_at, entry_date, stock(quantity)')
       .eq('supplier_id', id)
       .eq('active', true)
       .order('created_at', { ascending: false })
       .limit(2000)
+    productsData = direct.data || []
+
+    if (productsData.length === 0) {
+      // Fallback: vía supplier_brands → brands → products
+      const { data: brandRows } = await supabase
+        .from('supplier_brands').select('brand_id').eq('supplier_id', id)
+      const brandIds = (brandRows || []).map((r: any) => r.brand_id)
+      if (brandIds.length > 0) {
+        const { data: viaBrand } = await supabase
+          .from('products')
+          .select('id, barcode, name, base_name, base_code, size, color, created_at, entry_date, stock(quantity)')
+          .in('brand_id', brandIds)
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+          .limit(2000)
+        productsData = viaBrand || []
+      }
+    }
 
     // 2. Movements (ENTRADA/SALIDA/AJUSTE) for those products
     const productIds = (productsData || []).map((p: any) => p.id)
