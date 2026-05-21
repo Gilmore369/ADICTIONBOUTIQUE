@@ -272,16 +272,19 @@ export default async function DashboardPage({
     filteredTotalOverdue = 0
   }
 
-  // ── Compute filtered payments this month (via plan_id → sale_id → store) ─
+  // ── Compute filtered payments this month (via client_id of filtered plans) ─
+  // Antes filtraba por plan_id + created_at — bug: pagos migrados tienen plan_id=NULL
+  // y created_at=hoy (fecha del INSERT, no del pago real). Usar client_id + payment_date.
   let filteredPaymentsMonth: number | null = null
   if (filteredDebtPlans !== null) {
-    const planIds = (filteredDebtPlans ?? []).map((p: any) => p.id)
-    if (planIds.length > 0) {
+    const clientIds = [...new Set(filteredDebtPlans.map((p: any) => p.client_id).filter(Boolean))]
+    const monthStartDate = monthStart.slice(0, 10) // YYYY-MM-DD
+    if (clientIds.length > 0) {
       const { data: payRows } = await createServiceClient()
         .from('payments')
         .select('amount')
-        .in('plan_id', planIds)
-        .gte('created_at', monthStart)
+        .in('client_id', clientIds)
+        .gte('payment_date', monthStartDate)
       filteredPaymentsMonth = (payRows ?? []).reduce((s: number, r: any) => s + Number(r.amount), 0)
     } else {
       filteredPaymentsMonth = 0

@@ -6,7 +6,7 @@
  * Shows payments with period filter and totals.
  */
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -19,11 +19,12 @@ import {
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { ExternalLink, Search, TrendingUp, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ExternalLink, Search, TrendingUp, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
 import { addDaysPeru, getTodayPeru } from '@/lib/utils/timezone'
+import { useDebounce } from '@/hooks/use-debounce'
 
 interface Payment {
   id: string
@@ -44,7 +45,7 @@ type Period = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'custom'
 
 interface Props {
   initialPayments: Payment[]
-  initialPeriod?: '3M' | '6M' | '1Y'
+  initialPeriod?: '1D' | '1W' | '1M' | '3M' | '6M' | '1Y'
   userStores?: string[]
 }
 
@@ -92,7 +93,7 @@ function periodRange(period: Period): { from: string; to: string } {
   return { from: toDateStr(d), to }
 }
 
-export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Props) {
+export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
   const [period, setPeriod] = useState<Period>(initialPeriod)
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -105,36 +106,51 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
     ? { from: customFrom, to: customTo }
     : periodRange(period)
 
-  const filtered = useMemo(() => {
-    let list = initialPayments.filter(p => {
-      const d = p.payment_date.slice(0, 10)
-      return d >= from && d <= to
-    })
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      list = list.filter(p =>
-        p.clients?.name?.toLowerCase().includes(q) ||
-        p.clients?.dni?.includes(search) ||
-        p.users?.name?.toLowerCase().includes(q)
-      )
+  // Server-side data
+  const [pagedPayments, setPagedPayments] = useState<Payment[]>([])
+  const [serverTotal, setServerTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
+  const [stats, setStats] = useState({ total: 0, count: 0, avg: 0, max: 0 })
+
+  const debouncedSearch = useDebounce(search, 300)
+
+  const fetchPayments = useCallback(async (
+    page: number, s: string, fromDate: string, toDate: string,
+  ) => {
+    setIsLoading(true)
+    try {
+      const qs = new URLSearchParams({
+        page: String(page), per_page: String(ITEMS_PER_PAGE),
+        from: fromDate, to: toDate,
+      })
+      if (s) qs.set('search', s)
+      const res = await fetch(`/api/payments/paginated?${qs}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Error al cargar cobros')
+      setPagedPayments(json.payments || [])
+      setServerTotal(json.total ?? 0)
+      setTotalPages(json.total_pages ?? 1)
+      if (json.stats) setStats(json.stats)
+    } catch (err) {
+      console.error('[PaymentHistoryView] fetch error:', err)
+    } finally {
+      setIsLoading(false)
     }
-    return list
-  }, [initialPayments, from, to, search])
+  }, [])
 
-  const total   = filtered.reduce((s, p) => s + Number(p.amount), 0)
-  const avg     = filtered.length > 0 ? total / filtered.length : 0
-  const maxPay  = filtered.length > 0 ? Math.max(...filtered.map(p => Number(p.amount))) : 0
-  const periodLabel = PERIODS.find(p => p.key === period)?.label ?? ''
-
-  // Paginación
-  const totalPages  = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
-  const pagedPayments = useMemo(
-    () => filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
-    [filtered, currentPage]
-  )
+  useEffect(() => {
+    fetchPayments(currentPage, debouncedSearch, from, to)
+  }, [fetchPayments, currentPage, debouncedSearch, from, to])
 
   // Reset página al cambiar filtros
-  useEffect(() => { setCurrentPage(1) }, [period, search, customFrom, customTo])
+  useEffect(() => { setCurrentPage(1) }, [period, debouncedSearch, customFrom, customTo])
+
+  const total = stats.total
+  const avg = stats.avg
+  const maxPay = stats.max
+  const filtered = { length: stats.count || serverTotal }
+  const periodLabel = PERIODS.find(p => p.key === period)?.label ?? ''
 
   return (
     <div className="space-y-4">
@@ -248,7 +264,15 @@ export function PaymentHistoryView({ initialPayments, initialPeriod = '3M' }: Pr
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 && (
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                    Cargando cobros…
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && pagedPayments.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No hay cobros en este período
