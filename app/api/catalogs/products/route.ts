@@ -1,10 +1,11 @@
 /**
  * GET /api/catalogs/products?store_id=UUID
- * Returns products filtered by store (via line_stores join).
- * Without store_id, returns all active products (limit 100).
+ * Returns ALL active products (paginated via fetchAllRows to bypass PostgREST 1000-row cap).
+ * Optionally filtered by store (via line_stores join).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export async function GET(request: NextRequest) {
   const supabase = await createServerClient()
@@ -13,26 +14,26 @@ export async function GET(request: NextRequest) {
 
   const storeId = request.nextUrl.searchParams.get('store_id')
 
-  // Build product query — join through lines → line_stores when filtering by store
-  let productsQuery
-  if (storeId) {
-    productsQuery = supabase
-      .from('products')
-      .select(`
-        *,
-        lines:line_id!inner(
-          id, name,
-          line_stores!inner(store_id)
-        ),
-        categories:category_id(id, name),
-        brands:brand_id(id, name)
-      `)
-      .eq('active', true)
-      .eq('lines.line_stores.store_id', storeId)
-      .order('name')
-      .limit(100)
-  } else {
-    productsQuery = supabase
+  // Build product query — paginar todos los productos activos (5,857+)
+  const products = await fetchAllRows<any>((from, to) => {
+    if (storeId) {
+      return supabase
+        .from('products')
+        .select(`
+          *,
+          lines:line_id!inner(
+            id, name,
+            line_stores!inner(store_id)
+          ),
+          categories:category_id(id, name),
+          brands:brand_id(id, name)
+        `)
+        .eq('active', true)
+        .eq('lines.line_stores.store_id', storeId)
+        .order('name')
+        .range(from, to)
+    }
+    return supabase
       .from('products')
       .select(`
         *,
@@ -42,35 +43,31 @@ export async function GET(request: NextRequest) {
       `)
       .eq('active', true)
       .order('name')
-      .limit(100)
-  }
+      .range(from, to)
+  })
 
-  const { data: products, error } = await productsQuery
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Fetch stock and merge
-  const productIds = (products || []).map((p: any) => p.id)
+  // Fetch stock — también paginado (5,857+ rows en stock)
+  const productIds = products.map((p: any) => p.id)
   let stockMap: Record<string, number> = {}
   if (productIds.length > 0) {
-    const { data: stockData } = await supabase
-      .from('stock')
-      .select('product_id, quantity')
-      .in('product_id', productIds)
-    if (stockData) {
-      for (const s of stockData) {
+    const stockData = await fetchAllRows<any>((from, to) =>
+      supabase.from('stock').select('product_id, quantity').range(from, to)
+    )
+    const idSet = new Set(productIds)
+    for (const s of stockData) {
+      if (idSet.has(s.product_id)) {
         stockMap[s.product_id] = (stockMap[s.product_id] || 0) + s.quantity
       }
     }
   }
 
-  const result = (products || []).map((p: any) => ({
+  const result = products.map((p: any) => ({
     ...p,
     stock: { quantity: stockMap[p.id] || 0 },
   }))
 
   // Also return filtered lines & categories for the dropdowns
   const lineIds = [...new Set(result.map((p: any) => p.line_id).filter(Boolean))]
-  const catIds  = [...new Set(result.map((p: any) => p.category_id).filter(Boolean))]
 
   let lines: any[] = []
   let categories: any[] = []
