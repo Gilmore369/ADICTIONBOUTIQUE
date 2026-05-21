@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const dynamic = 'force-dynamic'
 
@@ -132,24 +133,38 @@ export async function GET(request: NextRequest) {
     )
 
     // ── 2. Aggregated stats over the FULL filtered range ─────────────────────
-    // We need totals per sale_type (CONTADO vs CREDITO). Query totals via aggregation.
-    // Supabase JS doesn't support SUM aggregates directly via PostgREST without an RPC,
-    // so we fetch (id, total, sale_type, voided) for the whole range — typically <= 5k rows.
-    const statsQ = applyFilters(
-      supabase
-        .from('sales')
-        .select('id, total, sale_type, voided')
-        .eq('voided', false)
-    )
+    // Preferimos un RPC SQL que suma server-side en 1 round-trip.
+    // Fallback: fetchAllRows si el RPC aún no está aplicado en Supabase.
+    const statsRpcPromise = supabase.rpc('get_sales_stats', {
+      p_store_id:  storeFilter,
+      p_from_date: fromDate ? fromDate.toISOString() : null,
+      p_to_date:   toDate   ? toDate.toISOString()   : null,
+      p_search:    search,
+    })
 
-    const [pageRes, statsRes] = await Promise.all([pageQ, statsQ])
+    const [pageRes, statsRpcRes] = await Promise.all([pageQ, statsRpcPromise])
 
     if (pageRes.error) return NextResponse.json({ error: pageRes.error.message }, { status: 500 })
+
+    // Si el RPC falla (no aplicado), caer al método paginado más lento
+    let statsFromRpc: any = null
+    if (!statsRpcRes.error && statsRpcRes.data) {
+      statsFromRpc = statsRpcRes.data
+    }
+    const statsRows: any[] = statsFromRpc ? [] : await fetchAllRows<any>((from, to) =>
+      applyFilters(
+        supabase
+          .from('sales')
+          .select('id, total, sale_type, voided')
+          .eq('voided', false)
+          .range(from, to)
+      )
+    )
 
     // ── 3. Returns deduction for both page sales AND stats ───────────────────
     const allSaleIds = new Set<string>()
     for (const s of pageRes.data || []) allSaleIds.add((s as any).id)
-    for (const s of statsRes.data || []) allSaleIds.add((s as any).id)
+    for (const s of statsRows || [])    allSaleIds.add((s as any).id)
 
     const returnTotals = new Map<string, number>()
     if (allSaleIds.size > 0) {
@@ -182,22 +197,35 @@ export async function GET(request: NextRequest) {
       return { ...sale, returned_total: returnedTotal, net_total: netTotal }
     })
 
-    // Aggregated stats over full filter
-    let totalNet = 0, contadoNet = 0, creditoNet = 0
-    let count = 0, contadoCount = 0, creditoCount = 0
-    for (const s of statsRes.data || []) {
-      const n = netOf(s)
-      totalNet += n
-      count++
-      if ((s as any).sale_type === 'CONTADO') { contadoNet += n; contadoCount++ }
-      else if ((s as any).sale_type === 'CREDITO') { creditoNet += n; creditoCount++ }
-    }
-    const stats = {
-      total: totalNet,
-      contado: contadoNet,
-      credito: creditoNet,
-      count, contado_count: contadoCount, credito_count: creditoCount,
-      avg: count > 0 ? totalNet / count : 0,
+    // Aggregated stats — use RPC result if available, else compute from rows
+    let stats: any
+    if (statsFromRpc) {
+      stats = {
+        total:         Number(statsFromRpc.total)         || 0,
+        contado:       Number(statsFromRpc.contado)       || 0,
+        credito:       Number(statsFromRpc.credito)       || 0,
+        count:         Number(statsFromRpc.count)         || 0,
+        contado_count: Number(statsFromRpc.contado_count) || 0,
+        credito_count: Number(statsFromRpc.credito_count) || 0,
+        avg:           Number(statsFromRpc.avg)           || 0,
+      }
+    } else {
+      let totalNet = 0, contadoNet = 0, creditoNet = 0
+      let count = 0, contadoCount = 0, creditoCount = 0
+      for (const s of statsRows || []) {
+        const n = netOf(s)
+        totalNet += n
+        count++
+        if ((s as any).sale_type === 'CONTADO') { contadoNet += n; contadoCount++ }
+        else if ((s as any).sale_type === 'CREDITO') { creditoNet += n; creditoCount++ }
+      }
+      stats = {
+        total: totalNet,
+        contado: contadoNet,
+        credito: creditoNet,
+        count, contado_count: contadoCount, credito_count: creditoCount,
+        avg: count > 0 ? totalNet / count : 0,
+      }
     }
 
     return NextResponse.json({
