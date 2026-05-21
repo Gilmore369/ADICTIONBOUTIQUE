@@ -45,8 +45,10 @@ interface Sale {
 interface SalesHistoryViewProps {
   initialSales: Sale[]
   lockedStore?: string | null
-  initialPeriod?: 'TODAY' | 'WEEK' | 'MONTH' | '3MONTHS' | '6MONTHS' | '12MONTHS' | 'ALL'
+  initialPeriod?: 'TODAY' | 'WEEK' | 'MONTH' | '3MONTHS' | '6MONTHS' | '12MONTHS' | 'YEAR' | 'LASTYEAR' | 'ALL' | 'CUSTOM'
 }
+
+type PeriodKey = 'TODAY' | 'WEEK' | 'MONTH' | '3MONTHS' | '6MONTHS' | '12MONTHS' | 'YEAR' | 'LASTYEAR' | 'ALL' | 'CUSTOM'
 
 const STORE_CTX_MAP: Record<string, 'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'> = {
   MUJERES: 'Tienda Mujeres',
@@ -61,7 +63,19 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
   const [filterStore, setFilterStore] = useState<'ALL' | 'Tienda Mujeres' | 'Tienda Hombres'>(
     (lockedStore as any) || 'ALL'
   )
-  const [filterPeriod, setFilterPeriod] = useState<'TODAY' | 'WEEK' | 'MONTH' | '3MONTHS' | '6MONTHS' | '12MONTHS' | 'ALL'>(initialPeriod)
+  const [filterPeriod, setFilterPeriod] = useState<PeriodKey>(initialPeriod as PeriodKey)
+  // Custom date range (used when filterPeriod === 'CUSTOM')
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const monthStartStr = `${todayStr.slice(0, 7)}-01`
+  const [customFrom, setCustomFrom] = useState(monthStartStr)
+  const [customTo, setCustomTo] = useState(todayStr)
+  const debouncedFrom = useDebounce(customFrom, 400)
+  const debouncedTo = useDebounce(customTo, 400)
+  // Aggregated stats from server (full filtered range, NOT just current page)
+  const [serverStats, setServerStats] = useState<{
+    total: number; contado: number; credito: number;
+    count: number; contado_count: number; credito_count: number; avg: number
+  }>({ total: 0, contado: 0, credito: 0, count: 0, contado_count: 0, credito_count: 0, avg: 0 })
   const [showVoided, setShowVoided] = useState(false)
   const [voidingId, setVoidingId] = useState<string | null>(null)
 
@@ -82,17 +96,26 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
   }, [selectedStore, lockedStore])
 
   // Fetch paginated sales from API
-  const fetchSales = useCallback(async (page: number, search: string, period: string, store: string) => {
+  const fetchSales = useCallback(async (
+    page: number, search: string, period: string, store: string,
+    from?: string, to?: string,
+  ) => {
     setIsLoading(true)
     try {
       const qs = new URLSearchParams({ page: String(page), per_page: String(PAGE_SIZE), period })
       if (search) qs.set('search', search)
+      if (store && store !== 'ALL') qs.set('store', store)
+      if (period === 'CUSTOM') {
+        if (from) qs.set('from', from)
+        if (to)   qs.set('to',   to)
+      }
       const res = await fetch(`/api/sales/paginated?${qs}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Error al cargar ventas')
       setSales(json.sales || [])
       setServerTotal(json.total ?? 0)
       setServerPages(json.total_pages ?? 1)
+      if (json.stats) setServerStats(json.stats)
     } catch (err) {
       console.error('[SalesHistoryView] fetch error:', err)
       toast.error('Error al cargar ventas')
@@ -101,13 +124,13 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     }
   }, [])
 
-  // Trigger fetch when page / search / period / store changes
+  // Trigger fetch when page / search / period / store / custom range changes
   useEffect(() => {
-    fetchSales(currentPage, debouncedSearch, filterPeriod, filterStore)
-  }, [fetchSales, currentPage, debouncedSearch, filterPeriod, filterStore])
+    fetchSales(currentPage, debouncedSearch, filterPeriod, filterStore, debouncedFrom, debouncedTo)
+  }, [fetchSales, currentPage, debouncedSearch, filterPeriod, filterStore, debouncedFrom, debouncedTo])
 
   // Reset to page 1 when filters change
-  useEffect(() => { setCurrentPage(1) }, [debouncedSearch, filterPeriod, filterStore])
+  useEffect(() => { setCurrentPage(1) }, [debouncedSearch, filterPeriod, filterStore, debouncedFrom, debouncedTo])
 
   const getSaleNetTotal = (sale: Sale) => {
     if (typeof sale.net_total === 'number') return sale.net_total
@@ -209,8 +232,24 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     })
   }, [sales, searchTerm, filterType, filterStore, filterPeriod, showVoided])
 
-  // Metrics always reflect current filtered view
-  const metrics = useMemo(() => computeMetrics(filteredSales), [filteredSales])
+  // Metrics: usar los stats agregados del servidor (filtro completo, no solo la página)
+  // computeMetrics(filteredSales) sólo aporta los counts/pct sobre la página visible
+  const metrics = useMemo(() => {
+    const total = serverStats.total
+    const contadoPct = total > 0 ? (serverStats.contado / total) * 100 : 0
+    const creditoPct = total > 0 ? (serverStats.credito / total) * 100 : 0
+    return {
+      total,
+      count: serverStats.count,
+      contadoTotal: serverStats.contado,
+      contadoCount: serverStats.contado_count,
+      creditoTotal: serverStats.credito,
+      creditoCount: serverStats.credito_count,
+      avgTicket: serverStats.avg,
+      contadoPct,
+      creditoPct,
+    }
+  }, [serverStats])
 
   const handleDownloadPDF = async (sale: Sale) => {
     try {
@@ -262,7 +301,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             <span className="text-xs font-medium text-emerald-600">TOTAL</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.total)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{metrics.count} ventas en filtro actual</p>
+          <p className="text-xs text-muted-foreground mt-1">{metrics.count.toLocaleString()} ventas en el rango filtrado</p>
         </Card>
 
         {/* Contado */}
@@ -274,7 +313,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             <span className="text-xs font-medium text-blue-600">CONTADO</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.contadoTotal)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{metrics.contadoCount} ventas · {metrics.contadoPct.toFixed(0)}% del total</p>
+          <p className="text-xs text-muted-foreground mt-1">{metrics.contadoCount.toLocaleString()} ventas · {metrics.contadoPct.toFixed(0)}% del total</p>
         </Card>
 
         {/* Crédito */}
@@ -286,7 +325,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             <span className="text-xs font-medium text-purple-600">CRÉDITO</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.creditoTotal)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{metrics.creditoCount} ventas · {metrics.creditoPct.toFixed(0)}% del total</p>
+          <p className="text-xs text-muted-foreground mt-1">{metrics.creditoCount.toLocaleString()} ventas · {metrics.creditoPct.toFixed(0)}% del total</p>
         </Card>
 
         {/* Ticket Promedio */}
@@ -298,7 +337,7 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             <span className="text-xs font-medium text-amber-600">TICKET PROM.</span>
           </div>
           <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.avgTicket)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{metrics.count} ventas en vista actual</p>
+          <p className="text-xs text-muted-foreground mt-1">{metrics.count.toLocaleString()} ventas en el rango filtrado</p>
         </Card>
       </div>
 
@@ -321,16 +360,19 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
           {/* Period Filter */}
           <select
             value={filterPeriod}
-            onChange={(e) => setFilterPeriod(e.target.value as any)}
+            onChange={(e) => setFilterPeriod(e.target.value as PeriodKey)}
             className="px-3 py-2 border rounded-lg text-sm"
           >
-            <option value="ALL">Todas las fechas</option>
+            <option value="ALL">Todas las fechas (2009→hoy)</option>
             <option value="TODAY">Hoy</option>
             <option value="WEEK">Última semana</option>
-            <option value="MONTH">Este mes</option>
+            <option value="MONTH">Último mes</option>
             <option value="3MONTHS">Últimos 3 meses</option>
             <option value="6MONTHS">Últimos 6 meses</option>
-            <option value="12MONTHS">Último año</option>
+            <option value="12MONTHS">Último año (móvil)</option>
+            <option value="YEAR">Este año ({new Date().getFullYear()})</option>
+            <option value="LASTYEAR">Año pasado ({new Date().getFullYear() - 1})</option>
+            <option value="CUSTOM">Personalizado…</option>
           </select>
 
           {/* Type Filter */}
@@ -361,6 +403,28 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
             </span>
           )}
         </div>
+
+        {/* Date range — only when CUSTOM */}
+        {filterPeriod === 'CUSTOM' && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <label className="text-sm text-muted-foreground">Desde:</label>
+            <input
+              type="date"
+              value={customFrom}
+              onChange={e => setCustomFrom(e.target.value)}
+              className="h-9 px-2 border rounded-lg text-sm bg-background"
+            />
+            <span className="text-muted-foreground">→</span>
+            <label className="text-sm text-muted-foreground">Hasta:</label>
+            <input
+              type="date"
+              value={customTo}
+              onChange={e => setCustomTo(e.target.value)}
+              className="h-9 px-2 border rounded-lg text-sm bg-background"
+            />
+          </div>
+        )}
 
         <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted-foreground flex-wrap">
           <span>
