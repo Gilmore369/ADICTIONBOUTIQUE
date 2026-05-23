@@ -61,19 +61,38 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Aggregate stats over the WHOLE date range (not just current page)
+    // Aggregate stats over the WHOLE date range (server-side via RPC).
+    // El query antiguo .select('amount') estaba capeado a 1000 filas por
+    // PostgREST → solo sumaba 1000 de 108,140 pagos → totales/promedios incorrectos.
     let stats = { total: 0, count: 0, avg: 0, max: 0 }
-    if (from || to) {
-      let statsQ = supabase.from('payments').select('amount', { count: 'exact' })
-      if (from) statsQ = statsQ.gte('payment_date', from) as typeof statsQ
-      if (to)   statsQ = statsQ.lte('payment_date', to)   as typeof statsQ
-      const { data: allAmounts, count: statsCount } = await statsQ
-      if (allAmounts) {
-        const amts = (allAmounts as any[]).map(r => Number(r.amount))
-        stats.total = amts.reduce((s, x) => s + x, 0)
-        stats.count = statsCount || amts.length
-        stats.avg   = stats.count > 0 ? stats.total / stats.count : 0
-        stats.max   = amts.length > 0 ? Math.max(...amts) : 0
+    const { data: statsRpc, error: statsErr } = await supabase.rpc('get_payments_stats', {
+      p_from_date: from || null,
+      p_to_date:   to   || null,
+      p_search:    search,
+    })
+    if (!statsErr && statsRpc) {
+      stats = {
+        total: Number(statsRpc.total) || 0,
+        count: Number(statsRpc.count) || 0,
+        avg:   Number(statsRpc.avg)   || 0,
+        max:   Number(statsRpc.max)   || 0,
+      }
+    } else if (statsErr) {
+      console.error('[payments stats RPC]', statsErr)
+      // Fallback: pagina y suma (lento pero correcto)
+      const { fetchAllRows } = await import('@/lib/supabase/paginate')
+      const allRows = await fetchAllRows<any>((f, t) => {
+        let sq = supabase.from('payments').select('amount').range(f, t)
+        if (from) sq = sq.gte('payment_date', from) as typeof sq
+        if (to)   sq = sq.lte('payment_date', to)   as typeof sq
+        return sq
+      })
+      const amts = allRows.map((r: any) => Number(r.amount))
+      stats = {
+        total: amts.reduce((s, x) => s + x, 0),
+        count: amts.length,
+        avg:   amts.length > 0 ? amts.reduce((s, x) => s + x, 0) / amts.length : 0,
+        max:   amts.length > 0 ? Math.max(...amts) : 0,
       }
     }
 
