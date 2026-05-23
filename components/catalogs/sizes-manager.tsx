@@ -10,7 +10,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
@@ -127,6 +127,16 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
 
   // Conteo de inactivas para mostrar badge en el toggle
   const inactiveCount = useMemo(() => sizes.filter(s => s.active === false).length, [sizes])
+
+  // Paginación cliente — 50 por página (la tabla tenía 696 filas → lag)
+  const PAGE_SIZE = 50
+  const [currentPage, setCurrentPage] = useState(1)
+  useEffect(() => { setCurrentPage(1) }, [categoryFilter, lineFilter, showInactive])
+  const totalPages = Math.max(1, Math.ceil(filteredSizes.length / PAGE_SIZE))
+  const pagedSizes = useMemo(
+    () => filteredSizes.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filteredSizes, currentPage]
+  )
 
   const columns: CatalogTableColumn<Size>[] = [
     { key: 'name', label: 'Nombre' },
@@ -248,12 +258,51 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
       {showInactive && <InactiveBanner entityName="tallas" />}
 
       <CatalogTable
-        data={filteredSizes}
+        data={pagedSizes}
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRestore={handleRestore}
       />
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-xs text-muted-foreground">
+            Página {currentPage} de {totalPages} · {filteredSizes.length} tallas
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => p - 1)}>
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, idx) =>
+                p === '...' ? (
+                  <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                ) : (
+                  <Button key={p}
+                    variant={currentPage === p ? 'default' : 'outline'}
+                    size="sm" className="h-7 min-w-[28px] px-2 text-xs"
+                    onClick={() => setCurrentPage(p as number)}>
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}>
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <CatalogFormDialog
         open={formOpen}

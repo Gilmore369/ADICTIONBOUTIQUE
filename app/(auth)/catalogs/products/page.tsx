@@ -17,26 +17,30 @@ import { fetchAllRows } from '@/lib/supabase/paginate'
 
 async function ProductsData() {
   const supabase = await createServerClient()
-  
-  // Fetch ALL active products — paginated to bypass Supabase PostgREST max_rows cap (1000/request)
-  const products = await fetchAllRows<any>((from, to) =>
-    supabase
-      .from('products')
-      .select(`
-        *,
-        lines:line_id(id, name),
-        categories:category_id(id, name),
-        brands:brand_id(id, name)
-      `)
-      .eq('active', true)
-      .order('name')
-      .range(from, to)
-  )
 
-  // Fetch stock separately and merge with products — paginated (5857+ rows)
-  const stockData = await fetchAllRows<any>((from, to) =>
-    supabase.from('stock').select('product_id, quantity').range(from, to)
-  )
+  // Fetch products + stock + filtros en PARALELO para acelerar carga.
+  // products y stock van con fetchAllRows (5,857 filas, ~6 batches cada uno),
+  // pero al ejecutarse en paralelo el tiempo total es ~6 batches (no 12).
+  const [products, stockData, linesRes, catsRes] = await Promise.all([
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from('products')
+        .select(`
+          *,
+          lines:line_id(id, name),
+          categories:category_id(id, name),
+          brands:brand_id(id, name)
+        `)
+        .eq('active', true)
+        .order('name')
+        .range(from, to)
+    ),
+    fetchAllRows<any>((from, to) =>
+      supabase.from('stock').select('product_id, quantity').range(from, to)
+    ),
+    supabase.from('lines').select('id, name').eq('active', true).order('name'),
+    supabase.from('categories').select('id, name, line_id').eq('active', true).order('name'),
+  ])
   
   // Create a map of product_id -> total quantity
   const stockMap = new Map<string, number>()
@@ -55,24 +59,11 @@ async function ProductsData() {
     }
   }))
 
-  // Fetch lines and categories for filters
-  const { data: lines } = await supabase
-    .from('lines')
-    .select('id, name')
-    .eq('active', true)
-    .order('name')
-
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('id, name, line_id')
-    .eq('active', true)
-    .order('name')
-  
   return (
-    <ProductsManager 
-      initialProducts={productsWithStock} 
-      lines={lines || []}
-      categories={categories || []}
+    <ProductsManager
+      initialProducts={productsWithStock}
+      lines={linesRes.data || []}
+      categories={catsRes.data || []}
     />
   )
 }
