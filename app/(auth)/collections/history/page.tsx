@@ -31,7 +31,7 @@ export default async function PaymentHistoryPage({
 
   const params = await (searchParams ?? Promise.resolve({}))
   const periodParam = (params.period || '1M').toUpperCase()
-  const validPeriods = ['1D', '1W', 'MONTH', '1M', '3M', '6M', '1Y']
+  const validPeriods = ['1D', '1W', 'MONTH', '1M', '3M', '6M', '1Y', 'YEAR', 'LASTYEAR', 'ALL']
   const normalized = periodParam === 'MONTH' ? '1M' : periodParam
   const initialPeriod = validPeriods.includes(normalized) ? normalized : '1M'
 

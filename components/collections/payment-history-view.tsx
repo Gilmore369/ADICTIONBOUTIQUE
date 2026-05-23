@@ -41,22 +41,25 @@ interface Payment {
 
 const ITEMS_PER_PAGE = 50
 
-type Period = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'custom'
+type Period = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'YEAR' | 'LASTYEAR' | 'ALL' | 'custom'
 
 interface Props {
   initialPayments: Payment[]
-  initialPeriod?: '1D' | '1W' | '1M' | '3M' | '6M' | '1Y'
+  initialPeriod?: '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | 'YEAR' | 'LASTYEAR' | 'ALL'
   userStores?: string[]
 }
 
 const PERIODS: { key: Period; label: string; short: string }[] = [
-  { key: '1D', label: 'Hoy',             short: 'Hoy' },
-  { key: '1W', label: 'Última semana',   short: '7 días' },
-  { key: '1M', label: 'Último mes',      short: '1 mes' },
-  { key: '3M', label: 'Últimos 3 meses', short: '3 meses' },
-  { key: '6M', label: 'Últimos 6 meses', short: '6 meses' },
-  { key: '1Y', label: 'Último año',      short: '1 año' },
-  { key: 'custom', label: 'Personalizado', short: 'Rango' },
+  { key: '1D',       label: 'Hoy',             short: 'Hoy' },
+  { key: '1W',       label: 'Última semana',   short: '7 días' },
+  { key: '1M',       label: 'Último mes',      short: '1 mes' },
+  { key: '3M',       label: 'Últimos 3 meses', short: '3 meses' },
+  { key: '6M',       label: 'Últimos 6 meses', short: '6 meses' },
+  { key: '1Y',       label: 'Último año (móvil)', short: '1 año' },
+  { key: 'YEAR',     label: `Este año (${new Date().getFullYear()})`,        short: `${new Date().getFullYear()}` },
+  { key: 'LASTYEAR', label: `Año pasado (${new Date().getFullYear() - 1})`,  short: `${new Date().getFullYear() - 1}` },
+  { key: 'ALL',      label: 'Todo (desde 2009)', short: 'Todo' },
+  { key: 'custom',   label: 'Personalizado',     short: 'Rango' },
 ]
 
 function toDateStr(d: Date): string {
@@ -72,23 +75,32 @@ function thisMonthStart(): string {
 function periodRange(period: Period): { from: string; to: string } {
   const to = todayStr()
   if (period === '1D') return { from: to, to }
-  if (period === '1W') {
-    return { from: addDaysPeru(-6, to), to }
-  }
+  if (period === '1W') return { from: addDaysPeru(-6, to), to }
   const now = new Date(`${to}T05:00:00.000Z`)
   if (period === '1M') {
-    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 1)
-    return { from: toDateStr(d), to }
+    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 1); return { from: toDateStr(d), to }
   }
   if (period === '3M') {
-    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 3)
-    return { from: toDateStr(d), to }
+    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 3); return { from: toDateStr(d), to }
   }
   if (period === '6M') {
-    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 6)
-    return { from: toDateStr(d), to }
+    const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - 6); return { from: toDateStr(d), to }
   }
-  // 1Y
+  if (period === '1Y') {
+    const d = new Date(now); d.setUTCFullYear(d.getUTCFullYear() - 1); return { from: toDateStr(d), to }
+  }
+  if (period === 'YEAR') {
+    const y = new Date().getFullYear()
+    return { from: `${y}-01-01`, to }
+  }
+  if (period === 'LASTYEAR') {
+    const y = new Date().getFullYear() - 1
+    return { from: `${y}-01-01`, to: `${y}-12-31` }
+  }
+  if (period === 'ALL') {
+    return { from: '2009-01-01', to }
+  }
+  // fallback
   const d = new Date(now); d.setUTCFullYear(d.getUTCFullYear() - 1)
   return { from: toDateStr(d), to }
 }
