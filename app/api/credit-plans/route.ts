@@ -35,8 +35,13 @@ export async function GET(request: NextRequest) {
     const perPage    = Math.min(Math.max(1, parseInt(params.get('per_page') || '25')), 50)
     const search     = params.get('search')?.trim() || ''
     const store      = params.get('store') || 'ALL'
-    // min_credit: hide clients with credit_used below this threshold (default 0 = show all)
     const minCredit  = parseFloat(params.get('min_credit') || '0')
+    // status_filter: ALL | OVERDUE | UPTODATE
+    const statusFilter = params.get('status_filter') || 'ALL'
+    // origin: ALL | LEGACY | NEW
+    const origin     = params.get('origin') || 'ALL'
+    // sort: debt_desc | debt_asc | overdue_desc | name_asc
+    const sort       = params.get('sort') || 'overdue_desc'
     const offset     = (page - 1) * perPage
 
     // ── Query 1: Get ALL clients with active plans (just IDs + name + credit_used) ─
@@ -60,6 +65,8 @@ export async function GET(request: NextRequest) {
           `name.ilike.%${search}%,phone.ilike.%${search}%,dni.ilike.%${search}%`
         ) as typeof q
       }
+      if (origin === 'LEGACY') q = q.eq('imported_from_legacy', true)  as typeof q
+      if (origin === 'NEW')    q = q.eq('imported_from_legacy', false) as typeof q
       return q
     })
 
@@ -258,10 +265,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Remove clients with no plans (filtered out by store)
-    const result = Array.from(byClient.values()).filter(c => c.plans.length > 0)
+    let result = Array.from(byClient.values()).filter(c => c.plans.length > 0)
 
-    // Re-sort: overdue first, then by total_debt
-    result.sort((a, b) => b.overdue_amount - a.overdue_amount || b.total_debt - a.total_debt)
+    // Status filter at page level (since overdue is computed post-fetch)
+    if (statusFilter === 'OVERDUE')   result = result.filter(c => c.overdue_count > 0)
+    if (statusFilter === 'UPTODATE')  result = result.filter(c => c.overdue_count === 0)
+
+    // Sort
+    if (sort === 'debt_desc')         result.sort((a, b) => b.total_debt - a.total_debt)
+    else if (sort === 'debt_asc')     result.sort((a, b) => a.total_debt - b.total_debt)
+    else if (sort === 'name_asc')     result.sort((a, b) => a.name.localeCompare(b.name))
+    else /* overdue_desc default */   result.sort((a, b) => b.overdue_amount - a.overdue_amount || b.total_debt - a.total_debt)
 
     // ── Stats globales (todos los clientes con crédito, no solo la página) ────
     // Reusa el RPC del dashboard (get_dashboard_metrics) que ya hace el SUM

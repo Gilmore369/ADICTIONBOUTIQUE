@@ -89,7 +89,10 @@ export function CreditPlansView() {
   const [search, setSearch] = useState('')
   const [inputValue, setInputValue] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [minCredit, setMinCredit] = useState(0)  // S/ monto mínimo para filtrar micro-deudas
+  const [minCredit, setMinCredit] = useState(0)
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OVERDUE' | 'UPTODATE'>('ALL')
+  const [origin, setOrigin] = useState<'ALL' | 'LEGACY' | 'NEW'>('ALL')
+  const [sort, setSort] = useState<'overdue_desc' | 'debt_desc' | 'debt_asc' | 'name_asc'>('overdue_desc')
   const [meta, setMeta] = useState<PageMeta>({ total: 0, page: 1, per_page: PER_PAGE, total_pages: 1 })
   const [globalStats, setGlobalStats] = useState<{ total_debt: number; overdue: number }>({ total_debt: 0, overdue: 0 })
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
@@ -99,7 +102,10 @@ export function CreditPlansView() {
 
   // ─── Load page ─────────────────────────────────────────────────────────────
 
-  const loadPage = useCallback(async (page: number, searchTerm: string, store: string, minAmt = 0) => {
+  const loadPage = useCallback(async (
+    page: number, searchTerm: string, store: string, minAmt = 0,
+    statusF = 'ALL', originF = 'ALL', sortF = 'overdue_desc',
+  ) => {
     if (page === 1) setLoading(true)
     else setPageLoading(true)
 
@@ -110,6 +116,9 @@ export function CreditPlansView() {
       if (searchTerm) url.searchParams.set('search', searchTerm)
       url.searchParams.set('store', store)
       if (minAmt > 0) url.searchParams.set('min_credit', String(minAmt))
+      if (statusF !== 'ALL') url.searchParams.set('status_filter', statusF)
+      if (originF !== 'ALL') url.searchParams.set('origin', originF)
+      if (sortF !== 'overdue_desc') url.searchParams.set('sort', sortF)
 
       const res = await fetch(url.toString())
       if (!res.ok) throw new Error('Error loading credit plans')
@@ -138,9 +147,12 @@ export function CreditPlansView() {
 
   useEffect(() => {
     if (selectedStore === 'ALL' || storeId !== null) {
-      loadPage(currentPage, search, selectedStore, minCredit)
+      loadPage(currentPage, search, selectedStore, minCredit, statusFilter, origin, sort)
     }
-  }, [currentPage, selectedStore, storeId, minCredit]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, selectedStore, storeId, minCredit, statusFilter, origin, sort]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset a página 1 cuando cambian filtros
+  useEffect(() => { setCurrentPage(1) }, [statusFilter, origin, sort, minCredit])
 
   // ─── Trigger: search (debounced 400ms) ───────────────────────────────────
 
@@ -295,19 +307,56 @@ export function CreditPlansView() {
         <Button variant="outline" size="sm" onClick={collapseAll} className="gap-1.5 text-xs h-9">
           <ChevronsDownUp className="h-3.5 w-3.5" />Colapsar
         </Button>
-        {/* Min-credit filter */}
+        {/* Estado mora */}
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value as any)}
+          className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          title="Filtrar por estado de mora"
+        >
+          <option value="ALL">Todos</option>
+          <option value="OVERDUE">Solo en mora</option>
+          <option value="UPTODATE">Solo al día</option>
+        </select>
+
+        {/* Origen */}
+        <select
+          value={origin}
+          onChange={e => setOrigin(e.target.value as any)}
+          className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          title="Filtrar por origen"
+        >
+          <option value="ALL">Todos</option>
+          <option value="LEGACY">Solo legacy</option>
+          <option value="NEW">Solo nuevos</option>
+        </select>
+
+        {/* Min-credit */}
         <select
           value={minCredit}
-          onChange={e => { setMinCredit(Number(e.target.value)); setCurrentPage(1) }}
+          onChange={e => setMinCredit(Number(e.target.value))}
           className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           title="Filtrar por deuda mínima"
         >
           <option value={0}>Todas las deudas</option>
-          <option value={5}>Deuda &gt; S/ 5</option>
-          <option value={10}>Deuda &gt; S/ 10</option>
-          <option value={20}>Deuda &gt; S/ 20</option>
-          <option value={50}>Deuda &gt; S/ 50</option>
-          <option value={100}>Deuda &gt; S/ 100</option>
+          <option value={5}>&gt; S/ 5</option>
+          <option value={10}>&gt; S/ 10</option>
+          <option value={20}>&gt; S/ 20</option>
+          <option value={50}>&gt; S/ 50</option>
+          <option value={100}>&gt; S/ 100</option>
+        </select>
+
+        {/* Orden */}
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value as any)}
+          className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          title="Orden"
+        >
+          <option value="overdue_desc">Mayor mora</option>
+          <option value="debt_desc">Mayor deuda</option>
+          <option value="debt_asc">Menor deuda</option>
+          <option value="name_asc">Nombre A→Z</option>
         </select>
 
         <Badge variant="secondary" className="h-9 px-3 text-xs tabular-nums">
