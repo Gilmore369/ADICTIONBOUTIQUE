@@ -263,12 +263,61 @@ export async function GET(request: NextRequest) {
     // Re-sort: overdue first, then by total_debt
     result.sort((a, b) => b.overdue_amount - a.overdue_amount || b.total_debt - a.total_debt)
 
+    // ── Stats globales (todos los clientes con crédito, no solo la página) ────
+    // Suma TODAS las cuotas pendientes y vencidas de planes ACTIVE/OVERDUE,
+    // independiente de la paginación. Refleja exactamente lo que muestra el
+    // dashboard "Deuda total".
+    let globalDebt = 0
+    let globalOverdue = 0
+    try {
+      // 1. Plans activos/vencidos
+      const allActivePlans = await fetchAllRows<any>((from, to) =>
+        supabase
+          .from('credit_plans')
+          .select('id')
+          .in('status', ['ACTIVE', 'OVERDUE'])
+          .range(from, to)
+      )
+      const allPlanIds = allActivePlans.map((p: any) => p.id)
+
+      if (allPlanIds.length > 0) {
+        // 2. Installments de esos planes (paginar en chunks de 500 plan_ids por URL)
+        const allInsts: any[] = []
+        const CHUNK = 500
+        for (let i = 0; i < allPlanIds.length; i += CHUNK) {
+          const slice = allPlanIds.slice(i, i + CHUNK)
+          const chunkInsts = await fetchAllRows<any>((from, to) =>
+            supabase
+              .from('installments')
+              .select('amount, paid_amount, due_date, status')
+              .in('plan_id', slice)
+              .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+              .range(from, to)
+          )
+          allInsts.push(...chunkInsts)
+        }
+        for (const i of allInsts) {
+          const balance = Math.max(0, Number(i.amount) - Number(i.paid_amount || 0))
+          globalDebt += balance
+          if (balance > 0.009 && (i.due_date as string).split('T')[0] < todayStr) {
+            globalOverdue += balance
+          }
+        }
+      }
+    } catch (statsErr) {
+      console.error('[credit-plans stats]', statsErr)
+    }
+
     return NextResponse.json({
       data: result,
       total: totalClients,
       page,
       per_page: perPage,
       total_pages: totalPages,
+      stats: {
+        total_debt: globalDebt,
+        overdue: globalOverdue,
+      },
     })
   } catch (err) {
     console.error('[GET /api/credit-plans]', err)

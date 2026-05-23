@@ -91,6 +91,7 @@ export function CreditPlansView() {
   const [currentPage, setCurrentPage] = useState(1)
   const [minCredit, setMinCredit] = useState(0)  // S/ monto mínimo para filtrar micro-deudas
   const [meta, setMeta] = useState<PageMeta>({ total: 0, page: 1, per_page: PER_PAGE, total_pages: 1 })
+  const [globalStats, setGlobalStats] = useState<{ total_debt: number; overdue: number }>({ total_debt: 0, overdue: 0 })
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
   const { selectedStore, storeId } = useStore()
@@ -115,6 +116,7 @@ export function CreditPlansView() {
       const json = await res.json()
 
       setClients(json.data || [])
+      if (json.stats) setGlobalStats(json.stats)
       setMeta({
         total: json.total,
         page: json.page,
@@ -221,8 +223,8 @@ export function CreditPlansView() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard label="Total clientes" value={String(meta.total)} sub="Con crédito activo" icon={Users} color="blue" />
         <KpiCard label="Esta página" value={String(clients.length)} sub={`Página ${meta.page} de ${meta.total_pages}`} icon={TrendingUp} color="amber" />
-        <KpiCard label="Deuda total (pág.)" value={formatCurrency(totalDebt)} sub="Saldo pendiente" icon={TrendingUp} color="amber" />
-        <KpiCard label="Vencido (pág.)" value={formatCurrency(totalOverdue)} sub={totalOverdue > 0 ? 'En mora' : 'Sin mora'} icon={AlertCircle} color={totalOverdue > 0 ? 'rose' : 'green'} />
+        <KpiCard label="Deuda total" value={formatCurrency(globalStats.total_debt)} sub="Saldo pendiente global" icon={TrendingUp} color="amber" />
+        <KpiCard label="Vencido total" value={formatCurrency(globalStats.overdue)} sub={globalStats.overdue > 0 ? 'En mora global' : 'Sin mora'} icon={AlertCircle} color={globalStats.overdue > 0 ? 'rose' : 'green'} />
       </div>
 
       {/* Alerts */}
