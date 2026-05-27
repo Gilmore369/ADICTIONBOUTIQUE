@@ -40,8 +40,10 @@ export async function GET(request: NextRequest) {
     const statusFilter = params.get('status_filter') || 'ALL'
     // origin: ALL | LEGACY | NEW
     const origin     = params.get('origin') || 'ALL'
-    // sort: debt_desc | debt_asc | overdue_desc | name_asc
+    // sort: debt_desc | debt_asc | overdue_desc | name_asc | last_payment_asc
     const sort       = params.get('sort') || 'overdue_desc'
+    // age_filter: ALL | NEVER | 12 | 24 | 36 | 60 | 120 (meses sin pagos)
+    const ageFilter  = params.get('age_filter') || 'ALL'
     const offset     = (page - 1) * perPage
 
     // ── Query 1: Get ALL clients with active plans (just IDs + name + credit_used) ─
@@ -115,10 +117,39 @@ export async function GET(request: NextRequest) {
       return q
     })
 
+    // ── Pre-fetch last_payment_date por cliente (RPC SQL, 1 round-trip)
+    // Solo cuando se necesita: filtro por antigüedad O sort por last_payment_asc
+    let lastPaymentByClient: Map<string, string> = new Map()
+    const needsLastPayment = ageFilter !== 'ALL' || sort === 'last_payment_asc'
+    if (needsLastPayment) {
+      const { data: lpRows } = await supabase.rpc('get_clients_last_payment_date')
+      if (Array.isArray(lpRows)) {
+        for (const r of lpRows) {
+          if ((r as any).client_id && (r as any).last_payment) {
+            lastPaymentByClient.set((r as any).client_id, (r as any).last_payment)
+          }
+        }
+      }
+    }
+
+    // Calcular cutoff para filtro de antigüedad
+    let ageCutoffDate: string | null = null
+    if (ageFilter !== 'ALL' && ageFilter !== 'NEVER') {
+      const months = parseInt(ageFilter)
+      if (!isNaN(months) && months > 0) {
+        const d = new Date()
+        d.setMonth(d.getMonth() - months)
+        ageCutoffDate = d.toISOString().slice(0, 10) // YYYY-MM-DD
+      }
+    }
+
     // ── Filtros aplicables ──────────────────────────────────────────────────
-    // 1) Sólo clientes con planes ACTIVOS reales (no credit_used que está desincronizado)
+    // 1) Sólo clientes con planes ACTIVOS reales
     // 2) Si hay filtro tienda, intersección con storeClientIds
-    // 3) Si hay minCredit, filtrar por credit_used (cuando esté sincronizado)
+    // 3) Si hay minCredit, filtrar por credit_used
+    // 4) Si hay age_filter:
+    //    - NEVER → solo clientes SIN registros de pago
+    //    - N meses → último pago anterior a hoy-N meses (o nunca)
     const clientsList = clientsListRaw.filter(c => {
       if (storeClientIds) {
         if (!storeClientIds.has(c.id)) return false
@@ -126,6 +157,15 @@ export async function GET(request: NextRequest) {
         if (!allActivePlanClients.has(c.id)) return false
       }
       if (minCredit > 0 && Number(c.credit_used || 0) < minCredit) return false
+      if (ageFilter !== 'ALL') {
+        const lp = lastPaymentByClient.get(c.id) // YYYY-MM-DD o undefined
+        if (ageFilter === 'NEVER') {
+          if (lp) return false
+        } else if (ageCutoffDate) {
+          // Incluir si NO tiene pagos, o si el último pago es <= cutoff
+          if (lp && lp > ageCutoffDate) return false
+        }
+      }
       return true
     })
 
@@ -334,10 +374,21 @@ export async function GET(request: NextRequest) {
     if (statusFilter === 'OVERDUE')   result = result.filter(c => c.overdue_count > 0)
     if (statusFilter === 'UPTODATE')  result = result.filter(c => c.overdue_count === 0)
 
+    // Anexar last_payment al resultado (útil para mostrarlo en UI)
+    for (const c of result) {
+      const lp = lastPaymentByClient.get(c.client_id)
+      ;(c as any).last_payment = lp || null
+    }
+
     // Sort
     if (sort === 'debt_desc')         result.sort((a, b) => b.total_debt - a.total_debt)
     else if (sort === 'debt_asc')     result.sort((a, b) => a.total_debt - b.total_debt)
     else if (sort === 'name_asc')     result.sort((a, b) => a.name.localeCompare(b.name))
+    else if (sort === 'last_payment_asc') result.sort((a, b) => {
+      const la = (a as any).last_payment || '0000-00-00'
+      const lb = (b as any).last_payment || '0000-00-00'
+      return la.localeCompare(lb)  // más antiguo primero
+    })
     else /* overdue_desc default */   result.sort((a, b) => b.overdue_amount - a.overdue_amount || b.total_debt - a.total_debt)
 
     // ── Stats globales — filtrados por tienda si aplica ──────────────────────

@@ -69,6 +69,7 @@ interface ClientRow {
   overdue_count: number
   overdue_amount: number
   imported_from_legacy?: boolean
+  last_payment?: string | null  // YYYY-MM-DD del último cobro
 }
 
 interface PageMeta {
@@ -93,7 +94,9 @@ export function CreditPlansView() {
   const [minCredit, setMinCredit] = useState(0)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OVERDUE' | 'UPTODATE'>('ALL')
   const [origin, setOrigin] = useState<'ALL' | 'LEGACY' | 'NEW'>('ALL')
-  const [sort, setSort] = useState<'overdue_desc' | 'debt_desc' | 'debt_asc' | 'name_asc'>('overdue_desc')
+  const [sort, setSort] = useState<'overdue_desc' | 'debt_desc' | 'debt_asc' | 'name_asc' | 'last_payment_asc'>('overdue_desc')
+  // age_filter: ALL | NEVER | meses ('12' | '24' | '36' | '60' | '120')
+  const [ageFilter, setAgeFilter] = useState<string>('ALL')
   const [meta, setMeta] = useState<PageMeta>({ total: 0, page: 1, per_page: PER_PAGE, total_pages: 1 })
   const [globalStats, setGlobalStats] = useState<{ total_debt: number; overdue: number }>({ total_debt: 0, overdue: 0 })
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
@@ -105,7 +108,7 @@ export function CreditPlansView() {
 
   const loadPage = useCallback(async (
     page: number, searchTerm: string, store: string, minAmt = 0,
-    statusF = 'ALL', originF = 'ALL', sortF = 'overdue_desc',
+    statusF = 'ALL', originF = 'ALL', sortF = 'overdue_desc', ageF = 'ALL',
   ) => {
     if (page === 1) setLoading(true)
     else setPageLoading(true)
@@ -116,6 +119,7 @@ export function CreditPlansView() {
       url.searchParams.set('per_page', String(PER_PAGE))
       if (searchTerm) url.searchParams.set('search', searchTerm)
       url.searchParams.set('store', store)
+      if (ageF !== 'ALL') url.searchParams.set('age_filter', ageF)
       if (minAmt > 0) url.searchParams.set('min_credit', String(minAmt))
       if (statusF !== 'ALL') url.searchParams.set('status_filter', statusF)
       if (originF !== 'ALL') url.searchParams.set('origin', originF)
@@ -148,12 +152,12 @@ export function CreditPlansView() {
 
   useEffect(() => {
     if (selectedStore === 'ALL' || storeId !== null) {
-      loadPage(currentPage, search, selectedStore, minCredit, statusFilter, origin, sort)
+      loadPage(currentPage, search, selectedStore, minCredit, statusFilter, origin, sort, ageFilter)
     }
-  }, [currentPage, selectedStore, storeId, minCredit, statusFilter, origin, sort]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, selectedStore, storeId, minCredit, statusFilter, origin, sort, ageFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset a página 1 cuando cambian filtros
-  useEffect(() => { setCurrentPage(1) }, [statusFilter, origin, sort, minCredit])
+  useEffect(() => { setCurrentPage(1) }, [statusFilter, origin, sort, minCredit, ageFilter])
 
   // ─── Trigger: search (debounced 400ms) ───────────────────────────────────
 
@@ -347,6 +351,22 @@ export function CreditPlansView() {
           <option value={100}>&gt; S/ 100</option>
         </select>
 
+        {/* Antigüedad sin pagos */}
+        <select
+          value={ageFilter}
+          onChange={e => setAgeFilter(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          title="Filtrar por antigüedad del último pago"
+        >
+          <option value="ALL">Cualquier antigüedad</option>
+          <option value="NEVER">Nunca pagaron</option>
+          <option value="12">Sin pagos &gt; 1 año</option>
+          <option value="24">Sin pagos &gt; 2 años</option>
+          <option value="36">Sin pagos &gt; 3 años</option>
+          <option value="60">Sin pagos &gt; 5 años</option>
+          <option value="120">Sin pagos &gt; 10 años</option>
+        </select>
+
         {/* Orden */}
         <select
           value={sort}
@@ -358,6 +378,7 @@ export function CreditPlansView() {
           <option value="debt_desc">Mayor deuda</option>
           <option value="debt_asc">Menor deuda</option>
           <option value="name_asc">Nombre A→Z</option>
+          <option value="last_payment_asc">Más antiguo sin pago</option>
         </select>
 
         <Badge variant="secondary" className="h-9 px-3 text-xs tabular-nums">
@@ -556,6 +577,29 @@ function ClientAccordion({ client, isExpanded, expandedPlans, onToggleClient, on
                 Compra: {legacyPurchaseSummary}
               </p>
             )}
+            {/* Last payment indicator */}
+            <p className="mt-0.5 ml-5 text-[10px] flex items-center gap-1">
+              {(() => {
+                const lp = (client as any).last_payment as string | null | undefined
+                if (!lp) {
+                  return <span className="text-rose-600 dark:text-rose-400 font-semibold">⚠ Nunca pagó</span>
+                }
+                const daysSince = Math.floor((Date.now() - new Date(lp + 'T12:00:00Z').getTime()) / 86400000)
+                const monthsSince = Math.floor(daysSince / 30)
+                const yearsSince = (daysSince / 365).toFixed(1)
+                const cls = daysSince > 365
+                  ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                  : daysSince > 90
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-muted-foreground'
+                const label = daysSince > 365
+                  ? `Últ. pago hace ${yearsSince} años (${lp})`
+                  : daysSince > 30
+                    ? `Últ. pago hace ${monthsSince} meses (${lp})`
+                    : `Últ. pago: ${lp}`
+                return <span className={cls}>{label}</span>
+              })()}
+            </p>
           </div>
 
           {/* Plan count */}
