@@ -330,6 +330,9 @@ export default async function DashboardPage({
       p_search:    '',
       p_store_id:  storeFilter,
     })
+    if (payErr) {
+      console.error('[dashboard] get_payments_stats error:', payErr)
+    }
     if (!payErr && payStats) {
       filteredPaymentsMonth = Number((payStats as any).total) || 0
     }
