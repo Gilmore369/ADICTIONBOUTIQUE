@@ -52,8 +52,41 @@ export async function GET(request: NextRequest) {
     //
     // This is a lightweight query — no plans, no installments embedded.
 
+    // ── Pre-fetch: si filtro por tienda, calcular qué client_ids tienen planes en esa tienda
+    // Esto permite contar TOTAL de clientes por tienda correctamente (no global)
+    const STORE_TEXT_FOR_FILTER: Record<string, string> = {
+      MUJERES: 'Tienda Mujeres',
+      HOMBRES: 'Tienda Hombres',
+    }
+    let storeClientIds: Set<string> | null = null
+    let storeFilteredPlansLite: any[] = []   // {id, client_id, legacy_source}
+    if (store !== 'ALL') {
+      const allActivePlans = await fetchAllRows<any>((from, to) =>
+        supabase
+          .from('credit_plans')
+          .select('id, client_id, legacy_source, sale:sales(store_id)')
+          .in('status', ['ACTIVE', 'OVERDUE'])
+          .range(from, to)
+      )
+      storeFilteredPlansLite = allActivePlans.filter((p: any) => {
+        const src = (p.legacy_source || '').toLowerCase()
+        const saleStore = (p.sale as any)?.store_id
+        if (store === 'HOMBRES') {
+          return src.includes('hombres') || src.includes('boutiquev') || saleStore === 'Tienda Hombres'
+        }
+        if (store === 'MUJERES') {
+          return src.includes('mujeres') || src.includes('dbadiction') || saleStore === 'Tienda Mujeres'
+        }
+        return false
+      })
+      storeClientIds = new Set<string>()
+      for (const p of storeFilteredPlansLite) {
+        if (p.client_id) storeClientIds.add(p.client_id)
+      }
+    }
+
     // Fetch ALL clients with active plans — paginated to bypass Supabase max_rows cap (1000/request)
-    const clientsList = await fetchAllRows<any>((from, to) => {
+    const clientsListRaw = await fetchAllRows<any>((from, to) => {
       let q = supabase
         .from('clients')
         .select('id, name, phone, dni, credit_limit, credit_used, imported_from_legacy')
@@ -70,10 +103,10 @@ export async function GET(request: NextRequest) {
       return q
     })
 
-    // ── Filter: only clients that actually have ACTIVE/OVERDUE plans ────────────
-    // (credit_used > 0 is a good proxy but not perfect — get definitive list)
-    // We do this check against plans below; for now use credit_used > 0 as pre-filter
-    // and reconcile after fetching plans.
+    // Intersección con clientes que tienen planes en la tienda seleccionada
+    const clientsList = storeClientIds
+      ? clientsListRaw.filter(c => storeClientIds!.has(c.id))
+      : clientsListRaw
 
     const totalClients = clientsList.length
     const totalPages   = Math.max(1, Math.ceil(totalClients / perPage))
@@ -286,17 +319,37 @@ export async function GET(request: NextRequest) {
     else if (sort === 'name_asc')     result.sort((a, b) => a.name.localeCompare(b.name))
     else /* overdue_desc default */   result.sort((a, b) => b.overdue_amount - a.overdue_amount || b.total_debt - a.total_debt)
 
-    // ── Stats globales (todos los clientes con crédito, no solo la página) ────
-    // Reusa el RPC del dashboard (get_dashboard_metrics) que ya hace el SUM
-    // server-side en 1 query. Mucho más rápido y evita HeadersOverflowError
-    // que ocurría con .in('plan_id', [+500 UUIDs]).
+    // ── Stats globales — filtrados por tienda si aplica ──────────────────────
     let globalDebt = 0
     let globalOverdue = 0
     try {
-      const { data: dash } = await supabase.rpc('get_dashboard_metrics', { p_inactivity_days: 90 })
-      if (dash) {
-        globalDebt    = Number((dash as any).totalOutstandingDebt) || 0
-        globalOverdue = Number((dash as any).totalOverdueDebt)     || 0
+      if (store === 'ALL') {
+        // Sin filtro: usar RPC del dashboard (1 query SQL)
+        const { data: dash } = await supabase.rpc('get_dashboard_metrics', { p_inactivity_days: 90 })
+        if (dash) {
+          globalDebt    = Number((dash as any).totalOutstandingDebt) || 0
+          globalOverdue = Number((dash as any).totalOverdueDebt)     || 0
+        }
+      } else if (storeFilteredPlansLite.length > 0) {
+        // Con filtro tienda: agregar installments de planes filtrados.
+        // Chunkeamos por URL limit (.in con +500 UUIDs revienta headers).
+        const planIds = storeFilteredPlansLite.map(p => p.id)
+        const CHUNK = 200
+        for (let i = 0; i < planIds.length; i += CHUNK) {
+          const chunkIds = planIds.slice(i, i + CHUNK)
+          const { data: insts } = await supabase
+            .from('installments')
+            .select('amount, paid_amount, due_date, status')
+            .in('plan_id', chunkIds)
+            .neq('status', 'PAID')
+          for (const inst of (insts || [])) {
+            const balance = Math.max(0, Number((inst as any).amount) - Number((inst as any).paid_amount || 0))
+            globalDebt += balance
+            if (balance > 0.009 && ((inst as any).due_date as string).split('T')[0] < todayStr) {
+              globalOverdue += balance
+            }
+          }
+        }
       }
     } catch (statsErr) {
       console.error('[credit-plans stats]', statsErr)
