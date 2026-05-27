@@ -106,12 +106,26 @@ export function CreditPlansView() {
 
   // ─── Load page ─────────────────────────────────────────────────────────────
 
+  // AbortController para cancelar requests anteriores en filtros rápidos
+  const abortRef = useRef<AbortController | null>(null)
+
   const loadPage = useCallback(async (
     page: number, searchTerm: string, store: string, minAmt = 0,
     statusF = 'ALL', originF = 'ALL', sortF = 'overdue_desc', ageF = 'ALL',
   ) => {
-    if (page === 1) setLoading(true)
-    else setPageLoading(true)
+    // Cancelar request previa en vuelo
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    // Loading state: solo mostrar skeleton si NO hay clients aún (primera carga).
+    // En refetches, mantenemos visible la lista actual y solo mostramos pageLoading
+    // (un spinner sutil) → mucho más fluido al filtrar.
+    setClients(prev => {
+      if (prev.length === 0) setLoading(true)
+      else setPageLoading(true)
+      return prev
+    })
 
     try {
       const url = new URL('/api/credit-plans', window.location.origin)
@@ -125,7 +139,7 @@ export function CreditPlansView() {
       if (originF !== 'ALL') url.searchParams.set('origin', originF)
       if (sortF !== 'overdue_desc') url.searchParams.set('sort', sortF)
 
-      const res = await fetch(url.toString())
+      const res = await fetch(url.toString(), { signal: controller.signal })
       if (!res.ok) throw new Error('Error loading credit plans')
       const json = await res.json()
 
@@ -137,14 +151,16 @@ export function CreditPlansView() {
         per_page: json.per_page,
         total_pages: json.total_pages,
       })
-      // Collapse everything on page/search change
       setExpandedClients(new Set())
       setExpandedPlans(new Set())
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return  // cancelado por nueva búsqueda, OK
       console.error('[CreditPlansView] loadPage error:', err)
     } finally {
-      setLoading(false)
-      setPageLoading(false)
+      if (!controller.signal.aborted) {
+        setLoading(false)
+        setPageLoading(false)
+      }
     }
   }, [])
 
@@ -154,28 +170,25 @@ export function CreditPlansView() {
     if (selectedStore === 'ALL' || storeId !== null) {
       loadPage(currentPage, search, selectedStore, minCredit, statusFilter, origin, sort, ageFilter)
     }
-  }, [currentPage, selectedStore, storeId, minCredit, statusFilter, origin, sort, ageFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, selectedStore, storeId, minCredit, statusFilter, origin, sort, ageFilter, search]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset a página 1 cuando cambian filtros
-  useEffect(() => { setCurrentPage(1) }, [statusFilter, origin, sort, minCredit, ageFilter])
+  useEffect(() => { setCurrentPage(1) }, [statusFilter, origin, sort, minCredit, ageFilter, search])
 
   // ─── Trigger: search (debounced 400ms) ───────────────────────────────────
 
   const handleSearchChange = (value: string) => {
     setInputValue(value)
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    // Debounce 350ms — setSearch dispara useEffect que recarga con todos los filtros
     searchTimerRef.current = setTimeout(() => {
       setSearch(value)
-      setCurrentPage(1)
-      loadPage(1, value, selectedStore)
-    }, 400)
+    }, 350)
   }
 
   const clearSearch = () => {
     setInputValue('')
     setSearch('')
-    setCurrentPage(1)
-    loadPage(1, '', selectedStore)
   }
 
   // ─── Load alerts (overdue) — lightweight, separate query ─────────────────
@@ -381,13 +394,16 @@ export function CreditPlansView() {
           <option value="last_payment_asc">Más antiguo sin pago</option>
         </select>
 
-        <Badge variant="secondary" className="h-9 px-3 text-xs tabular-nums">
+        <Badge variant="secondary" className="h-9 px-3 text-xs tabular-nums flex items-center gap-1.5">
           {overdueClients} en mora · {clients.length} en página
+          {pageLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
         </Badge>
       </div>
 
       {/* Client accordion list */}
-      {pageLoading ? (
+      {/* Skeleton SOLO si no hay clientes aún (primera carga); en refetches
+          mantenemos la lista visible con un dim sutil + spinner del header. */}
+      {pageLoading && clients.length === 0 ? (
         <div className="space-y-2">
           {[1, 2, 3].map(i => (
             <div key={i} className="h-14 rounded-xl border bg-muted/30 animate-pulse" />
@@ -398,7 +414,7 @@ export function CreditPlansView() {
           {search ? 'Sin resultados para la búsqueda' : 'No hay clientes con crédito activo'}
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className={`space-y-2 transition-opacity duration-200 ${pageLoading ? 'opacity-60' : 'opacity-100'}`}>
           {clients.map(client => (
             <ClientAccordion
               key={client.client_id}
