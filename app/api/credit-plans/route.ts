@@ -52,22 +52,31 @@ export async function GET(request: NextRequest) {
     //
     // This is a lightweight query — no plans, no installments embedded.
 
-    // ── Pre-fetch: si filtro por tienda, calcular qué client_ids tienen planes en esa tienda
-    // Esto permite contar TOTAL de clientes por tienda correctamente (no global)
+    // ── Pre-fetch: SIEMPRE traer todos los planes ACTIVOS para identificar
+    // qué clientes tienen deuda. Antes filtrábamos por credit_used > 0 pero
+    // ese campo está desincronizado (944 vs 1,605 clientes únicos reales).
     const STORE_TEXT_FOR_FILTER: Record<string, string> = {
       MUJERES: 'Tienda Mujeres',
       HOMBRES: 'Tienda Hombres',
     }
     let storeClientIds: Set<string> | null = null
     let storeFilteredPlansLite: any[] = []   // {id, client_id, legacy_source}
+
+    // Traer TODOS los planes activos siempre (lightweight). Sirve para:
+    //   - filtro por tienda (storeClientIds)
+    //   - lista REAL de clientes con deuda (allActivePlanClients) — bypassea credit_used
+    const allActivePlans = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from('credit_plans')
+        .select('id, client_id, legacy_source, sale:sales(store_id)')
+        .in('status', ['ACTIVE', 'OVERDUE'])
+        .range(from, to)
+    )
+    const allActivePlanClients = new Set<string>(
+      allActivePlans.map((p: any) => p.client_id).filter(Boolean)
+    )
+
     if (store !== 'ALL') {
-      const allActivePlans = await fetchAllRows<any>((from, to) =>
-        supabase
-          .from('credit_plans')
-          .select('id, client_id, legacy_source, sale:sales(store_id)')
-          .in('status', ['ACTIVE', 'OVERDUE'])
-          .range(from, to)
-      )
       storeFilteredPlansLite = allActivePlans.filter((p: any) => {
         const src = (p.legacy_source || '').toLowerCase()
         const saleStore = (p.sale as any)?.store_id
@@ -83,14 +92,17 @@ export async function GET(request: NextRequest) {
       for (const p of storeFilteredPlansLite) {
         if (p.client_id) storeClientIds.add(p.client_id)
       }
+    } else {
+      // Para "Todas las tiendas", también guardamos los planes para los stats
+      storeFilteredPlansLite = allActivePlans
     }
 
-    // Fetch ALL clients with active plans — paginated to bypass Supabase max_rows cap (1000/request)
+    // Fetch ALL clients (sin filtro credit_used) — paginated bypass max_rows
     const clientsListRaw = await fetchAllRows<any>((from, to) => {
       let q = supabase
         .from('clients')
         .select('id, name, phone, dni, credit_limit, credit_used, imported_from_legacy')
-        .gt('credit_used', minCredit > 0 ? minCredit : 0)  // filter micro-debts if requested
+        .eq('active', true)
         .order('credit_used', { ascending: false })
         .range(from, to)
       if (search) {
@@ -103,10 +115,19 @@ export async function GET(request: NextRequest) {
       return q
     })
 
-    // Intersección con clientes que tienen planes en la tienda seleccionada
-    const clientsList = storeClientIds
-      ? clientsListRaw.filter(c => storeClientIds!.has(c.id))
-      : clientsListRaw
+    // ── Filtros aplicables ──────────────────────────────────────────────────
+    // 1) Sólo clientes con planes ACTIVOS reales (no credit_used que está desincronizado)
+    // 2) Si hay filtro tienda, intersección con storeClientIds
+    // 3) Si hay minCredit, filtrar por credit_used (cuando esté sincronizado)
+    const clientsList = clientsListRaw.filter(c => {
+      if (storeClientIds) {
+        if (!storeClientIds.has(c.id)) return false
+      } else {
+        if (!allActivePlanClients.has(c.id)) return false
+      }
+      if (minCredit > 0 && Number(c.credit_used || 0) < minCredit) return false
+      return true
+    })
 
     const totalClients = clientsList.length
     const totalPages   = Math.max(1, Math.ceil(totalClients / perPage))
