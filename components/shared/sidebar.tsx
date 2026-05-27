@@ -30,6 +30,7 @@ import {
   ShoppingCart,
   Store,
   Tag,
+  TrendingUp,
   Truck,
   Upload,
   UserCog,
@@ -123,6 +124,7 @@ const groups: NavGroup[] = [
     label: 'Reportes',
     icon: BarChart3,
     items: [
+      { title: 'Métricas comparativas', href: '/reports?tab=metricas', icon: TrendingUp },
       { title: 'Ventas', href: '/reports?tab=sales', icon: ShoppingCart },
       { title: 'Inventario', href: '/reports?tab=inventory', icon: Warehouse },
       { title: 'Clientes', href: '/reports?tab=clients', icon: Users },
