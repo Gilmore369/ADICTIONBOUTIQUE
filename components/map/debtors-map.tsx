@@ -13,7 +13,7 @@
  * - Spacing: 16px
  */
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { GoogleMap, useLoadScript, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api'
 import { Card } from '@/components/ui/card'
@@ -147,6 +147,8 @@ export function DebtorsMap() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
+  // Cache de clientes por (filter, store) — evita re-fetch al cambiar tabs
+  const cacheRef = useRef<Record<string, Client[]>>({})
   const [generatingRoute, setGeneratingRoute] = useState(false)
   const [routeType, setRouteType] = useState<RouteType>('Cobranza')
   const [visitBannerDismissed, setVisitBannerDismissed] = useState(false)
@@ -227,19 +229,34 @@ export function DebtorsMap() {
   }
 
   const loadClients = async (filterType: FilterType) => {
+    const cacheKey = `${filterType}|${selectedStore || 'ALL'}`
+    const cached = cacheRef.current[cacheKey]
+    if (cached) {
+      // Cache hit → mostrar inmediatamente, no setLoading
+      setClients(cached)
+      return
+    }
     setLoading(true)
+    // ⚠️ NO limpiamos clients aquí — los markers previos siguen visibles
+    //    mientras llega la respuesta (mejor UX que parpadeo a vacío)
     try {
-      // Pasar tienda seleccionada para que la API filtre correctamente
       const storeParam = selectedStore && selectedStore !== 'ALL' ? `?store=${selectedStore}` : ''
       const response = await fetch(filterConfig[filterType].api + storeParam)
       const { data } = await response.json()
-      setClients(data || [])
+      const arr = data || []
+      cacheRef.current[cacheKey] = arr
+      setClients(arr)
     } catch (error) {
       console.error('Error loading clients:', error)
     } finally {
       setLoading(false)
     }
   }
+
+  // Invalidar cache cuando cambia la tienda (los 4 filtros recargan)
+  useEffect(() => {
+    cacheRef.current = {}
+  }, [selectedStore])
 
   // ── Filtered clients (apply days filter for overdue) ───────────────────────
   const displayedClients = filter === 'overdue' && minDays > 0
@@ -413,7 +430,10 @@ export function DebtorsMap() {
     )
   }
 
-  if (!isLoaded || loading) {
+  // Solo bloqueamos el render si Google Maps API no está lista
+  // o si es la PRIMERA carga (clients vacío). En refresh con datos previos,
+  // mantenemos el mapa visible y mostramos overlay sutil.
+  if (!isLoaded || (loading && clients.length === 0)) {
     return (
       <Card className="p-4">
         <p className="text-sm text-muted-foreground">Cargando mapa...</p>
@@ -654,6 +674,13 @@ export function DebtorsMap() {
               <X className="h-3.5 w-3.5" />
               Limpiar ruta
             </button>
+          </div>
+        )}
+        {/* Overlay sutil cuando se refresca con datos previos */}
+        {loading && clients.length > 0 && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-white/95 shadow-md border border-gray-200 rounded-full px-3 py-1.5 text-xs font-medium text-foreground/80 flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+            Actualizando…
           </div>
         )}
         <GoogleMap
