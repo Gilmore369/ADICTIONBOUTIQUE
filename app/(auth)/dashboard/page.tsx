@@ -10,6 +10,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import DashboardClient, { type DashboardMetrics } from '@/components/dashboard/DashboardClient'
 import { getTodayPeru, peruMidnightUTC, PERU_TZ } from '@/lib/utils/timezone'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export const dynamic = 'force-dynamic'
 
@@ -172,25 +173,34 @@ export default async function DashboardPage({
             .eq('products.active', true)
         : Promise.resolve({ data: null, error: null }),
       // Planes de crédito filtrados via service client (bypasses RLS)
-      // — Para Mujeres: inner join con sales.store_id
-      // — Para Hombres: inner join con sales + UNION planes BoutiqueV (sale_id=NULL)
+      // ⚠️ IMPORTANTE: usar fetchAllRows porque Mujeres tiene 2,671 planes y
+      // una query sin range() se capea a 1000 → undercount → fallback a global.
       storeFilter
         ? (async () => {
-            const linked = await createServiceClient().from('credit_plans')
-              .select('id, client_id, sales!inner(store_id)')
-              .eq('sales.store_id', storeFilter)
-              .eq('status', 'ACTIVE')
-            if (storeFilter === 'Tienda Hombres') {
-              const boutique = await createServiceClient().from('credit_plans')
-                .select('id, client_id')
-                .eq('status', 'ACTIVE')
-                .eq('legacy_source', 'BoutiqueV 2008 (Hombres)')
-              return {
-                data: [...(linked.data ?? []), ...(boutique.data ?? [])],
-                error: linked.error ?? boutique.error ?? null,
+            const svc = createServiceClient()
+            try {
+              const linked = await fetchAllRows<any>((from, to) =>
+                svc.from('credit_plans')
+                  .select('id, client_id, sales!inner(store_id)')
+                  .eq('sales.store_id', storeFilter)
+                  .eq('status', 'ACTIVE')
+                  .range(from, to)
+              )
+              if (storeFilter === 'Tienda Hombres') {
+                const boutique = await fetchAllRows<any>((from, to) =>
+                  svc.from('credit_plans')
+                    .select('id, client_id')
+                    .eq('status', 'ACTIVE')
+                    .eq('legacy_source', 'BoutiqueV 2008 (Hombres)')
+                    .range(from, to)
+                )
+                return { data: [...linked, ...boutique], error: null }
               }
+              return { data: linked, error: null }
+            } catch (err) {
+              console.error('[dashboard] credit_plans filtered fetch error:', err)
+              return { data: null, error: err }
             }
-            return linked
           })()
         : Promise.resolve({ data: null, error: null }),
     ])
@@ -236,63 +246,74 @@ export default async function DashboardPage({
   const filteredCountToday   = todaySalesRows.length
 
   // Store-filtered debt counts
-  // IMPORTANTE: chunkear .in() porque con +2,500 UUIDs el header revienta
-  // (HeadersOverflowError) → catch silencioso → fallback a global.
+  // ⚠️ Chunkeamos .in() (HeadersOverflowError con +500 UUIDs) Y paralelizamos
+  //    los chunks para reducir lag al cambiar de tienda.
   const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
   let filteredClientsWithDebt: number | null = null
   let filteredClientsOverdue: number | null = null
+  let filteredTotalDebt: number | null = null
+  let filteredTotalOverdue: number | null = null
   const CHUNK_IN = 200
+
   if (filteredDebtPlans !== null) {
     const activeClientIds = [...new Set(filteredDebtPlans.map((p: any) => p.client_id))]
     filteredClientsWithDebt = activeClientIds.length
     const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
-    if (activePlanIds.length > 0) {
-      const overdueClientIds = new Set<string>()
+
+    if (activePlanIds.length === 0) {
+      filteredClientsOverdue = 0
+      filteredTotalDebt = 0
+      filteredTotalOverdue = 0
+    } else {
       const planToClient = new Map<string, string>()
       for (const p of filteredDebtPlans) planToClient.set(p.id, p.client_id)
+      const svc = createServiceClient()
+
+      // Build chunks
+      const chunks: string[][] = []
       for (let i = 0; i < activePlanIds.length; i += CHUNK_IN) {
-        const chunk = activePlanIds.slice(i, i + CHUNK_IN)
-        const { data: overdueRows } = await createServiceClient()
-          .from('installments')
-          .select('plan_id')
-          .in('plan_id', chunk)
-          .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-          .lt('due_date', peruDateStr)
-        for (const r of (overdueRows || [])) {
+        chunks.push(activePlanIds.slice(i, i + CHUNK_IN))
+      }
+
+      // Lanzar TODOS los chunks en paralelo para ambas queries (overdue + total)
+      const [overdueResults, totalResults] = await Promise.all([
+        Promise.all(chunks.map(chunk =>
+          svc.from('installments')
+            .select('plan_id')
+            .in('plan_id', chunk)
+            .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+            .lt('due_date', peruDateStr)
+        )),
+        Promise.all(chunks.map(chunk =>
+          svc.from('installments')
+            .select('amount, paid_amount, due_date, status')
+            .in('plan_id', chunk)
+            .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+        )),
+      ])
+
+      // Process overdue clients
+      const overdueClientIds = new Set<string>()
+      for (const res of overdueResults) {
+        for (const r of (res.data || [])) {
           const cid = planToClient.get((r as any).plan_id)
           if (cid) overdueClientIds.add(cid)
         }
       }
       filteredClientsOverdue = overdueClientIds.size
-    } else {
-      filteredClientsOverdue = 0
-    }
-  }
 
-  // ── Compute filtered debt totals ──────────────────────────────────────────
-  let filteredTotalDebt: number | null = null
-  let filteredTotalOverdue: number | null = null
-  if (filteredDebtPlans !== null && filteredDebtPlans.length > 0) {
-    const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
-    let allInstRows: any[] = []
-    for (let i = 0; i < activePlanIds.length; i += CHUNK_IN) {
-      const chunk = activePlanIds.slice(i, i + CHUNK_IN)
-      const { data: installmentRows } = await createServiceClient()
-        .from('installments')
-        .select('amount, paid_amount, due_date, status')
-        .in('plan_id', chunk)
-        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-      if (installmentRows) allInstRows.push(...installmentRows)
+      // Process totals
+      const allInstRows: any[] = []
+      for (const res of totalResults) {
+        if (res.data) allInstRows.push(...res.data)
+      }
+      filteredTotalDebt = allInstRows.reduce(
+        (s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0
+      )
+      filteredTotalOverdue = allInstRows
+        .filter((r: any) => r.due_date < peruDateStr)
+        .reduce((s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0)
     }
-    filteredTotalDebt = allInstRows.reduce(
-      (s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0
-    )
-    filteredTotalOverdue = allInstRows
-      .filter((r: any) => r.due_date < peruDateStr)
-      .reduce((s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0)
-  } else if (filteredDebtPlans !== null && filteredDebtPlans.length === 0) {
-    filteredTotalDebt = 0
-    filteredTotalOverdue = 0
   }
 
   // ── Compute filtered payments this month ───────────────────────────────────
