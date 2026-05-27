@@ -236,28 +236,33 @@ export default async function DashboardPage({
   const filteredCountToday   = todaySalesRows.length
 
   // Store-filtered debt counts
+  // IMPORTANTE: chunkear .in() porque con +2,500 UUIDs el header revienta
+  // (HeadersOverflowError) → catch silencioso → fallback a global.
   const filteredDebtPlans = (filteredDebtRes?.data ?? null) as any[] | null
   let filteredClientsWithDebt: number | null = null
   let filteredClientsOverdue: number | null = null
+  const CHUNK_IN = 200
   if (filteredDebtPlans !== null) {
-    // Count distinct client_ids with active plans that have pending installments
     const activeClientIds = [...new Set(filteredDebtPlans.map((p: any) => p.client_id))]
     filteredClientsWithDebt = activeClientIds.length
-    // For overdue: check which active plan IDs have installments past due
     const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
     if (activePlanIds.length > 0) {
-      const { data: overdueRows } = await createServiceClient()
-        .from('installments')
-        .select('plan_id')
-        .in('plan_id', activePlanIds)
-        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-        .lt('due_date', peruDateStr)
-      const overdueClientIds = new Set(
-        (overdueRows || []).map((r: any) => {
-          const plan = filteredDebtPlans.find((p: any) => p.id === r.plan_id)
-          return plan?.client_id
-        }).filter(Boolean)
-      )
+      const overdueClientIds = new Set<string>()
+      const planToClient = new Map<string, string>()
+      for (const p of filteredDebtPlans) planToClient.set(p.id, p.client_id)
+      for (let i = 0; i < activePlanIds.length; i += CHUNK_IN) {
+        const chunk = activePlanIds.slice(i, i + CHUNK_IN)
+        const { data: overdueRows } = await createServiceClient()
+          .from('installments')
+          .select('plan_id')
+          .in('plan_id', chunk)
+          .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+          .lt('due_date', peruDateStr)
+        for (const r of (overdueRows || [])) {
+          const cid = planToClient.get((r as any).plan_id)
+          if (cid) overdueClientIds.add(cid)
+        }
+      }
       filteredClientsOverdue = overdueClientIds.size
     } else {
       filteredClientsOverdue = 0
@@ -269,19 +274,22 @@ export default async function DashboardPage({
   let filteredTotalOverdue: number | null = null
   if (filteredDebtPlans !== null && filteredDebtPlans.length > 0) {
     const activePlanIds = filteredDebtPlans.map((p: any) => p.id)
-    const { data: installmentRows } = await createServiceClient()
-      .from('installments')
-      .select('amount, paid_amount, due_date, status')
-      .in('plan_id', activePlanIds)
-      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-    if (installmentRows) {
-      filteredTotalDebt = installmentRows.reduce(
-        (s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0
-      )
-      filteredTotalOverdue = installmentRows
-        .filter((r: any) => r.due_date < peruDateStr)
-        .reduce((s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0)
+    let allInstRows: any[] = []
+    for (let i = 0; i < activePlanIds.length; i += CHUNK_IN) {
+      const chunk = activePlanIds.slice(i, i + CHUNK_IN)
+      const { data: installmentRows } = await createServiceClient()
+        .from('installments')
+        .select('amount, paid_amount, due_date, status')
+        .in('plan_id', chunk)
+        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+      if (installmentRows) allInstRows.push(...installmentRows)
     }
+    filteredTotalDebt = allInstRows.reduce(
+      (s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0
+    )
+    filteredTotalOverdue = allInstRows
+      .filter((r: any) => r.due_date < peruDateStr)
+      .reduce((s: number, r: any) => s + Math.max(0, Number(r.amount) - Number(r.paid_amount || 0)), 0)
   } else if (filteredDebtPlans !== null && filteredDebtPlans.length === 0) {
     filteredTotalDebt = 0
     filteredTotalOverdue = 0
