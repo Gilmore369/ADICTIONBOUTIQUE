@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useStore } from '@/contexts/store-context'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -106,6 +107,7 @@ function periodRange(period: Period): { from: string; to: string } {
 }
 
 export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
+  const { selectedStore } = useStore()
   const [period, setPeriod] = useState<Period>(initialPeriod)
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -128,7 +130,7 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
   const debouncedSearch = useDebounce(search, 300)
 
   const fetchPayments = useCallback(async (
-    page: number, s: string, fromDate: string, toDate: string,
+    page: number, s: string, fromDate: string, toDate: string, store: string,
   ) => {
     setIsLoading(true)
     try {
@@ -137,6 +139,7 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
         from: fromDate, to: toDate,
       })
       if (s) qs.set('search', s)
+      if (store && store !== 'ALL') qs.set('store', store)
       const res = await fetch(`/api/payments/paginated?${qs}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Error al cargar cobros')
@@ -152,8 +155,11 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
   }, [])
 
   useEffect(() => {
-    fetchPayments(currentPage, debouncedSearch, from, to)
-  }, [fetchPayments, currentPage, debouncedSearch, from, to])
+    fetchPayments(currentPage, debouncedSearch, from, to, selectedStore || 'ALL')
+  }, [fetchPayments, currentPage, debouncedSearch, from, to, selectedStore])
+
+  // Reset a página 1 al cambiar tienda
+  useEffect(() => { setCurrentPage(1) }, [selectedStore])
 
   // Reset página al cambiar filtros
   useEffect(() => { setCurrentPage(1) }, [period, debouncedSearch, customFrom, customTo])
