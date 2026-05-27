@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { getTodayPeru, peruMidnightUTC } from '@/lib/utils/timezone'
 import { getAllowedStoreNames, getAllowedPlanIds } from '@/lib/utils/store-filter'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export async function GET(request: Request) {
   try {
@@ -24,43 +25,43 @@ export async function GET(request: Request) {
       planIdFilter = await getAllowedPlanIds(supabase, allowedStoreNames)
     }
 
-    let query = supabase
-      .from('installments')
-      .select(`
-        id,
-        plan_id,
-        amount,
-        paid_amount,
-        due_date,
-        credit_plans!inner (
-          client_id,
-          clients!inner (
-            id,
-            name,
-            phone,
-            address,
-            lat,
-            lng,
-            credit_used,
-            credit_limit,
-            client_photo_url
+    // ⚠️ ANTES tenía .limit(100) que excluía 3,267 de las 3,367 cuotas vencidas
+    //    → solo se veía un puñado de clientes en el mapa. Usamos fetchAllRows.
+    const overdueInstallments = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('installments')
+        .select(`
+          id,
+          plan_id,
+          amount,
+          paid_amount,
+          due_date,
+          credit_plans!inner (
+            client_id,
+            clients!inner (
+              id,
+              name,
+              phone,
+              address,
+              lat,
+              lng,
+              credit_used,
+              credit_limit,
+              client_photo_url
+            )
           )
-        )
-      `)
-      .lt('due_date', today)
-      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-      .limit(100)
+        `)
+        .lt('due_date', today)
+        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+        .range(from, to)
+      if (planIdFilter !== null) {
+        q = q.in('plan_id', planIdFilter) as typeof q
+      }
+      return q
+    })
 
-    // Apply store filter if needed
-    if (planIdFilter !== null) {
-      if (planIdFilter.length === 0) return NextResponse.json({ data: [] })
-      query = query.in('plan_id', planIdFilter) as typeof query
-    }
-
-    const { data: overdueInstallments, error: installmentsError } = await query
-
-    if (installmentsError) {
-      return NextResponse.json({ error: installmentsError.message }, { status: 500 })
+    if (planIdFilter !== null && planIdFilter.length === 0) {
+      return NextResponse.json({ data: [] })
     }
 
     const clientsMap = new Map()

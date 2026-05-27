@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { getAllowedStoreNames, getAllowedClientIds } from '@/lib/utils/store-filter'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export async function GET(request: Request) {
   try {
@@ -20,22 +21,19 @@ export async function GET(request: Request) {
       clientIdFilter = await getAllowedClientIds(supabase, allowedStoreNames)
     }
 
-    let query = supabase
-      .from('clients')
-      .select('id, name, phone, address, lat, lng, credit_used, credit_limit, client_photo_url')
-      .gt('credit_used', 0)
-      .order('credit_used', { ascending: false })
-      .limit(100)
-
-    if (clientIdFilter !== null) {
-      if (clientIdFilter.length === 0) return NextResponse.json({ data: [] })
-      query = query.in('id', clientIdFilter) as typeof query
+    if (clientIdFilter !== null && clientIdFilter.length === 0) {
+      return NextResponse.json({ data: [] })
     }
-
-    const { data, error } = await query
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    const data = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('clients')
+        .select('id, name, phone, address, lat, lng, credit_used, credit_limit, client_photo_url')
+        .gt('credit_used', 0)
+        .order('credit_used', { ascending: false })
+        .range(from, to)
+      if (clientIdFilter !== null) q = q.in('id', clientIdFilter) as typeof q
+      return q
+    })
 
     return NextResponse.json({ data })
   } catch (error) {

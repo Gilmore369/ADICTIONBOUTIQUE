@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { getTodayPeru } from '@/lib/utils/timezone'
 import { getAllowedStoreNames, getAllowedPlanIds } from '@/lib/utils/store-filter'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export async function GET(request: Request) {
   try {
@@ -23,49 +24,46 @@ export async function GET(request: Request) {
       planIdFilter = await getAllowedPlanIds(supabase, allowedStoreNames)
     }
 
-    let plansQuery = supabase
-      .from('credit_plans')
-      .select(`
-        client_id,
-        clients!inner (
-          id,
-          name,
-          phone,
-          address,
-          lat,
-          lng,
-          credit_used,
-          credit_limit,
-          client_photo_url
-        )
-      `)
-      .eq('status', 'ACTIVE')
-      .limit(100)
-
-    if (planIdFilter !== null) {
-      if (planIdFilter.length === 0) return NextResponse.json({ data: [] })
-      plansQuery = plansQuery.in('id', planIdFilter) as typeof plansQuery
+    if (planIdFilter !== null && planIdFilter.length === 0) {
+      return NextResponse.json({ data: [] })
     }
+    const activePlans = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('credit_plans')
+        .select(`
+          client_id,
+          clients!inner (
+            id,
+            name,
+            phone,
+            address,
+            lat,
+            lng,
+            credit_used,
+            credit_limit,
+            client_photo_url
+          )
+        `)
+        .eq('status', 'ACTIVE')
+        .range(from, to)
+      if (planIdFilter !== null) q = q.in('id', planIdFilter) as typeof q
+      return q
+    })
 
-    const { data: activePlans, error: plansError } = await plansQuery
-    if (plansError) {
-      return NextResponse.json({ error: plansError.message }, { status: 500 })
-    }
-
-    // Get clients with overdue installments (filtered too if needed)
-    let overdueQuery = supabase
-      .from('installments')
-      .select('credit_plans!inner(client_id)')
-      .lt('due_date', today)
-      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-
-    if (planIdFilter !== null && planIdFilter.length > 0) {
-      overdueQuery = overdueQuery.in('plan_id', planIdFilter) as typeof overdueQuery
-    }
-
-    const { data: overdueInstallments } = await overdueQuery
+    const overdueInstallments = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('installments')
+        .select('credit_plans!inner(client_id)')
+        .lt('due_date', today)
+        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+        .range(from, to)
+      if (planIdFilter !== null && planIdFilter.length > 0) {
+        q = q.in('plan_id', planIdFilter) as typeof q
+      }
+      return q
+    })
     const clientsWithOverdue = new Set(
-      overdueInstallments?.map((i: any) => i.credit_plans.client_id) || []
+      overdueInstallments.map((i: any) => i.credit_plans?.client_id).filter(Boolean)
     )
 
     const clientsMap = new Map()

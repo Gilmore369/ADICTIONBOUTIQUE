@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { addDaysPeru, getTodayPeru } from '@/lib/utils/timezone'
 import { getAllowedStoreNames, getAllowedPlanIds } from '@/lib/utils/store-filter'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export async function GET(request: Request) {
   try {
@@ -24,44 +25,40 @@ export async function GET(request: Request) {
       planIdFilter = await getAllowedPlanIds(supabase, allowedStoreNames)
     }
 
-    let query = supabase
-      .from('installments')
-      .select(`
-        id,
-        plan_id,
-        amount,
-        paid_amount,
-        due_date,
-        credit_plans!inner (
-          client_id,
-          clients!inner (
-            id,
-            name,
-            phone,
-            address,
-            lat,
-            lng,
-            credit_used,
-            credit_limit,
-            client_photo_url
+    if (planIdFilter !== null && planIdFilter.length === 0) {
+      return NextResponse.json({ data: [] })
+    }
+    const upcomingInstallments = await fetchAllRows<any>((from, to) => {
+      let q = supabase
+        .from('installments')
+        .select(`
+          id,
+          plan_id,
+          amount,
+          paid_amount,
+          due_date,
+          credit_plans!inner (
+            client_id,
+            clients!inner (
+              id,
+              name,
+              phone,
+              address,
+              lat,
+              lng,
+              credit_used,
+              credit_limit,
+              client_photo_url
+            )
           )
-        )
-      `)
-      .gte('due_date', todayStr)
-      .lte('due_date', sevenDaysStr)
-      .in('status', ['PENDING', 'PARTIAL'])
-      .limit(100)
-
-    if (planIdFilter !== null) {
-      if (planIdFilter.length === 0) return NextResponse.json({ data: [] })
-      query = query.in('plan_id', planIdFilter) as typeof query
-    }
-
-    const { data: upcomingInstallments, error: installmentsError } = await query
-
-    if (installmentsError) {
-      return NextResponse.json({ error: installmentsError.message }, { status: 500 })
-    }
+        `)
+        .gte('due_date', todayStr)
+        .lte('due_date', sevenDaysStr)
+        .in('status', ['PENDING', 'PARTIAL'])
+        .range(from, to)
+      if (planIdFilter !== null) q = q.in('plan_id', planIdFilter) as typeof q
+      return q
+    })
 
     const clientsMap = new Map()
     upcomingInstallments?.forEach((installment: any) => {
