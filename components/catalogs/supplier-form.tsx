@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 interface SupplierFormProps {
   defaultValues?: {
     name?: string
+    ruc?: string
     contact_name?: string
     phone?: string
     email?: string
@@ -38,6 +39,16 @@ export function SupplierForm({ defaultValues, isEditing = false }: SupplierFormP
           placeholder="Nombre del proveedor"
           required
           maxLength={100}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ruc">RUC</Label>
+        <Input
+          id="ruc"
+          name="ruc"
+          defaultValue={defaultValues?.ruc}
+          placeholder="Ej: 20123456789"
+          maxLength={20}
         />
       </div>
       <div className="space-y-2">

@@ -33,6 +33,7 @@ import { toast } from 'sonner'
 interface Supplier {
   id: string
   name: string
+  ruc?: string
   contact_name?: string
   phone?: string
   email?: string
@@ -859,6 +860,13 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
 
   const columns: CatalogTableColumn<Supplier>[] = [
     { key: 'name', label: 'Nombre' },
+    {
+      key: 'ruc',
+      label: 'RUC',
+      render: (supplier) => supplier.ruc
+        ? <span className="font-mono text-xs">{supplier.ruc}</span>
+        : <span className="text-muted-foreground text-xs">—</span>
+    },
     { key: 'contact_name', label: 'Contacto' },
     { key: 'phone', label: 'Teléfono' },
     { key: 'email', label: 'Email' },
