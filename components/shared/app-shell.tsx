@@ -6,9 +6,10 @@
  * width change propagates to the main content area in real time.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
+import { NavProgress } from './nav-progress'
 import { StoreProvider } from '@/contexts/store-context'
 
 const SIDEBAR_KEY = 'sidebar_collapsed'
@@ -45,6 +46,7 @@ export function AppShell({ children, user, userStores, userRoles }: AppShellProp
 
   return (
     <StoreProvider userStores={userStores}>
+      <Suspense fallback={null}><NavProgress /></Suspense>
       <div className="min-h-screen bg-background text-foreground">
         <Sidebar collapsed={collapsed} onToggleCollapse={handleToggle} />
 

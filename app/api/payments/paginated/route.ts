@@ -31,13 +31,16 @@ export async function GET(request: NextRequest) {
     const to      = params.get('to')   || ''
     const offset  = (page - 1) * perPage
 
+    // ⚠️ NO usar { count: 'exact' } — con 151k+ filas y JOIN a clients/users
+    // genera statement timeout. Usamos stats.count del RPC (más abajo) como
+    // total para la paginación.
     let q = supabase
       .from('payments')
       .select(`
         id, amount, payment_date, notes, receipt_url, created_at, client_id, user_id,
         clients (name, dni),
         users (name, stores)
-      `, { count: 'exact' })
+      `)
       .order('payment_date', { ascending: false })
       .order('created_at', { ascending: false })
 
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     q = q.range(offset, offset + perPage - 1)
 
-    const { data, count, error } = await q
+    const { data, error } = await q
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     let payments = data || []
@@ -96,12 +99,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Usamos stats.count (del RPC) como total — count='exact' en el query
+    // principal hacía timeout con JOINs sobre 150k+ filas.
+    const total = stats.count || 0
     return NextResponse.json({
       payments,
-      total: count || 0,
+      total,
       page,
       per_page: perPage,
-      total_pages: Math.max(1, Math.ceil((count || 0) / perPage)),
+      total_pages: Math.max(1, Math.ceil(total / perPage)),
       stats,
     })
   } catch (err) {
