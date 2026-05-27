@@ -317,17 +317,26 @@ export default async function DashboardPage({
   }
 
   // ── Compute filtered payments this month ───────────────────────────────────
-  // Antes intentábamos filtrar por plan_id o por client_id IN [...] pero:
-  //   1. plan_id falla porque pagos migrados tienen plan_id=NULL
-  //   2. created_at falla porque para migrados = hoy
-  //   3. .in('client_id', [miles de UUIDs]) excede el límite del URL de PostgREST
-  //      y devuelve vacío → filteredPaymentsMonth=0 sobrescribe el raw correcto.
-  //
-  // Solución: para MUJERES (donde está toda la data histórica) confiar en el
-  // raw.paymentsThisMonth del RPC. Para HOMBRES (sin data histórica todavía),
-  // contar pagos cuyo cliente tiene plan_id contra venta de HOMBRES (lista corta).
+  // Usa el nuevo RPC get_payments_stats con p_store_id (filtra por tienda
+  // en server-side, sin headers gigantes). Antes solo filtraba Hombres
+  // (Mujeres usaba raw global = bug post-migración Hombres).
   let filteredPaymentsMonth: number | null = null
-  if (filteredDebtPlans !== null && storeFilter === 'Tienda Hombres') {
+  if (storeFilter) {
+    const monthStartDate = monthStart.slice(0, 10)
+    const todayDate = peruDateStr
+    const { data: payStats, error: payErr } = await supabase.rpc('get_payments_stats', {
+      p_from_date: monthStartDate,
+      p_to_date:   todayDate,
+      p_search:    '',
+      p_store_id:  storeFilter,
+    })
+    if (!payErr && payStats) {
+      filteredPaymentsMonth = Number((payStats as any).total) || 0
+    }
+  }
+
+  // Bloque legacy de fallback (Hombres) — solo si el RPC no respondió arriba
+  if (false && filteredDebtPlans !== null && storeFilter === 'Tienda Hombres') {
     const clientIds = [...new Set(
       filteredDebtPlans.map((p: any) => p.client_id).filter(Boolean) as string[]
     )]
