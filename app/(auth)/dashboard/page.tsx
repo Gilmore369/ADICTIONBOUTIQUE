@@ -173,8 +173,9 @@ export default async function DashboardPage({
             .eq('products.active', true)
         : Promise.resolve({ data: null, error: null }),
       // Planes de crédito filtrados via service client (bypasses RLS)
-      // ⚠️ IMPORTANTE: usar fetchAllRows porque Mujeres tiene 2,671 planes y
-      // una query sin range() se capea a 1000 → undercount → fallback a global.
+      // ⚠️ IMPORTANTE: incluir TANTO planes con sale_id linkeado (sales!inner)
+      // como planes huérfanos legacy (sale_id=NULL pero legacy_source matchea).
+      // Para alinear con /debt/plans que sí los muestra.
       storeFilter
         ? (async () => {
             const svc = createServiceClient()
@@ -186,17 +187,19 @@ export default async function DashboardPage({
                   .eq('status', 'ACTIVE')
                   .range(from, to)
               )
-              if (storeFilter === 'Tienda Hombres') {
-                const boutique = await fetchAllRows<any>((from, to) =>
-                  svc.from('credit_plans')
-                    .select('id, client_id')
-                    .eq('status', 'ACTIVE')
-                    .eq('legacy_source', 'BoutiqueV 2008 (Hombres)')
-                    .range(from, to)
-                )
-                return { data: [...linked, ...boutique], error: null }
-              }
-              return { data: linked, error: null }
+              // Legacy plans huérfanos (sin sale_id) — capturados por legacy_source
+              const legacyLabel = storeFilter === 'Tienda Hombres'
+                ? 'BoutiqueV 2008 (Hombres)'
+                : 'DBAdiction 2008'
+              const orphans = await fetchAllRows<any>((from, to) =>
+                svc.from('credit_plans')
+                  .select('id, client_id')
+                  .eq('status', 'ACTIVE')
+                  .eq('legacy_source', legacyLabel)
+                  .is('sale_id', null)
+                  .range(from, to)
+              )
+              return { data: [...linked, ...orphans], error: null }
             } catch (err) {
               console.error('[dashboard] credit_plans filtered fetch error:', err)
               return { data: null, error: err }
