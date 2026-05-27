@@ -110,6 +110,7 @@ export async function GET(request: NextRequest) {
         legacy_purchase_description,
         legacy_purchase_date,
         legacy_source,
+        legacy_notes,
         sale:sales ( id, sale_number, created_at, store_id )
       `)
       .in('client_id', pageClientIds)
@@ -124,10 +125,17 @@ export async function GET(request: NextRequest) {
     const plans = plansData || []
 
     // Apply store filter (sales.store_id is text "Tienda Mujeres")
+    // For plans with sale_id=NULL (legacy BoutiqueV balance plans), use legacy_source
     const filteredPlans = store !== 'ALL'
       ? plans.filter(p => {
           const saleStore = (p.sale as any)?.store_id
-          if (!saleStore) return true // legacy plans without sale — include
+          if (!saleStore) {
+            // No sale linked — use legacy_source to assign store
+            const src: string = ((p as any).legacy_source || '').toLowerCase()
+            if (store === 'HOMBRES') return src.includes('hombres') || src.includes('boutiquev')
+            if (store === 'MUJERES') return src.includes('mujeres') || src.includes('dbadiction')
+            return true
+          }
           return saleStore === STORE_TEXT[store]
         })
       : plans
@@ -257,6 +265,7 @@ export async function GET(request: NextRequest) {
         legacy_purchase_description: (plan as any).legacy_purchase_description || null,
         legacy_purchase_date: (plan as any).legacy_purchase_date || null,
         legacy_source: (plan as any).legacy_source || null,
+        legacy_notes: (plan as any).legacy_notes || null,
       })
 
       clientRow.total_debt += pendingAmt

@@ -171,12 +171,27 @@ export default async function DashboardPage({
             .in('warehouse_id', filteredWarehouseIds)
             .eq('products.active', true)
         : Promise.resolve({ data: null, error: null }),
-      // Planes de crédito filtrados via service client (bypasses RLS) con inner join store
+      // Planes de crédito filtrados via service client (bypasses RLS)
+      // — Para Mujeres: inner join con sales.store_id
+      // — Para Hombres: inner join con sales + UNION planes BoutiqueV (sale_id=NULL)
       storeFilter
-        ? createServiceClient().from('credit_plans')
-            .select('id, client_id, sales!inner(store_id)')
-            .eq('sales.store_id', storeFilter)
-            .eq('status', 'ACTIVE')
+        ? (async () => {
+            const linked = await createServiceClient().from('credit_plans')
+              .select('id, client_id, sales!inner(store_id)')
+              .eq('sales.store_id', storeFilter)
+              .eq('status', 'ACTIVE')
+            if (storeFilter === 'Tienda Hombres') {
+              const boutique = await createServiceClient().from('credit_plans')
+                .select('id, client_id')
+                .eq('status', 'ACTIVE')
+                .eq('legacy_source', 'BoutiqueV 2008 (Hombres)')
+              return {
+                data: [...(linked.data ?? []), ...(boutique.data ?? [])],
+                error: linked.error ?? boutique.error ?? null,
+              }
+            }
+            return linked
+          })()
         : Promise.resolve({ data: null, error: null }),
     ])
 

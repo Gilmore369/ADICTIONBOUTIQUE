@@ -510,7 +510,8 @@ export default function DashboardClient({
           value:      fn(m.totalActiveClients),
           icon:       <Users />,
           accent:     C.violet,
-          badge:      m.inactiveClients > 0 ? `${fn(m.inactiveClients)} inact.` : undefined,
+          badge:      (m.inactiveClients > 0 && m.inactiveClients < m.totalActiveClients * 0.85)
+                        ? `${fn(m.inactiveClients)} inact.` : undefined,
           badgeClass: 'bg-muted text-muted-foreground',
           href:       '/clients',
         },

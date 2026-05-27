@@ -55,6 +55,7 @@ interface PlanRow {
   legacy_purchase_description?: string | null
   legacy_purchase_date?: string | null
   legacy_source?: string | null
+  legacy_notes?: string | null
 }
 
 interface ClientRow {
@@ -661,9 +662,15 @@ function PlanAccordion({ plan, isExpanded, onToggle }: { plan: PlanRow; isExpand
                 ? plan.legacy_purchase_description
                 : `${plan.installments_count} cuota${plan.installments_count !== 1 ? 's' : ''}`}
               {plan.imported_from_legacy && plan.legacy_purchase_date
-                ? ` · Compra: ${formatSafeDate(plan.legacy_purchase_date, 'dd/MM/yy')}`
+                ? ` · Vence: ${formatSafeDate(plan.legacy_purchase_date, 'dd/MM/yy')}`
                 : plan.sale_date && ` · ${formatSafeDate(plan.sale_date, 'dd/MM/yy')}`}
             </p>
+            {/* Desglose para planes BoutiqueV (saldo acumulado) */}
+            {plan.legacy_source?.toLowerCase().includes('boutiquev') && plan.legacy_notes && (
+              <p className="text-[9px] text-muted-foreground/50 mt-0.5">
+                {plan.legacy_notes.replace('fix_hombres_deuda.py | ', '')}
+              </p>
+            )}
           </div>
 
           {/* Total */}
