@@ -15,7 +15,7 @@
  *   4. Resultado por fila: éxito / error con detalle
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import * as XLSX from 'xlsx-js-style'
 import Papa from 'papaparse'
 import { toast } from 'sonner'
@@ -48,6 +48,7 @@ import {
   importLegacyDebts,
   listLegacyImportBatches,
 } from '@/actions/legacy-import'
+import { lookupClientByDni } from '@/actions/clients'
 import type { LegacyImportRowResult, LegacyImportBatchResult } from '@/lib/legacy-import/schema'
 
 type Mode = 'manual' | 'batch' | 'file' | 'history'
@@ -215,13 +216,40 @@ function ModeTab({
 // ─────────────────────────────────────────────────────────────────────────────
 // MANUAL — 1 cliente por vez
 // ─────────────────────────────────────────────────────────────────────────────
+type DniLookupState = 'idle' | 'searching' | 'found' | 'new'
+
 function ManualMode() {
   const [row, setRow] = useState<EditableRow>(emptyRow())
   const [submitting, setSubmitting] = useState(false)
   const [lastResult, setLastResult] = useState<LegacyImportRowResult | null>(null)
+  const [dniLookup, setDniLookup] = useState<DniLookupState>('idle')
+  const dniTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const update = (key: keyof EditableRow, value: string) =>
     setRow(r => ({ ...r, [key]: value }))
+
+  // Auto-fill cuando el DNI tenga ≥ 7 dígitos
+  const handleDniChange = useCallback((dni: string) => {
+    update('dni', dni)
+    if (dniTimerRef.current) clearTimeout(dniTimerRef.current)
+    if (dni.trim().length < 7) { setDniLookup('idle'); return }
+    setDniLookup('searching')
+    dniTimerRef.current = setTimeout(async () => {
+      const found = await lookupClientByDni(dni.trim())
+      if (found) {
+        setRow(r => ({
+          ...r,
+          name:     found.name     || r.name,
+          phone:    found.phone    || r.phone,
+          address:  found.address  || r.address,
+          birthday: found.birthday ? found.birthday.slice(0, 10) : r.birthday,
+        }))
+        setDniLookup('found')
+      } else {
+        setDniLookup('new')
+      }
+    }, 600)
+  }, [])
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -263,7 +291,33 @@ function ManualMode() {
       <div className="space-y-4">
         {/* Cliente */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label="DNI *" value={row.dni} onChange={v => update('dni', v)} placeholder="12345678" />
+          {/* DNI con auto-fill */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">DNI *</Label>
+              {dniLookup === 'searching' && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Buscando...
+                </span>
+              )}
+              {dniLookup === 'found' && (
+                <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Cliente encontrado · datos precargados
+                </span>
+              )}
+              {dniLookup === 'new' && (
+                <span className="text-[10px] font-semibold text-sky-600 flex items-center gap-1">
+                  <Plus className="h-3 w-3" /> Cliente nuevo
+                </span>
+              )}
+            </div>
+            <Input
+              value={row.dni}
+              onChange={e => handleDniChange(e.target.value)}
+              placeholder="12345678"
+              className="text-sm"
+            />
+          </div>
           <Field label="Nombre completo *" value={row.name} onChange={v => update('name', v)} placeholder="María García" className="md:col-span-2" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

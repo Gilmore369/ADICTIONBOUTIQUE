@@ -312,3 +312,33 @@ export async function removeFromBlacklistAction(data: {
     }
   }
 }
+
+/**
+ * Lookup a client by DNI — used for auto-fill in the import debts form.
+ * Returns basic client info if found, null otherwise.
+ */
+export async function lookupClientByDni(dni: string): Promise<{
+  id: string
+  name: string
+  phone: string | null
+  address: string | null
+  birthday: string | null
+} | null> {
+  if (!dni || dni.trim().length < 6) return null
+  try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data } = await supabase
+      .from('clients')
+      .select('id, name, phone, address, birthday')
+      .eq('dni', dni.trim())
+      .eq('active', true)
+      .maybeSingle()
+
+    return data ?? null
+  } catch {
+    return null
+  }
+}
