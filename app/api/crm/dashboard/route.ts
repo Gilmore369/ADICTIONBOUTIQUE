@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { fetchDashboardMetrics } from '@/lib/services/dashboard-service'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import { getTodayPeru, PERU_TZ, peruMidnightUTC } from '@/lib/utils/timezone'
 
 export async function GET(request: Request) {
@@ -34,21 +35,35 @@ export async function GET(request: Request) {
     // 1. Base metrics via RPC (global) or filtered if store is forced
     const metrics = await fetchDashboardMetrics()
 
+    // Helper: ¿este plan pertenece a la tienda filtrada?
+    // Mismo criterio que /api/credit-plans: matchea por sale.store_id O legacy_source.
+    // (Antes usaba sales!inner → excluía planes legacy huérfanos con sale_id NULL,
+    //  subcontando la deuda de Mujeres de ~S/1M a ~S/235k.)
+    const planMatchesStore = (plan: any): boolean => {
+      if (!storeId) return true
+      const saleStore = plan?.sales?.store_id
+      const src = (plan?.legacy_source || '').toLowerCase()
+      const isHombres = src.includes('hombres') || src.includes('boutiquev') || saleStore === 'Tienda Hombres'
+      return storeId === 'Tienda Hombres' ? isHombres : !isHombres
+    }
+
     // 2. Debt aging buckets — overdue installments grouped by days past due
-    const { data: overdueRows } = await supabase
-      .from('installments')
-      .select('due_date, amount, paid_amount, credit_plans!inner(sale_id, sales!inner(store_id))')
-      .in('status', ['OVERDUE', 'PARTIAL'])
+    // fetchAllRows: hay 3,500+ cuotas activas; sin paginar Supabase cortaba en 1000
+    // y subcontaba la deuda.
+    const overdueRows = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from('installments')
+        .select('due_date, amount, paid_amount, credit_plans!inner(sale_id, legacy_source, sales(store_id))')
+        .in('status', ['OVERDUE', 'PARTIAL'])
+        .range(from, to)
+    )
 
     const ageingBuckets = { '0-30': 0, '31-60': 0, '61-90': 0, '+90': 0 }
     const today = getTodayPeru()
     const todayMs = new Date(peruMidnightUTC(today)).getTime()
     for (const row of overdueRows || []) {
       // Store filter
-      if (storeId) {
-        const saleStoreId = (row.credit_plans as any)?.sales?.store_id
-        if (saleStoreId && saleStoreId !== storeId) continue
-      }
+      if (storeId && !planMatchesStore(row.credit_plans as any)) continue
       const dueDate = String(row.due_date).split('T')[0]
       const days = Math.floor((todayMs - new Date(peruMidnightUTC(dueDate)).getTime()) / 86400000)
       const remaining = Number(row.amount) - Number(row.paid_amount || 0)
@@ -60,18 +75,22 @@ export async function GET(request: Request) {
 
     // 3. Top debtors: clients with highest risk score
     // score = total_debt * 0.6 + max_days_overdue * 0.4
-    const { data: debtorRows } = await supabase
-      .from('installments')
-      .select(`
-        due_date, amount, paid_amount,
-        credit_plans!inner(
-          client_id,
-          sale_id,
-          clients(id, name, dni, phone),
-          sales!inner(store_id)
-        )
-      `)
-      .in('status', ['OVERDUE', 'PARTIAL', 'PENDING'])
+    const debtorRows = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from('installments')
+        .select(`
+          due_date, amount, paid_amount,
+          credit_plans!inner(
+            client_id,
+            sale_id,
+            legacy_source,
+            clients(id, name, dni, phone),
+            sales(store_id)
+          )
+        `)
+        .in('status', ['OVERDUE', 'PARTIAL', 'PENDING'])
+        .range(from, to)
+    )
 
     // Group by client
     const clientMap: Record<string, {
@@ -82,7 +101,7 @@ export async function GET(request: Request) {
     for (const row of debtorRows || []) {
       const plan = row.credit_plans as any
       if (!plan) continue
-      if (storeId && plan.sales?.store_id && plan.sales.store_id !== storeId) continue
+      if (storeId && !planMatchesStore(plan)) continue
       const client = plan.clients
       if (!client) continue
 
