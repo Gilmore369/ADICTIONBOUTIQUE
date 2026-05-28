@@ -460,6 +460,7 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
         const fetchedLines = arr(lD) as Option[]
         setLines(fetchedLines)
         setAllCategories(arr(cD))
+        // brands iniciales = todas; al elegir proveedor se filtran (useEffect abajo)
         setBrands(arr(bD))
         setSuppliers(arr(sD))
       } catch {
@@ -470,6 +471,25 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
     }
     load()
   }, [open, storeId])
+
+  // Filtrar marcas por proveedor seleccionado (supplier_brands)
+  // Si no hay proveedor → mostrar todas. Al cambiar proveedor, recargar y
+  // limpiar la marca elegida si ya no pertenece al nuevo proveedor.
+  useEffect(() => {
+    if (!open) return
+    const url = supplierId
+      ? `/api/catalogs/brands?supplier_id=${supplierId}`
+      : '/api/catalogs/brands'
+    fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        const list = (Array.isArray(d) ? d : d?.data || []) as Option[]
+        setBrands(list)
+        // Si la marca actual no está en la nueva lista, limpiarla
+        setBrandId(prev => (prev && !list.some(b => b.id === prev) ? '' : prev))
+      })
+      .catch(() => { /* keep previous */ })
+  }, [supplierId, open])
 
   // Reset on close
   useEffect(() => {
@@ -751,15 +771,24 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                     options={brands}
                     value={brandId}
                     onChange={setBrandId}
-                    placeholder={loadingCatalogs ? 'Cargando…' : 'Seleccionar marca'}
-                    disabled={loadingCatalogs}
+                    placeholder={
+                      loadingCatalogs ? 'Cargando…'
+                      : !supplierId ? 'Selecciona proveedor primero'
+                      : brands.length === 0 ? 'Sin marcas — crea una con +'
+                      : 'Seleccionar marca'
+                    }
+                    disabled={loadingCatalogs || !supplierId}
                     onQuickCreate={handleCreateBrand}
                     quickCreateLabel="Nueva marca"
                   />
-                  {!supplierId && (
+                  {!supplierId ? (
                     <p className="text-[11px] text-amber-600 flex items-center gap-1 mt-1">
                       <AlertCircle className="h-3 w-3" />
-                      Selecciona proveedor antes de crear marca
+                      Selecciona proveedor antes de elegir o crear marca
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Mostrando marcas de este proveedor. Usa + para agregar una nueva.
                     </p>
                   )}
                 </Field>
