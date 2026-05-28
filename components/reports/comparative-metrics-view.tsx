@@ -63,6 +63,28 @@ const lastYear = { from: `${today.getFullYear() - 1}-01-01`, to: `${today.getFul
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
+/**
+ * Deriva una etiqueta legible a partir del rango de fechas:
+ *  - Mes completo (día 1 → último día del mismo mes) → "Diciembre 2025"
+ *  - Año completo (01/01 → 31/12 del mismo año)       → "2025"
+ *  - Cualquier otro rango                              → "01/12/25 – 31/12/25"
+ */
+function deriveLabel(from: string, to: string): string {
+  if (!from || !to) return ''
+  const f = new Date(`${from}T12:00:00`)
+  const t = new Date(`${to}T12:00:00`)
+  if (isNaN(f.getTime()) || isNaN(t.getTime())) return ''
+  const fY = f.getFullYear(), tY = t.getFullYear()
+  const fM = f.getMonth(),    tM = t.getMonth()
+  const fD = f.getDate(),     tD = t.getDate()
+  const lastDay = new Date(tY, tM + 1, 0).getDate()
+  if (fY === tY && fM === tM && fD === 1 && tD === lastDay) return `${MONTH_NAMES[fM]} ${fY}`
+  if (fY === tY && fM === 0 && fD === 1 && tM === 11 && tD === 31) return `${fY}`
+  const fmt = (d: Date) =>
+    `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`
+  return `${fmt(f)} – ${fmt(t)}`
+}
+
 export function ComparativeMetricsView() {
   const { selectedStore } = useStore()
   // Defaults: comparar mes pasado vs mes actual
@@ -72,6 +94,10 @@ export function ComparativeMetricsView() {
   const [toB,   setToB]   = useState(thisMonth.to)
   const [labelA, setLabelA] = useState(lastMonth.label)
   const [labelB, setLabelB] = useState(thisMonth.label)
+
+  // Auto-actualizar las etiquetas cuando cambian las fechas (manteniéndolas editables).
+  useEffect(() => { setLabelA(deriveLabel(fromA, toA)) }, [fromA, toA])
+  useEffect(() => { setLabelB(deriveLabel(fromB, toB)) }, [fromB, toB])
 
   const [data, setData] = useState<Response | null>(null)
   const [loading, setLoading] = useState(false)
