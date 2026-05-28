@@ -699,7 +699,7 @@ export default function DashboardClient({
 
         {/* Contado vs Crédito */}
         <div className="bg-card rounded-2xl border border-border shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-5 flex flex-col">
-          <SectionHead title="Contado vs Crédito" subtitle="Últimos 30 días · datos reales" />
+          <SectionHead title="Contado vs Crédito" subtitle="Este mes · datos reales" />
           {cvcTotal > 0 ? (
             <>
               <div className="flex justify-center">

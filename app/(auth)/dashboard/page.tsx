@@ -157,7 +157,7 @@ export default async function DashboardPage({
         .order('created_at', { ascending: false }).limit(6)),
       supabase.from('collection_actions').select('result').gte('created_at', today),
       buildSalesQuery(supabase.from('sales').select('id,total,sale_type')
-        .gte('created_at', peruMidnightUTC(thirtyAgoStr)).eq('voided', false)),
+        .gte('created_at', monthStart).eq('voided', false)),
       supabase.from('clients').select('address').eq('active', true).not('address', 'is', null),
       // Ventas hoy filtradas por tienda (override RPC)
       buildSalesQuery(supabase.from('sales').select('id,total')
