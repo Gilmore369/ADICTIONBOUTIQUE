@@ -310,17 +310,17 @@ export async function generateStockRotationReport(filters: ReportFilters) {
   // Default: ultimos 90 dias
   const ninetyAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
 
-  let movQuery = supabase
-    .from('movements')
-    .select('*, products(id, name, barcode, purchase_price, price)')
-    .eq('type', 'SALIDA')
-    .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
-    .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
-
-  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
-  if (filters.warehouse) movQuery = movQuery.eq('warehouse_id', filters.warehouse) as typeof movQuery
-
-  const { data: movements } = await movQuery
+  // fetchAllRows: pagina para superar el cap de 1000 de PostgREST
+  const movements = await fetchAllRows<any>((from, to) => {
+    let movQuery = supabase
+      .from('movements')
+      .select('*, products(id, name, barcode, purchase_price, price)')
+      .eq('type', 'SALIDA')
+      .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
+      .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
+    if (filters.warehouse) movQuery = movQuery.eq('warehouse_id', filters.warehouse) as typeof movQuery
+    return movQuery.range(from, to)
+  })
 
   const productSales = movements?.reduce((acc: any, mov: any) => {
     const productId = mov.product_id
@@ -332,9 +332,11 @@ export async function generateStockRotationReport(filters: ReportFilters) {
     return acc
   }, {}) || {}
 
-  let stockQuery = supabase.from('stock').select('product_id, quantity')
-  if (filters.warehouse) stockQuery = stockQuery.eq('warehouse_id', filters.warehouse) as typeof stockQuery
-  const { data: stock } = await stockQuery
+  const stock = await fetchAllRows<any>((from, to) => {
+    let stockQuery = supabase.from('stock').select('product_id, quantity')
+    if (filters.warehouse) stockQuery = stockQuery.eq('warehouse_id', filters.warehouse) as typeof stockQuery
+    return stockQuery.range(from, to)
+  })
   const stockMap = stock?.reduce((acc: any, s: any) => {
     acc[s.product_id] = (acc[s.product_id] || 0) + s.quantity
     return acc
@@ -361,16 +363,15 @@ export async function generateStockRotationReport(filters: ReportFilters) {
 export async function generateStockValuationReport(filters: ReportFilters) {
   const supabase = await createServerClient()
 
-  let query = supabase
-    .from('stock')
-    .select('quantity, warehouse_id, products(id, name, barcode, purchase_price, price, categories(name), lines(name))')
-    .gt('quantity', 0)
-
-  if (filters.categoryId) query = query.eq('products.category_id', filters.categoryId)
-  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
-  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
-
-  const { data: stock } = await query
+  const stock = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('stock')
+      .select('quantity, warehouse_id, products(id, name, barcode, purchase_price, price, categories(name), lines(name))')
+      .gt('quantity', 0)
+    if (filters.categoryId) query = query.eq('products.category_id', filters.categoryId)
+    if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
+    return query.range(from, to)
+  })
 
   return (stock || []).map((item: any) => ({
     barcode: item.products?.barcode || 'N/A',
@@ -391,16 +392,15 @@ export async function generateLowStockReport(filters: ReportFilters) {
   const supabase = await createServerClient()
   const minStock = filters.minStock || 5
 
-  let query = supabase
-    .from('stock')
-    .select('quantity, warehouse_id, products(name, barcode, purchase_price, price, categories(name))')
-    .lte('quantity', minStock)
-    .order('quantity', { ascending: true })
-
-  // Filtrar por tienda — warehouse_id almacena el nombre de la tienda ("Tienda Mujeres")
-  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
-
-  const { data: stock } = await query
+  const stock = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('stock')
+      .select('quantity, warehouse_id, products(name, barcode, purchase_price, price, categories(name))')
+      .lte('quantity', minStock)
+      .order('quantity', { ascending: true })
+    if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
+    return query.range(from, to)
+  })
 
   return (stock || []).map((item: any) => ({
     barcode: item.products?.barcode || 'N/A',
@@ -417,17 +417,17 @@ export async function generateLowStockReport(filters: ReportFilters) {
 export async function generateKardexReport(filters: ReportFilters) {
   const supabase = await createServerClient()
 
-  let query = supabase
-    .from('movements')
-    .select('*, products(name, barcode)')
-    .order('created_at', { ascending: false })
-
-  if (filters.startDate) query = query.gte('created_at', toPeruStart(filters.startDate))
-  if (filters.endDate) query = query.lte('created_at', toPeruEnd(filters.endDate))
-  if (filters.productId) query = query.eq('product_id', filters.productId)
-  if (filters.warehouseId) query = query.eq('warehouse_id', filters.warehouseId)
-
-  const { data: movements } = await query
+  const movements = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('movements')
+      .select('*, products(name, barcode)')
+      .order('created_at', { ascending: false })
+    if (filters.startDate) query = query.gte('created_at', toPeruStart(filters.startDate))
+    if (filters.endDate) query = query.lte('created_at', toPeruEnd(filters.endDate))
+    if (filters.productId) query = query.eq('product_id', filters.productId)
+    if (filters.warehouseId) query = query.eq('warehouse_id', filters.warehouseId)
+    return query.range(from, to)
+  })
 
   return (movements || []).map((mov: any) => ({
     date: new Date(mov.created_at).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
@@ -452,17 +452,17 @@ export async function generateSalesByPeriodReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  let query = supabase
-    .from('sales')
-    .select('*')
-    .eq('voided', false)
-    .order('created_at', { ascending: false })
-
-  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
-
-  const { data: sales } = await query
+  const sales = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('sales')
+      .select('*')
+      .eq('voided', false)
+      .order('created_at', { ascending: false })
+    query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+    if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
+    return query.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
   const { bySale } = buildReturnMaps(returns)
 
@@ -496,17 +496,17 @@ export async function generateSalesByMonthReport(filters: ReportFilters) {
   // Default: enero 1 del año actual a hoy para mostrar todos los meses
   const defaultStart = new Date(now.getFullYear(), 0, 1)
 
-  let query = supabase
-    .from('sales')
-    .select('*')
-    .eq('voided', false)
-    .order('created_at', { ascending: true })
-
-  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : defaultStart.toISOString())
-  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : now.toISOString())
-  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
-
-  const { data: sales } = await query
+  const sales = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('sales')
+      .select('*')
+      .eq('voided', false)
+      .order('created_at', { ascending: true })
+    query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : defaultStart.toISOString())
+    query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : now.toISOString())
+    if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
+    return query.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
   const { bySale } = buildReturnMaps(returns)
 
@@ -553,12 +553,13 @@ export async function generateSalesSummaryReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  let query = supabase.from('sales').select('*').eq('voided', false)
-  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
-
-  const { data: sales } = await query
+  const sales = await fetchAllRows<any>((from, to) => {
+    let query = supabase.from('sales').select('*').eq('voided', false)
+    query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+    if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
+    return query.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
   const { bySale } = buildReturnMaps(returns)
   const salesWithNet = (sales || []).map((sale: any) => ({
@@ -589,16 +590,16 @@ export async function generateSalesSummaryReport(filters: ReportFilters) {
 export async function generateSalesByProductReport(filters: ReportFilters) {
   const supabase = await createServerClient()
 
-  let query = supabase
-    .from('sale_items')
-    .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products(name, barcode, purchase_price)')
-    .eq('sales.voided', false)
-
-  if (filters.startDate) query = query.gte('sales.created_at', toPeruStart(filters.startDate))
-  if (filters.endDate) query = query.lte('sales.created_at', toPeruEnd(filters.endDate))
-  if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
-
-  const { data: items } = await query
+  const items = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('sale_items')
+      .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products(name, barcode, purchase_price)')
+      .eq('sales.voided', false)
+    if (filters.startDate) query = query.gte('sales.created_at', toPeruStart(filters.startDate))
+    if (filters.endDate) query = query.lte('sales.created_at', toPeruEnd(filters.endDate))
+    if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
+    return query.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (items || []).map((item: any) => item.sale_id))
   const { bySaleItem } = buildReturnMaps(returns)
   const saleItemSubtotals = buildSaleItemSubtotalMap(items || [])
@@ -645,16 +646,16 @@ export async function generateSalesByCategoryReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  let query = supabase
-    .from('sale_items')
-    .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products!inner(name, barcode, purchase_price, categories(name))')
-    .eq('sales.voided', false)
-
-  query = query.gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-  query = query.lte('sales.created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-  if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
-
-  const { data: items } = await query
+  const items = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('sale_items')
+      .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products!inner(name, barcode, purchase_price, categories(name))')
+      .eq('sales.voided', false)
+    query = query.gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    query = query.lte('sales.created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+    if (filters.warehouse) query = query.eq('sales.store_id', filters.warehouse)
+    return query.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (items || []).map((item: any) => item.sale_id))
   const { bySaleItem } = buildReturnMaps(returns)
   const saleItemSubtotals = buildSaleItemSubtotalMap(items || [])
@@ -703,12 +704,13 @@ export async function generateCreditVsCashReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  let query = supabase.from('sales').select('*').eq('voided', false)
-  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
-
-  const { data: sales } = await query
+  const sales = await fetchAllRows<any>((from, to) => {
+    let query = supabase.from('sales').select('*').eq('voided', false)
+    query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+    if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
+    return query.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
   const { bySale } = buildReturnMaps(returns)
   const salesWithNet = (sales || []).map((sale: any) => ({ ...sale, _net: saleNetFields(sale, bySale) }))
@@ -742,12 +744,13 @@ export async function generateSalesByStoreReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  let query = supabase.from('sales').select('*').eq('voided', false)
-  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-  if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
-
-  const { data: sales } = await query
+  const sales = await fetchAllRows<any>((from, to) => {
+    let query = supabase.from('sales').select('*').eq('voided', false)
+    query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+    query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+    if (filters.warehouse) query = query.eq('store_id', filters.warehouse)
+    return query.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
   const { bySale } = buildReturnMaps(returns)
 
@@ -781,18 +784,17 @@ export async function generatePurchasesBySupplierReport(filters: ReportFilters) 
   // Default: ultimos 90 dias
   const ninetyAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
 
-  let query = supabase
-    .from('movements')
-    .select('*, products(name, barcode, purchase_price)')
-    .eq('type', 'ENTRADA')
-    .order('created_at', { ascending: false })
-
-  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
-  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
-  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
-  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
-
-  const { data: movements } = await query
+  const movements = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('movements')
+      .select('*, products(name, barcode, purchase_price)')
+      .eq('type', 'ENTRADA')
+      .order('created_at', { ascending: false })
+    query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
+    query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
+    if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
+    return query.range(from, to)
+  })
 
   // Agrupar por producto (no hay proveedor en movements)
   const byProduct = (movements || []).reduce((acc: any, mov: any) => {
@@ -821,18 +823,17 @@ export async function generatePurchasesByPeriodReport(filters: ReportFilters) {
   // Default: ultimos 90 dias
   const ninetyAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
 
-  let query = supabase
-    .from('movements')
-    .select('*, products(name, barcode, purchase_price)')
-    .eq('type', 'ENTRADA')
-    .order('created_at', { ascending: false })
-
-  query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
-  query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
-  // Filtrar por tienda — warehouse_id almacena el nombre ("Tienda Mujeres")
-  if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
-
-  const { data: movements } = await query
+  const movements = await fetchAllRows<any>((from, to) => {
+    let query = supabase
+      .from('movements')
+      .select('*, products(name, barcode, purchase_price)')
+      .eq('type', 'ENTRADA')
+      .order('created_at', { ascending: false })
+    query = query.gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : ninetyAgo.toISOString())
+    query = query.lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : new Date().toISOString())
+    if (filters.warehouse) query = query.eq('warehouse_id', filters.warehouse) as typeof query
+    return query.range(from, to)
+  })
 
   return (movements || []).map((mov: any) => ({
     fecha: new Date(mov.created_at).toLocaleDateString('es-PE', { timeZone: PERU_TZ }),
@@ -853,20 +854,26 @@ export async function generatePurchasesByPeriodReport(filters: ReportFilters) {
 export async function generateClientsWithDebtReport(filters: ReportFilters) {
   const supabase = await createServerClient()
 
-  // Consultar desde installments para datos mas precisos
-  const { data: installments } = await supabase
-    .from('installments')
-    .select('amount, paid_amount, status, credit_plans!inner(client_id, clients(id, name, phone, address, credit_limit, credit_used))')
-    .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+  // Consultar desde installments para datos mas precisos (paginado: 3,500+ cuotas)
+  const installments = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from('installments')
+      .select('amount, paid_amount, status, credit_plans!inner(client_id, clients(id, name, phone, address, credit_limit, credit_used))')
+      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+      .range(from, to)
+  )
 
   if (!installments?.length) {
     // Fallback: consultar clients.credit_used directamente
-    const { data: clients } = await supabase
-      .from('clients')
-      .select('*')
-      .gt('credit_used', 0)
-      .eq('active', true)
-      .order('credit_used', { ascending: false })
+    const clients = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from('clients')
+        .select('*')
+        .gt('credit_used', 0)
+        .eq('active', true)
+        .order('credit_used', { ascending: false })
+        .range(from, to)
+    )
 
     return (clients || []).map((client: any) => ({
       name: client.name,
@@ -926,11 +933,14 @@ export async function generateClientsWithDebtReport(filters: ReportFilters) {
 export async function generateOverdueInstallmentsReport(filters: ReportFilters) {
   const supabase = await createServerClient()
 
-  const { data: installments } = await supabase
-    .from('installments')
-    .select('*, credit_plans!inner(clients(name, phone))')
-    .eq('status', 'OVERDUE')
-    .order('due_date', { ascending: true })
+  const installments = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from('installments')
+      .select('*, credit_plans!inner(clients(name, phone))')
+      .eq('status', 'OVERDUE')
+      .order('due_date', { ascending: true })
+      .range(from, to)
+  )
 
   return (installments || []).map((inst: any) => ({
     client: inst.credit_plans?.clients?.name || 'N/A',
@@ -955,20 +965,26 @@ export async function generateCollectionEffectivenessReport(filters: ReportFilte
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  const [{ data: payments }, { data: overdue }] = await Promise.all([
-    supabase
-      .from('payments')
-      .select('amount, payment_date')
-      // Excluir pagos importados del sistema anterior — no son cobros del
-      // trabajo de cobranza actual, son histórico migrado.
-      .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
-      .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
-      .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ })),
-    supabase
-      .from('installments')
-      .select('amount, paid_amount, due_date')
-      .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
-      .lt('due_date', getTodayPeru())
+  const [payments, overdue] = await Promise.all([
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from('payments')
+        .select('amount, payment_date')
+        // Excluir pagos importados del sistema anterior — no son cobros del
+        // trabajo de cobranza actual, son histórico migrado.
+        .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
+        .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
+        .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
+        .range(from, to)
+    ),
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from('installments')
+        .select('amount, paid_amount, due_date')
+        .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
+        .lt('due_date', getTodayPeru())
+        .range(from, to)
+    )
   ])
 
   const totalCollected = (payments || []).reduce((s: number, p: any) => s + Number(p.amount), 0)
@@ -991,14 +1007,16 @@ export async function generateProfitMarginReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  let profitQuery = supabase
-    .from('sale_items')
-    .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products(name, barcode, purchase_price)')
-    .eq('sales.voided', false)
-    .gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-    .lte('sales.created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-  if (filters.warehouse) profitQuery = profitQuery.eq('sales.store_id', filters.warehouse)
-  const { data: items } = await profitQuery
+  const items = await fetchAllRows<any>((from, to) => {
+    let profitQuery = supabase
+      .from('sale_items')
+      .select('id, sale_id, product_id, quantity, unit_price, subtotal, sales!inner(id, created_at, voided, store_id, total), products(name, barcode, purchase_price)')
+      .eq('sales.voided', false)
+      .gte('sales.created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+      .lte('sales.created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+    if (filters.warehouse) profitQuery = profitQuery.eq('sales.store_id', filters.warehouse)
+    return profitQuery.range(from, to)
+  })
   const returns = await loadReturnsForSales(supabase, (items || []).map((item: any) => item.sale_id))
   const { bySaleItem } = buildReturnMaps(returns)
   const saleItemSubtotals = buildSaleItemSubtotalMap(items || [])
@@ -1053,30 +1071,35 @@ export async function generateCashFlowReport(filters: ReportFilters) {
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-  let salesQ = supabase
-    .from('sales')
-    .select('id, total, created_at, sale_type, store_id')
-    .eq('voided', false)
-    .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-    .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-  if (filters.warehouse) salesQ = salesQ.eq('store_id', filters.warehouse)
-
-  let cashExpQ = supabase
-    .from('cash_expenses')
-    .select('amount, category, description, created_at')
-    .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
-    .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
-
-  const [{ data: sales }, { data: payments }, { data: expenses }] = await Promise.all([
-    salesQ,
-    supabase
-      .from('payments')
-      .select('amount, payment_date')
-      // Excluir pagos importados — son del sistema anterior, no flujo de caja real
-      .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
-      .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
-      .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ })),
-    cashExpQ
+  const [sales, payments, expenses] = await Promise.all([
+    fetchAllRows<any>((from, to) => {
+      let salesQ = supabase
+        .from('sales')
+        .select('id, total, created_at, sale_type, store_id')
+        .eq('voided', false)
+        .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+        .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+      if (filters.warehouse) salesQ = salesQ.eq('store_id', filters.warehouse)
+      return salesQ.range(from, to)
+    }),
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from('payments')
+        .select('amount, payment_date')
+        // Excluir pagos importados — son del sistema anterior, no flujo de caja real
+        .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
+        .gte('payment_date', filters.startDate || firstDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
+        .lte('payment_date', filters.endDate || lastDay.toLocaleDateString('en-CA', { timeZone: PERU_TZ }))
+        .range(from, to)
+    ),
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from('cash_expenses')
+        .select('amount, category, description, created_at')
+        .gte('created_at', filters.startDate ? toPeruStart(filters.startDate) : firstDay.toISOString())
+        .lte('created_at', filters.endDate ? toPeruEnd(filters.endDate) : lastDay.toISOString())
+        .range(from, to)
+    )
   ])
 
   const returns = await loadReturnsForSales(supabase, (sales || []).map((sale: any) => sale.id))
