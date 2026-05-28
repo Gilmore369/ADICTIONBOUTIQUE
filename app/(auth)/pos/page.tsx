@@ -41,8 +41,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { createSale } from '@/actions/sales'
+import { openCashShift } from '@/actions/cash'
 import { toast } from '@/lib/toast'
 import { createBrowserClient } from '@/lib/supabase/client'
+import { Loader2 } from 'lucide-react'
 
 type SaleType = 'CONTADO' | 'CREDITO'
 
@@ -89,6 +91,9 @@ export default function POSPage() {
 
   // Cash shift validation
   const [shiftOpen, setShiftOpen] = useState<boolean | null>(null) // null = loading
+  const [cajaModalOpen, setCajaModalOpen] = useState(false)
+  const [openingAmount, setOpeningAmount] = useState('')
+  const [openingCaja, setOpeningCaja] = useState(false)
   const supabaseBrowser = createBrowserClient()
 
   // ── Load persisted session state on mount ────────────────────────────────
@@ -143,6 +148,28 @@ export default function POSPage() {
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouse])
+
+  // ── Abrir caja inline desde el POS ────────────────────────────────────────
+  const handleOpenCaja = async () => {
+    const opening = parseFloat(openingAmount)
+    if (isNaN(opening) || opening < 0) { toast.error('Monto inválido', 'Ingresa un monto de apertura válido'); return }
+    setOpeningCaja(true)
+    try {
+      const res = await openCashShift(warehouse, opening)
+      if (!res.success) {
+        toast.error('No se pudo abrir la caja', res.error || '')
+        return
+      }
+      setShiftOpen(true)
+      setCajaModalOpen(false)
+      setOpeningAmount('')
+      toast.success('Caja abierta', `Turno iniciado en ${warehouse}`)
+    } catch (e) {
+      toast.error('Error', e instanceof Error ? e.message : 'No se pudo abrir la caja')
+    } finally {
+      setOpeningCaja(false)
+    }
+  }
 
   // ── Pre-load items from Visual Catalog cart (localStorage bridge) ──────────
   useEffect(() => {
@@ -307,6 +334,12 @@ export default function POSPage() {
         setCashReceived('')
         try { localStorage.removeItem(POS_SESSION_KEY) } catch { /* ignore */ }
       } else {
+        // Caja cerrada → abrir modal inline en vez de error plano
+        if (typeof result.error === 'string' && result.error.startsWith('CAJA_CERRADA::')) {
+          setShiftOpen(false)
+          setCajaModalOpen(true)
+          return
+        }
         // Display error toast
         const errorMessage = typeof result.error === 'string'
           ? result.error
@@ -389,10 +422,18 @@ export default function POSPage() {
       {shiftOpen === false && (
         <div className="flex items-center gap-3 bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-sm text-red-700">
           <span className="text-lg">🔴</span>
-          <div>
-            <span className="font-semibold">Caja cerrada — no se pueden procesar ventas.</span>
-            <span className="ml-2 text-red-500">Abre un turno en <a href="/cash" className="underline font-medium">Gestión de Caja</a> antes de vender.</span>
+          <div className="flex-1">
+            <span className="font-semibold">Caja cerrada — no se pueden procesar ventas en {warehouse}.</span>
+            <span className="ml-2 text-red-500">Abre un turno para empezar a vender.</span>
           </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setCajaModalOpen(true)}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Abrir caja
+          </Button>
         </div>
       )}
 
@@ -601,6 +642,67 @@ export default function POSPage() {
           {...receiptData}
           onClose={() => setShowReceipt(false)}
         />
+      )}
+
+      {/* Modal: Abrir caja */}
+      {cajaModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !openingCaja && setCajaModalOpen(false)}
+        >
+          <div
+            className="bg-card rounded-xl border border-border shadow-xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center flex-shrink-0">
+                <span className="text-lg">🟢</span>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Abrir caja</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  No hay turno abierto en <strong>{warehouse}</strong>. Abre la caja para
+                  poder registrar ventas y mantener la trazabilidad del turno.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-5">
+              <label className="text-sm font-medium text-foreground/85">Monto de apertura (S/)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={openingAmount}
+                onChange={e => setOpeningAmount(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+                disabled={openingCaja}
+              />
+              <p className="text-xs text-muted-foreground">
+                Efectivo con el que inicia la caja. Si no hay efectivo inicial, ingresa 0.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setCajaModalOpen(false); setOpeningAmount('') }}
+                disabled={openingCaja}
+              >
+                Cancelar
+              </Button>
+              <Button type="button" onClick={handleOpenCaja} disabled={openingCaja || openingAmount === ''}>
+                {openingCaja ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Abriendo...</>
+                ) : (
+                  <>Abrir caja</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

@@ -114,12 +114,12 @@ export async function createSale(formData: FormData): Promise<ActionResponse> {
   const subtotal = saleItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   const total = subtotal - saleDiscount
 
-  // 3b. CAJA ABIERTA — for CONTADO sales the cash register MUST have an open
-  // shift in this store, otherwise the money has nowhere legitimate to land.
-  // approveReturnAction enforces this; createSale was the asymmetric hole that
-  // let cash sales happen without a shift, producing "plata fantasma".
-  // CREDITO sales don't touch the register, so they're exempt.
-  if (sale_type === 'CONTADO') {
+  // 3b. CAJA ABIERTA — TODA venta (CONTADO y CRÉDITO) requiere un turno de caja
+  // ABIERTO en esta tienda. Antes solo CONTADO; ahora también CRÉDITO para que
+  // toda operación quede dentro de un turno con trazabilidad (decisión usuario
+  // 2026-05-28: "que no permita hacer el proceso si no hay caja abierta").
+  // El frontend POS ya deshabilita el botón; esto cierra el hueco vía API directa.
+  {
     const { data: openShift, error: shiftError } = await supabase
       .from('cash_shifts')
       .select('id')
@@ -132,10 +132,8 @@ export async function createSale(formData: FormData): Promise<ActionResponse> {
       return { success: false, error: `Error verificando turno de caja: ${shiftError.message}` }
     }
     if (!openShift) {
-      return {
-        success: false,
-        error: `No hay turno de caja abierto en ${store_id}. Abre la caja antes de registrar ventas al CONTADO.`,
-      }
+      // Código especial que el frontend detecta para ofrecer abrir caja inline.
+      return { success: false, error: `CAJA_CERRADA::${store_id}` }
     }
   }
 
