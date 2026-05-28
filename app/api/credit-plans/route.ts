@@ -403,24 +403,30 @@ export async function GET(request: NextRequest) {
     })
     else /* overdue_desc default */   result.sort((a, b) => b.overdue_amount - a.overdue_amount || b.total_debt - a.total_debt)
 
-    // ── Stats globales — filtrados por tienda si aplica ──────────────────────
+    // ── Stats — reflejan los filtros activos (tienda + antigüedad + crédito + búsqueda) ──
+    // Si NO hay filtros (tienda ALL, sin age_filter/minCredit/búsqueda/origen) usamos el
+    // RPC global del dashboard (rápido). Si hay CUALQUIER filtro, agregamos installments
+    // solo de los planes de los clientes filtrados → las tarjetas son dinámicas.
+    const hasActiveFilter = ageFilter !== 'ALL' || minCredit > 0 || !!search || origin !== 'ALL'
+    const filteredClientIdSet = new Set(clientsList.map(c => c.id))
     let globalDebt = 0
     let globalOverdue = 0
     try {
-      if (store === 'ALL') {
+      if (store === 'ALL' && !hasActiveFilter) {
         // Sin filtro: usar RPC del dashboard (1 query SQL)
         const { data: dash } = await supabase.rpc('get_dashboard_metrics', { p_inactivity_days: 90 })
         if (dash) {
           globalDebt    = Number((dash as any).totalOutstandingDebt) || 0
           globalOverdue = Number((dash as any).totalOverdueDebt)     || 0
         }
-      } else if (storeFilteredPlansLite.length > 0) {
-        // Con filtro tienda: agregar installments de planes filtrados.
-        // Chunkeamos por URL limit (.in con +500 UUIDs revienta headers).
-        const planIds = storeFilteredPlansLite.map(p => p.id)
+      } else {
+        // Agregar installments SOLO de los planes de los clientes que pasaron los filtros.
+        const statsPlanIds = storeFilteredPlansLite
+          .filter((p: any) => p.client_id && filteredClientIdSet.has(p.client_id))
+          .map((p: any) => p.id)
         const CHUNK = 200
-        for (let i = 0; i < planIds.length; i += CHUNK) {
-          const chunkIds = planIds.slice(i, i + CHUNK)
+        for (let i = 0; i < statsPlanIds.length; i += CHUNK) {
+          const chunkIds = statsPlanIds.slice(i, i + CHUNK)
           const { data: insts } = await supabase
             .from('installments')
             .select('amount, paid_amount, due_date, status')
@@ -448,6 +454,7 @@ export async function GET(request: NextRequest) {
       stats: {
         total_debt: globalDebt,
         overdue: globalOverdue,
+        filtered: hasActiveFilter || store !== 'ALL',
       },
     })
   } catch (err) {

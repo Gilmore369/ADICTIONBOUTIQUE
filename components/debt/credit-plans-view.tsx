@@ -98,7 +98,7 @@ export function CreditPlansView() {
   // age_filter: ALL | NEVER | meses ('12' | '24' | '36' | '60' | '120')
   const [ageFilter, setAgeFilter] = useState<string>('ALL')
   const [meta, setMeta] = useState<PageMeta>({ total: 0, page: 1, per_page: PER_PAGE, total_pages: 1 })
-  const [globalStats, setGlobalStats] = useState<{ total_debt: number; overdue: number }>({ total_debt: 0, overdue: 0 })
+  const [globalStats, setGlobalStats] = useState<{ total_debt: number; overdue: number; filtered?: boolean }>({ total_debt: 0, overdue: 0 })
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
   const { selectedStore, storeId } = useStore()
@@ -228,6 +228,23 @@ export function CreditPlansView() {
   const totalOverdue  = clients.reduce((s, c) => s + c.overdue_amount, 0)
   const overdueClients = clients.filter(c => c.overdue_count > 0).length
 
+  // Descriptor del filtro activo para las tarjetas (dinámico)
+  const AGE_LABELS: Record<string, string> = {
+    NEVER: 'que nunca pagaron',
+    '12': 'sin pagos > 1 año',
+    '24': 'sin pagos > 2 años',
+    '36': 'sin pagos > 3 años',
+    '60': 'sin pagos > 5 años',
+    '120': 'sin pagos > 10 años',
+  }
+  const isFiltered = !!globalStats.filtered || ageFilter !== 'ALL'
+  const filterDesc = ageFilter !== 'ALL' ? AGE_LABELS[ageFilter] : null
+  const clientsSub = filterDesc ? `Clientes ${filterDesc}` : 'Con crédito activo'
+  const debtSub    = filterDesc ? `Deuda de estos clientes` : (isFiltered ? 'Saldo pendiente (filtrado)' : 'Saldo pendiente global')
+  const overdueSub = globalStats.overdue > 0
+    ? (filterDesc || isFiltered ? 'En mora (filtrado)' : 'En mora global')
+    : 'Sin mora'
+
   const now = Date.now()
   const overdueAlerts  = alerts.filter(a => isValidDate(a.due_date) && getSafeTimestamp(a.due_date) < now)
   const upcomingAlerts = alerts.filter(a => isValidDate(a.due_date) && getSafeTimestamp(a.due_date) >= now)
@@ -251,10 +268,10 @@ export function CreditPlansView() {
 
       {/* Summary KPIs — reflect current page */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Total clientes" value={String(meta.total)} sub="Con crédito activo" icon={Users} color="blue" />
+        <KpiCard label={filterDesc ? 'Clientes filtrados' : 'Total clientes'} value={String(meta.total)} sub={clientsSub} icon={Users} color="blue" />
         <KpiCard label="Esta página" value={String(clients.length)} sub={`Página ${meta.page} de ${meta.total_pages}`} icon={TrendingUp} color="amber" />
-        <KpiCard label="Deuda total" value={formatCurrency(globalStats.total_debt)} sub="Saldo pendiente global" icon={TrendingUp} color="amber" />
-        <KpiCard label="Vencido total" value={formatCurrency(globalStats.overdue)} sub={globalStats.overdue > 0 ? 'En mora global' : 'Sin mora'} icon={AlertCircle} color={globalStats.overdue > 0 ? 'rose' : 'green'} />
+        <KpiCard label="Deuda total" value={formatCurrency(globalStats.total_debt)} sub={debtSub} icon={TrendingUp} color="amber" />
+        <KpiCard label="Vencido total" value={formatCurrency(globalStats.overdue)} sub={overdueSub} icon={AlertCircle} color={globalStats.overdue > 0 ? 'rose' : 'green'} />
       </div>
 
       {/* Alerts */}
