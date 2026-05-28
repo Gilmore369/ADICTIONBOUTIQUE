@@ -65,6 +65,48 @@ import {
 import { useStore } from '@/contexts/store-context'
 import { getTodayPeru } from '@/lib/utils/timezone'
 
+// Traducción de las claves de datos de los reportes a etiquetas en español.
+// Si una clave no está aquí, se usa prettify (camelCase → "Camel Case").
+const HEADER_LABELS_ES: Record<string, string> = {
+  // Comunes
+  barcode: 'Código de barras', codigoBarras: 'Código de barras', name: 'Nombre',
+  product: 'Producto', producto: 'Producto', category: 'Categoría', categoria: 'Categoría',
+  line: 'Línea', tienda: 'Tienda', warehouse: 'Almacén', fecha: 'Fecha', date: 'Fecha',
+  notes: 'Notas', notas: 'Notas', reference: 'Referencia', referencia: 'Referencia',
+  type: 'Tipo', tipo: 'Tipo', status: 'Estado', concepto: 'Concepto', valor: 'Valor',
+  monto: 'Monto', quantity: 'Cantidad', cantidad: 'Cantidad',
+  // Inventario / rotación
+  totalSold: 'Unidades vendidas', currentStock: 'Stock actual', rotation: 'Rotación',
+  rotationLabel: 'Rotación', transactions: 'Transacciones',
+  costPrice: 'Precio compra', salePrice: 'Precio venta', totalCost: 'Costo total',
+  totalSale: 'Valor venta', potentialProfit: 'Ganancia potencial',
+  totalUnidades: 'Unidades', totalCosto: 'Costo total', entradas: 'Entradas',
+  costoUnitario: 'Costo unitario', costoTotal: 'Costo total',
+  // Ventas
+  numeroVenta: 'N° venta', metodoPago: 'Método de pago', subtotal: 'Subtotal',
+  descuento: 'Descuento', totalBruto: 'Total bruto', devoluciones: 'Devoluciones',
+  total: 'Total', neto: 'Neto', devolucionesDetalle: 'Detalle devoluciones',
+  mes: 'Mes', cantidadVentas: 'Cantidad ventas', totalContado: 'Total contado',
+  totalCredito: 'Total crédito', bruto: 'Bruto', porcentaje: 'Porcentaje',
+  quantitySold: 'Unidades vendidas', quantityReturned: 'Unidades devueltas',
+  grossRevenue: 'Ingresos brutos', returnedAmount: 'Monto devuelto',
+  totalRevenue: 'Ingresos totales', profit: 'Ganancia', margin: 'Margen',
+  cantidadVendida: 'Cantidad vendida', cantidadDevuelta: 'Cantidad devuelta',
+  ingresosBrutos: 'Ingresos brutos', totalIngresos: 'Ingresos totales',
+  numeroTransacciones: 'N° transacciones', productosUnicos: 'Productos únicos',
+  ingresos: 'Ingresos', costo: 'Costo', ganancia: 'Ganancia',
+  margenPct: 'Margen %', margenNum: 'Margen', ingreso: 'Ingreso', egreso: 'Egreso',
+  egresosCajaRegistrados: 'Egresos caja registrados',
+  // Clientes / crédito
+  phone: 'Teléfono', address: 'Dirección', client: 'Cliente',
+  creditLimit: 'Límite crédito', creditUsed: 'Crédito usado',
+  overdueAmount: 'Monto vencido', overdueCount: 'Cuotas vencidas',
+  available: 'Disponible', utilizationPercent: 'Utilización %',
+  installmentNumber: 'N° cuota', dueDate: 'Vencimiento', amount: 'Monto',
+  paidAmount: 'Pagado', pending: 'Pendiente', daysOverdue: 'Días de atraso',
+  transacciones: 'Transacciones',
+}
+
 const EXCEL_CELL_TEXT_LIMIT = 32767
 const EXCEL_TEXT_CHUNK_SIZE = 30000
 
@@ -386,7 +428,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
       ].join('\n')
 
       const csv = Papa.unparse({
-        fields: headers.map(prettifyHeader),
+        fields: headers.map(translateHeader),
         data: reportData.map(r => headers.map(h => r[h] ?? '')),
       })
 
@@ -408,10 +450,51 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
       .replace(/\b\w/g, l => l.toUpperCase())
       .trim()
 
+  // Etiqueta en español para columnas de reportes (fallback a prettify camelCase)
+  const translateHeader = (h: string) =>
+    HEADER_LABELS_ES[h] ||
+    h.replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .trim()
+
   const isCurrencyKey = (k: string) =>
     /(price|amount|total|monto|valor|saldo|deuda|costo|venta|ingres|gast|util)/i.test(k)
 
   const isPercentKey = (k: string) => /(porcentaj|percent|margen|tasa|rotac)/i.test(k)
+
+  // Construye líneas de interpretación: insights automáticos + totales clave.
+  // Compartido entre Excel y PDF.
+  const buildInterpretationRows = (numericKeys: string[]): string[] => {
+    const lines: string[] = []
+    const periodo = `${filters.startDate || 'N/A'} a ${filters.endDate || 'N/A'}`
+    const tienda = filters.warehouse || 'Todas las tiendas'
+    lines.push(`Periodo analizado: ${periodo}  |  Tienda: ${tienda}  |  Registros: ${reportData.length}`)
+    lines.push('')
+
+    // Totales de columnas monetarias / numéricas relevantes
+    const moneyKeys = numericKeys.filter(isCurrencyKey)
+    if (moneyKeys.length > 0) {
+      lines.push('RESUMEN DE INDICADORES:')
+      for (const k of moneyKeys.slice(0, 6)) {
+        const total = reportData.reduce((s, r) => s + (Number(r[k]) || 0), 0)
+        lines.push(`  • ${translateHeader(k)}: S/ ${total.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+      }
+      lines.push('')
+    }
+
+    // Insights automáticos calculados al generar el reporte
+    if (insights.length > 0) {
+      lines.push('INTERPRETACIÓN AUTOMÁTICA:')
+      const tag: Record<string, string> = { error: '[ALERTA]', warning: '[ATENCIÓN]', success: '[POSITIVO]', info: '[INFO]' }
+      for (const ins of insights) {
+        lines.push(`  ${tag[ins.type] || '[INFO]'} ${ins.title}: ${ins.message}`)
+      }
+    } else {
+      lines.push('Sin observaciones automáticas para este reporte.')
+    }
+    return lines
+  }
 
   // Exportar Excel — formato profesional con portada, datos, resumen
   const exportExcel = () => {
@@ -422,7 +505,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
     try {
       const wb = XLSX.utils.book_new()
       const headers = Object.keys(reportData[0])
-      const prettyHeaders = headers.map(prettifyHeader)
+      const prettyHeaders = headers.map(translateHeader)
       const fecha = new Date().toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' })
       const numericKeys = headers.filter(h => typeof reportData[0][h] === 'number')
 
@@ -516,7 +599,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
 
       // ─── Hoja 3: RESUMEN ──────────────────────────────────────────────────
       if (numericKeys.length > 0) {
-        const prettyNumKeys = numericKeys.map(prettifyHeader)
+        const prettyNumKeys = numericKeys.map(translateHeader)
         const sumRow = ['Total', ...numericKeys.map(k => reportData.reduce((s, r) => s + (Number(r[k]) || 0), 0))]
         const avgRow = ['Promedio', ...numericKeys.map(k => {
           const sum = reportData.reduce((s, r) => s + (Number(r[k]) || 0), 0)
@@ -537,7 +620,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
           maxRow,
           countRow,
         ])
-        wsSum['!cols'] = [{ wch: 18 }, ...numericKeys.map((k) => ({ wch: Math.max(prettifyHeader(k).length + 2, 16) }))]
+        wsSum['!cols'] = [{ wch: 18 }, ...numericKeys.map((k) => ({ wch: Math.max(translateHeader(k).length + 2, 16) }))]
         wsSum['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: numericKeys.length } }]
 
         // Formato numérico
@@ -564,8 +647,24 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
         XLSX.utils.book_append_sheet(wb, wsSum, 'Resumen')
       }
 
+      // ─── Hoja 4: INTERPRETACIÓN ──────────────────────────────────────────
+      const interpRows = buildInterpretationRows(numericKeys)
+      if (interpRows.length > 0) {
+        const wsInt = XLSX.utils.aoa_to_sheet([
+          ['Interpretación de Resultados'],
+          [currentReport.name],
+          [],
+          ...interpRows.map(line => [line]),
+        ])
+        wsInt['!cols'] = [{ wch: 110 }]
+        wsInt['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 0 } }]
+        const titleRef = XLSX.utils.encode_cell({ r: 0, c: 0 })
+        if (wsInt[titleRef]) wsInt[titleRef].s = { font: { bold: true, sz: 14, color: { rgb: 'FF10B981' } } }
+        XLSX.utils.book_append_sheet(wb, wsInt, 'Interpretación')
+      }
+
       XLSX.writeFile(wb, `${currentReport.id}-${new Date().toISOString().split('T')[0]}.xlsx`)
-      toast.success('Excel exportado · Portada, Datos y Resumen')
+      toast.success('Excel exportado · Portada, Datos, Resumen e Interpretación')
     } catch (e) {
       toast.error(`Error al exportar Excel: ${e instanceof Error ? e.message : 'Error'}`)
     }
@@ -662,6 +761,38 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
       // Restaurar tab original si lo cambiamos
       if (wasOnDataTab) setActiveTab('data')
 
+      // ── Sección de INTERPRETACIÓN DE RESULTADOS ───────────────────────────
+      const numericKeysPdf = Object.keys(reportData[0]).filter(h => typeof reportData[0][h] === 'number')
+      const interpLines = buildInterpretationRows(numericKeysPdf)
+      if (interpLines.length > 0) {
+        if (yPos > pageH - 50) { doc.addPage(); yPos = 15 }
+        doc.setFontSize(9)
+        doc.setTextColor(55, 65, 81)
+        doc.setFont('helvetica', 'bold')
+        doc.text('INTERPRETACIÓN DE RESULTADOS', 14, yPos)
+        yPos += 2
+        doc.setDrawColor(16, 185, 129)
+        doc.setLineWidth(0.3)
+        doc.line(14, yPos, pageW - 14, yPos)
+        yPos += 5
+
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(55, 65, 81)
+        for (const line of interpLines) {
+          if (!line) { yPos += 2; continue }
+          const isHeading = /:$/.test(line) && line === line.toUpperCase()
+          doc.setFont('helvetica', isHeading ? 'bold' : 'normal')
+          const wrapped = doc.splitTextToSize(line, pageW - 28)
+          for (const wl of wrapped) {
+            if (yPos > pageH - 14) { doc.addPage(); yPos = 15 }
+            doc.text(wl, 14, yPos)
+            yPos += 4.5
+          }
+        }
+        yPos += 4
+      }
+
       // ── Sección de datos tabulados ────────────────────────────────────────
       if (chartsCaptured > 0 || yPos > pageH - 60) {
         doc.addPage()
@@ -678,14 +809,9 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
       doc.line(14, yPos, pageW - 14, yPos)
       yPos += 5
 
-      // Formatear headers (legibles)
+      // Headers en español
       const rawHeaders = Object.keys(reportData[0])
-      const friendlyHeaders = rawHeaders.map(h =>
-        h.replace(/([A-Z])/g, ' $1')
-          .replace(/_/g, ' ')
-          .replace(/^\w/, c => c.toUpperCase())
-          .trim()
-      )
+      const friendlyHeaders = rawHeaders.map(translateHeader)
 
       const tableData = reportData.map(r => rawHeaders.map(h => {
         const v = r[h]
@@ -1264,12 +1390,12 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
           {activeTab === 'data' && (
             <Card className="p-4">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-base">
                   <thead>
                     <tr className="border-b bg-muted/60">
                       {Object.keys(reportData[0]).map((h) => (
-                        <th key={h} className="px-3 py-2 text-left font-semibold text-xs text-muted-foreground uppercase tracking-wide">
-                          {h.charAt(0).toUpperCase() + h.slice(1).replace(/([A-Z])/g, ' $1')}
+                        <th key={h} className="px-3 py-2 text-left font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                          {translateHeader(h)}
                         </th>
                       ))}
                     </tr>
@@ -1278,7 +1404,7 @@ export function ReportsGenerator({ initialCategory, initialReport }: ReportsGene
                     {reportData.map((row: any, idx: number) => (
                       <tr key={idx} className="border-b hover:bg-muted/50 transition-colors">
                         {Object.values(row).map((v: any, ci) => (
-                          <td key={ci} className="px-3 py-2 text-xs tabular-nums">
+                          <td key={ci} className="px-3 py-2 text-sm tabular-nums">
                             {typeof v === 'number' && !Number.isInteger(v)
                               ? v.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                               : v?.toString() || '—'}
