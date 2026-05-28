@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { getTodayPeru, peruMidnightUTC } from '@/lib/utils/timezone'
-import { getAllowedStoreNames, getAllowedPlanIds } from '@/lib/utils/store-filter'
+import { getAllowedStoreNames } from '@/lib/utils/store-filter'
 import { fetchAllRows } from '@/lib/supabase/paginate'
 
 export async function GET(request: Request) {
@@ -20,15 +20,12 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const requestedStore = searchParams.get('store')
     const allowedStoreNames = await getAllowedStoreNames(supabase, requestedStore)
-    let planIdFilter: string[] | null = null
-    if (allowedStoreNames) {
-      planIdFilter = await getAllowedPlanIds(supabase, allowedStoreNames)
-    }
+    const allowedSet = allowedStoreNames ? new Set(allowedStoreNames) : null
 
-    // ⚠️ ANTES tenía .limit(100) que excluía 3,267 de las 3,367 cuotas vencidas
-    //    → solo se veía un puñado de clientes en el mapa. Usamos fetchAllRows.
-    const overdueInstallments = await fetchAllRows<any>((from, to) => {
-      let q = supabase
+    // Traemos las cuotas vencidas con la tienda del plan (legacy_source O sale.store_id)
+    // y filtramos en JS. Evita .in('plan_id', [miles]) que rompe la URL.
+    const overdueInstallments = await fetchAllRows<any>((from, to) =>
+      supabase
         .from('installments')
         .select(`
           id,
@@ -38,6 +35,8 @@ export async function GET(request: Request) {
           due_date,
           credit_plans!inner (
             client_id,
+            legacy_source,
+            sale:sales(store_id),
             clients!inner (
               id,
               name,
@@ -54,18 +53,19 @@ export async function GET(request: Request) {
         .lt('due_date', today)
         .in('status', ['PENDING', 'PARTIAL', 'OVERDUE'])
         .range(from, to)
-      if (planIdFilter !== null) {
-        q = q.in('plan_id', planIdFilter) as typeof q
-      }
-      return q
-    })
+    )
 
-    if (planIdFilter !== null && planIdFilter.length === 0) {
-      return NextResponse.json({ data: [] })
+    // Deriva la tienda del plan
+    const planStore = (plan: any): string => {
+      const src = (plan?.legacy_source || '').toLowerCase()
+      const saleStore = (plan?.sale as any)?.store_id
+      const isHombres = src.includes('hombres') || src.includes('boutiquev') || saleStore === 'Tienda Hombres'
+      return isHombres ? 'Tienda Hombres' : 'Tienda Mujeres'
     }
 
     const clientsMap = new Map()
     overdueInstallments?.forEach((installment: any) => {
+      if (allowedSet && !allowedSet.has(planStore(installment.credit_plans))) return
       const client = installment.credit_plans.clients
       const overdueAmount = installment.amount - (installment.paid_amount || 0)
       const dueDate = String(installment.due_date).split('T')[0]

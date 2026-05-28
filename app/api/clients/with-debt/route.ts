@@ -16,25 +16,24 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const requestedStore = searchParams.get('store')
     const allowedStoreNames = await getAllowedStoreNames(supabase, requestedStore)
-    let clientIdFilter: string[] | null = null
+    let allowedSet: Set<string> | null = null
     if (allowedStoreNames) {
-      clientIdFilter = await getAllowedClientIds(supabase, allowedStoreNames)
+      allowedSet = new Set(await getAllowedClientIds(supabase, allowedStoreNames))
+      if (allowedSet.size === 0) return NextResponse.json({ data: [] })
     }
 
-    if (clientIdFilter !== null && clientIdFilter.length === 0) {
-      return NextResponse.json({ data: [] })
-    }
-    const data = await fetchAllRows<any>((from, to) => {
-      let q = supabase
+    // Traer todos los clientes con deuda (paginado) y filtrar por tienda en JS.
+    // Evita .in('id', [cientos]) que rompe la URL.
+    const allDebt = await fetchAllRows<any>((from, to) =>
+      supabase
         .from('clients')
         .select('id, name, phone, address, lat, lng, credit_used, credit_limit, client_photo_url')
         .gt('credit_used', 0)
         .order('credit_used', { ascending: false })
         .range(from, to)
-      if (clientIdFilter !== null) q = q.in('id', clientIdFilter) as typeof q
-      return q
-    })
+    )
 
+    const data = allowedSet ? allDebt.filter((c: any) => allowedSet!.has(c.id)) : allDebt
     return NextResponse.json({ data })
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -5,9 +5,38 @@
  * clients whose credit plans come from sales in that store.
  */
 
+import { fetchAllRows } from '@/lib/supabase/paginate'
+
 export const STORE_DISPLAY_NAMES: Record<string, string> = {
   MUJERES: 'Tienda Mujeres',
   HOMBRES: 'Tienda Hombres',
+}
+
+/**
+ * Trae TODOS los planes activos con su tienda derivada (legacy_source O sale.store_id).
+ * Mismo criterio que /api/credit-plans: Hombres = BoutiqueV/Hombres; resto = Mujeres.
+ * Pagina con fetchAllRows para superar el cap de 1000.
+ */
+async function fetchActivePlansWithStore(supabase: any): Promise<
+  { id: string; client_id: string | null; store: string }[]
+> {
+  const rows = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from('credit_plans')
+      .select('id, client_id, legacy_source, sale:sales(store_id)')
+      .in('status', ['ACTIVE', 'OVERDUE'])
+      .range(from, to)
+  )
+  return (rows || []).map((p: any) => {
+    const src = (p.legacy_source || '').toLowerCase()
+    const saleStore = (p.sale as any)?.store_id
+    const isHombres = src.includes('hombres') || src.includes('boutiquev') || saleStore === 'Tienda Hombres'
+    return {
+      id: p.id,
+      client_id: p.client_id,
+      store: isHombres ? 'Tienda Hombres' : 'Tienda Mujeres',
+    }
+  })
 }
 
 /**
@@ -64,30 +93,9 @@ export async function getAllowedPlanIds(
   supabase: any,
   storeNames: string[]
 ): Promise<string[]> {
-  const { data: storeSales } = await supabase
-    .from('sales')
-    .select('id')
-    .in('store_id', storeNames)
-
-  const saleIds = (storeSales || []).map((s: any) => s.id)
-
-  const { data: plans } = saleIds.length > 0
-    ? await supabase
-      .from('credit_plans')
-      .select('id')
-      .in('sale_id', saleIds)
-    : { data: [] }
-
-  const { data: legacyPlans } = await supabase
-    .from('credit_plans')
-    .select('id')
-    .eq('imported_from_legacy', true)
-    .eq('status', 'ACTIVE')
-
-  return [...new Set([
-    ...(plans || []).map((p: any) => p.id),
-    ...(legacyPlans || []).map((p: any) => p.id),
-  ])]
+  const allowed = new Set(storeNames)
+  const plans = await fetchActivePlansWithStore(supabase)
+  return plans.filter(p => allowed.has(p.store)).map(p => p.id)
 }
 
 /**
@@ -98,28 +106,9 @@ export async function getAllowedClientIds(
   supabase: any,
   storeNames: string[]
 ): Promise<string[]> {
-  const { data: storeSales } = await supabase
-    .from('sales')
-    .select('id')
-    .in('store_id', storeNames)
-
-  const saleIds = (storeSales || []).map((s: any) => s.id)
-
-  const { data: plans } = saleIds.length > 0
-    ? await supabase
-      .from('credit_plans')
-      .select('client_id')
-      .in('sale_id', saleIds)
-    : { data: [] }
-
-  const { data: legacyPlans } = await supabase
-    .from('credit_plans')
-    .select('client_id')
-    .eq('imported_from_legacy', true)
-    .eq('status', 'ACTIVE')
-
-  return [...new Set([
-    ...(plans || []).map((p: any) => p.client_id).filter(Boolean),
-    ...(legacyPlans || []).map((p: any) => p.client_id).filter(Boolean),
-  ])] as string[]
+  const allowed = new Set(storeNames)
+  const plans = await fetchActivePlansWithStore(supabase)
+  return [...new Set(
+    plans.filter(p => allowed.has(p.store)).map(p => p.client_id).filter(Boolean)
+  )] as string[]
 }
