@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         line_id,
         category_id,
         brand_id,
+        supplier_id,
         size,
         color,
         price,
@@ -58,7 +59,8 @@ export async function GET(request: NextRequest) {
         `name.ilike.%${baseName}%,` +
         `base_name.ilike.%${baseName}%,` +
         `base_code.ilike.%${baseName}%,` +
-        `barcode.ilike.${baseName}-%`   // ← detecta CIN-001-M si buscamos CIN-001
+        `barcode.ilike.%${baseName}%,` + // ← match de código de barras exacto/parcial
+        `barcode.ilike.${baseName}-%`    // ← detecta CIN-001-M si buscamos CIN-001
       )
       .eq('active', true)
       .limit(200)
@@ -105,6 +107,8 @@ export async function GET(request: NextRequest) {
             lineId: product.line_id,
             categoryId: product.category_id,
             brandId: product.brand_id,
+            brandName: Array.isArray(product.brands) ? product.brands[0]?.name : product.brands?.name,
+            supplierId: product.supplier_id,
             imageUrl: product.image_url,
             purchasePrice: product.purchase_price,
             salePrice: product.price,

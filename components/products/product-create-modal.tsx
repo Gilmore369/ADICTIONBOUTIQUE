@@ -69,6 +69,32 @@ interface VariantRow {
   quantity: string
 }
 
+// Variante ya existente de un modelo cargado (solo lectura, como referencia)
+interface ExistingVariant {
+  productId: string
+  barcode: string | null
+  size: string | null
+  color: string | null
+  price: number
+  purchase_price: number | null
+}
+
+interface ModelSearchResult {
+  baseCode: string
+  baseName: string
+  lineId: string | null
+  categoryId: string | null
+  brandId: string | null
+  brandName?: string | null
+  supplierId: string | null
+  imageUrl: string | null
+  purchasePrice: number | null
+  salePrice: number | null
+  variants: ExistingVariant[]
+  sizes: string[]
+  colors: string[]
+}
+
 export interface ProductCreateModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -407,6 +433,16 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
   // Variants
   const [variants, setVariants] = useState<VariantRow[]>([newRow()])
 
+  // Cargar modelo existente (búsqueda por código de barras o nombre)
+  const [modelSearch, setModelSearch] = useState('')
+  const [modelResults, setModelResults] = useState<ModelSearchResult[]>([])
+  const [modelSearching, setModelSearching] = useState(false)
+  const [showModelDropdown, setShowModelDropdown] = useState(false)
+  const [existingVariants, setExistingVariants] = useState<ExistingVariant[]>([])
+  const [loadedModelName, setLoadedModelName] = useState<string | null>(null)
+  // Marca a forzar en la lista tras cargar modelo (por si no está vinculada al proveedor)
+  const forcedBrandRef = useRef<{ id: string; name: string } | null>(null)
+
   // Saving + error
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -483,13 +519,66 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
     fetch(url)
       .then(r => r.json())
       .then(d => {
-        const list = (Array.isArray(d) ? d : d?.data || []) as Option[]
+        let list = (Array.isArray(d) ? d : d?.data || []) as Option[]
+        // Si cargamos un modelo cuya marca no está vinculada al proveedor,
+        // la inyectamos para que aparezca y no se pierda la selección.
+        const forced = forcedBrandRef.current
+        if (forced && !list.some(b => b.id === forced.id)) {
+          list = [...list, { id: forced.id, name: forced.name }].sort((a, b) => a.name.localeCompare(b.name))
+        }
         setBrands(list)
-        // Si la marca actual no está en la nueva lista, limpiarla
+        // Conservar la marca si está en la lista (incluida la forzada); si no, limpiar
         setBrandId(prev => (prev && !list.some(b => b.id === prev) ? '' : prev))
+        forcedBrandRef.current = null
       })
       .catch(() => { /* keep previous */ })
   }, [supplierId, open])
+
+  // Búsqueda de modelo existente (debounce 350ms) — por código de barras o nombre
+  useEffect(() => {
+    const q = modelSearch.trim()
+    if (q.length < 2) { setModelResults([]); setShowModelDropdown(false); return }
+    setModelSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/products/search-by-name?baseName=${encodeURIComponent(q)}`)
+        const { data } = await res.json()
+        setModelResults(Array.isArray(data) ? data : [])
+        setShowModelDropdown(true)
+      } catch {
+        setModelResults([])
+      } finally {
+        setModelSearching(false)
+      }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [modelSearch])
+
+  // Cargar un modelo existente → autocompletar datos base + variantes de referencia
+  const loadExistingModel = useCallback((m: ModelSearchResult) => {
+    setName(m.baseName || '')
+    setBaseCodeOverride(m.baseCode || null) // reusar el código del modelo existente
+    // Forzar la marca aunque no esté vinculada al proveedor (datos migrados)
+    if (m.brandId && m.brandName) forcedBrandRef.current = { id: m.brandId, name: m.brandName }
+    if (m.supplierId) setSupplierId(m.supplierId)
+    if (m.brandId) setBrandId(m.brandId)
+    if (m.lineId) setLineId(m.lineId)
+    // categoría se setea tras un tick para que el filtro por línea ya esté aplicado
+    if (m.categoryId) setTimeout(() => setCategoryId(m.categoryId as string), 0)
+    if (m.imageUrl) { setImageUrl(m.imageUrl); setImagePreview(m.imageUrl) }
+    setExistingVariants(m.variants || [])
+    setLoadedModelName(m.baseName || m.baseCode)
+    // precargar precios sugeridos en la primera fila vacía
+    setVariants([{
+      ...newRow(),
+      purchase_price: m.purchasePrice ? String(m.purchasePrice) : '',
+      sale_price: m.salePrice ? String(m.salePrice) : '',
+    }])
+    setModelSearch('')
+    setModelResults([])
+    setShowModelDropdown(false)
+    toast.success(`Modelo "${m.baseName}" cargado`, `${m.variants?.length || 0} variante(s) existente(s). Agrega las nuevas abajo.`)
+  }, [])
 
   // Reset on close
   useEffect(() => {
@@ -498,6 +587,8 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
       setLineId(''); setCategoryId(''); setWarehouseId(defaultWarehouse)
       setImageUrl(''); setImagePreview(''); setVariants([newRow()]); setFormError('')
       setBaseCodeOverride(null)
+      setModelSearch(''); setModelResults([]); setShowModelDropdown(false)
+      setExistingVariants([]); setLoadedModelName(null)
     }
   }, [open])
 
@@ -721,9 +812,58 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
 
             {/* ══ SECCIÓN 1: Datos base ══════════════════════════════ */}
             <div className="px-6 py-5 space-y-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-                Datos base
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                  Datos base
+                </p>
+              </div>
+
+              {/* Buscar modelo existente (opcional) — por código de barras o nombre */}
+              <div className="relative">
+                <label className="text-xs font-medium text-foreground/70 mb-1 block">
+                  ¿Producto ya existente? Escanea el código de barras o escribe el nombre para autocompletar
+                  <span className="text-muted-foreground/60 font-normal"> (opcional)</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    value={modelSearch}
+                    onChange={e => setModelSearch(e.target.value)}
+                    onFocus={() => { if (modelResults.length) setShowModelDropdown(true) }}
+                    placeholder="Ej: 7501234567890  ·  Polo LEVIS  ·  LEG00062326"
+                    className="h-9 pr-8"
+                  />
+                  {modelSearching && (
+                    <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground/70" />
+                  )}
+                </div>
+                {showModelDropdown && modelResults.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full bg-card rounded-lg border border-border shadow-lg max-h-64 overflow-y-auto">
+                    {modelResults.map((m) => (
+                      <button
+                        key={m.baseCode}
+                        type="button"
+                        onClick={() => loadExistingModel(m)}
+                        className="w-full px-3 py-2 text-left hover:bg-accent flex items-center justify-between gap-3 border-b border-border/50 last:border-0"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">{m.baseName}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {m.baseCode} · {m.variants.length} variante(s)
+                            {m.sizes.length > 0 ? ` · tallas: ${m.sizes.join(', ')}` : ''}
+                          </div>
+                        </div>
+                        <Plus className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {loadedModelName && (
+                  <div className="mt-2 flex items-center gap-2 text-[11px] text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 rounded-md px-2.5 py-1.5">
+                    <Layers className="h-3.5 w-3.5" />
+                    Extendiendo modelo <strong>{loadedModelName}</strong> — agrega variantes nuevas abajo
+                  </div>
+                )}
+              </div>
 
               {/* Row 1: Nombre + Código modelo */}
               <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
@@ -936,6 +1076,29 @@ export function ProductCreateModal({ open, onOpenChange, onSuccess }: ProductCre
                   Tallas disponibles para <strong>{categories.find(c => c.id === categoryId)?.name}</strong>:{' '}
                   {availableSizes.map(s => s.name).join(', ')}
                 </p>
+              )}
+
+              {/* Variantes existentes del modelo (solo referencia) */}
+              {existingVariants.length > 0 && (
+                <div className="rounded-xl border border-dashed border-border bg-muted/30 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    Variantes ya existentes ({existingVariants.length}) — no las repitas
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {existingVariants.map((v) => (
+                      <span
+                        key={v.productId}
+                        className="inline-flex items-center gap-1 rounded-md bg-card border border-border px-2 py-1 text-[11px] text-muted-foreground"
+                        title={v.barcode || ''}
+                      >
+                        {v.size && <span className="font-medium text-foreground/80">{v.size}</span>}
+                        {v.color && <span>· {v.color}</span>}
+                        {!v.size && !v.color && <span className="font-mono">{v.barcode}</span>}
+                        <span className="text-emerald-600 font-semibold">S/{Number(v.price).toFixed(0)}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* Table — scrollable horizontally on small screens */}
