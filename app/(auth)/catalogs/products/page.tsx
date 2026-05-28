@@ -2,66 +2,59 @@ import { Suspense } from 'react'
 import { createServerClient } from '@/lib/supabase/server'
 import { ProductsManager } from '@/components/products/products-manager'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
-import { fetchAllRows } from '@/lib/supabase/paginate'
 
 /**
- * Products Catalog Page
- * 
- * Server Component that fetches products data with related data (lines, categories, 
- * brands, stock) and renders the ProductsManager component.
- * Uses Suspense for lazy loading with skeleton.
- * 
- * Requirements: 9.1
- * Task: 8.10 Create products page
+ * Products Catalog Page — server-side paginated.
+ *
+ * Only loads the FIRST PAGE (100 products) on SSR.
+ * Subsequent filtering / pagination is handled client-side via the
+ * /api/catalogs/products API route (which uses proper DB pagination).
+ *
+ * Replaced old fetchAllRows pattern that caused Supabase statement timeout
+ * with 14k+ products.
  */
+
+const PAGE_LIMIT = 100
 
 async function ProductsData() {
   const supabase = await createServerClient()
 
-  // Fetch products + stock + filtros en PARALELO para acelerar carga.
-  // products y stock van con fetchAllRows (5,857 filas, ~6 batches cada uno),
-  // pero al ejecutarse en paralelo el tiempo total es ~6 batches (no 12).
-  const [products, stockData, linesRes, catsRes] = await Promise.all([
-    fetchAllRows<any>((from, to) =>
-      supabase
-        .from('products')
-        .select(`
-          *,
-          lines:line_id(id, name),
-          categories:category_id(id, name),
-          brands:brand_id(id, name)
-        `)
-        .eq('active', true)
-        .order('name')
-        .range(from, to)
-    ),
-    fetchAllRows<any>((from, to) =>
-      supabase.from('stock').select('product_id, quantity').range(from, to)
-    ),
+  // First page of products + count + filter data — all fast single queries
+  const [productsRes, linesRes, catsRes] = await Promise.all([
+    supabase
+      .from('products')
+      .select(
+        `*, lines:line_id(id, name), categories:category_id(id, name), brands:brand_id(id, name)`,
+        { count: 'exact' }
+      )
+      .eq('active', true)
+      .order('name')
+      .range(0, PAGE_LIMIT - 1),
     supabase.from('lines').select('id, name').eq('active', true).order('name'),
     supabase.from('categories').select('id, name, line_id').eq('active', true).order('name'),
   ])
-  
-  // Create a map of product_id -> total quantity
-  const stockMap = new Map<string, number>()
-  if (stockData) {
-    stockData.forEach(stock => {
-      const current = stockMap.get(stock.product_id) || 0
-      stockMap.set(stock.product_id, current + stock.quantity)
+
+  const productIds = (productsRes.data || []).map((p: any) => p.id)
+  let stockMap: Record<string, number> = {}
+  if (productIds.length > 0) {
+    const { data: stockData } = await supabase
+      .from('stock')
+      .select('product_id, quantity')
+      .in('product_id', productIds)
+    stockData?.forEach((s: any) => {
+      stockMap[s.product_id] = (stockMap[s.product_id] || 0) + s.quantity
     })
   }
 
-  // Merge stock data with products
-  const productsWithStock = (products || []).map(product => ({
-    ...product,
-    stock: {
-      quantity: stockMap.get(product.id) || 0
-    }
+  const productsWithStock = (productsRes.data || []).map((p: any) => ({
+    ...p,
+    stock: { quantity: stockMap[p.id] || 0 },
   }))
 
   return (
     <ProductsManager
       initialProducts={productsWithStock}
+      initialTotal={productsRes.count || 0}
       lines={linesRes.data || []}
       categories={catsRes.data || []}
     />

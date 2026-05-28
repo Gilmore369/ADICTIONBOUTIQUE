@@ -1,28 +1,6 @@
-/**
- * ProductsManager Component
- * 
- * Main component for managing products catalog. Integrates ProductsTable, 
- * ProductSearch, and ProductForm in a dialog for create/edit operations.
- * 
- * Features:
- * - Display products in table with sorting and filtering
- * - Search products with debouncing
- * - Create new products via dialog
- * - Edit existing products
- * - Delete products (soft delete)
- * 
- * Design Tokens:
- * - Spacing: 16px, 24px
- * - Border radius: 8px (standard)
- * - Button height: 36px
- * 
- * Requirements: 4.1, 9.1
- * Task: 8.10 Create products page
- */
-
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useDebounce } from '@/hooks/use-debounce'
 import { ProductsTable } from './products-table'
 import { ProductForm } from './product-form'
@@ -35,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Plus, Printer, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Printer, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { generateBarcodePdf, type BarcodeItem } from '@/lib/barcodes/generate-barcode-pdf'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
@@ -68,61 +46,92 @@ interface Product {
 
 interface ProductsManagerProps {
   initialProducts: Product[]
+  initialTotal: number
   lines: { id: string; name: string }[]
   categories: { id: string; name: string; line_id: string }[]
 }
 
-export function ProductsManager({ initialProducts, lines: initialLines, categories: initialCategories }: ProductsManagerProps) {
+const PAGE_SIZE = 100
+
+export function ProductsManager({ initialProducts, initialTotal, lines: initialLines, categories: initialCategories }: ProductsManagerProps) {
   const { selectedStore, storeId } = useStore()
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [lines, setLines]         = useState(initialLines)
+  const [products, setProducts]     = useState<Product[]>(initialProducts)
+  const [total, setTotal]           = useState(initialTotal)
+  const [lines, setLines]           = useState(initialLines)
   const [categories, setCategories] = useState(initialCategories)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [loading, setLoading]       = useState(false)
+
+  const [dialogOpen, setDialogOpen]       = useState(false)
   const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [filterLine, setFilterLine] = useState('')
+  const [editingProduct, setEditingProduct]   = useState<Product | null>(null)
+
+  const [filterLine, setFilterLine]         = useState('')
   const [filterCategory, setFilterCategory] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 100
+  const [searchQuery, setSearchQuery]       = useState('')
+  const [currentPage, setCurrentPage]       = useState(1)
+
+  const debouncedSearch = useDebounce(searchQuery, 350)
   const router = useRouter()
 
-  // Re-load products/lines/categories when store filter changes
-  useEffect(() => {
-    const load = async () => {
-      const url = storeId
-        ? `/api/catalogs/products?store_id=${storeId}`
-        : '/api/catalogs/products'
-      try {
-        const res = await fetch(url)
-        if (!res.ok) return
-        const json = await res.json()
-        setProducts(json.products || [])
-        setLines(json.lines || [])
-        setCategories(json.categories || [])
-        // Reset per-line/category filter when store changes
-        setFilterLine('')
-        setFilterCategory('')
-      } catch (e) {
-        console.error('Error loading products by store:', e)
-      }
+  // Build API URL from current state
+  const buildUrl = useCallback((page: number, search: string, line: string, cat: string, store: string) => {
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    params.set('limit', String(PAGE_SIZE))
+    if (search) params.set('search', search)
+    if (line)   params.set('line_id', line)
+    if (cat)    params.set('category_id', cat)
+    if (store)  params.set('store_id', store)
+    return `/api/catalogs/products?${params.toString()}`
+  }, [])
+
+  // Fetch products from API
+  const fetchProducts = useCallback(async (page: number, search: string, line: string, cat: string, store: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(buildUrl(page, search, line, cat, store))
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setProducts(json.products || [])
+      setTotal(json.total || 0)
+      if (json.lines)      setLines(json.lines)
+      if (json.categories) setCategories(json.categories)
+    } catch (e) {
+      console.error('Error loading products:', e)
+      toast.error('Error al cargar productos', 'Intenta de nuevo o recarga la página')
+    } finally {
+      setLoading(false)
     }
-    load()
+  }, [buildUrl])
+
+  // Re-fetch when store changes (reset all filters)
+  useEffect(() => {
+    setFilterLine('')
+    setFilterCategory('')
+    setSearchQuery('')
+    setCurrentPage(1)
+    fetchProducts(1, '', '', '', storeId || '')
   }, [selectedStore, storeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounce search query (300ms)
-  const debouncedSearch = useDebounce(searchQuery, 300)
+  // Re-fetch when search/filter changes (reset to page 1)
+  useEffect(() => {
+    setCurrentPage(1)
+    fetchProducts(1, debouncedSearch, filterLine, filterCategory, storeId || '')
+  }, [debouncedSearch, filterLine, filterCategory]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle create product — opens new unified modal
-  const handleCreate = () => {
-    setCreateModalOpen(true)
-  }
+  // Re-fetch when page changes
+  useEffect(() => {
+    fetchProducts(currentPage, debouncedSearch, filterLine, filterCategory, storeId || '')
+  }, [currentPage]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Imprimir PDF de etiquetas para los productos filtrados
-  // useStock=false → 1 etiqueta por SKU (re-impresión rápida)
-  // useStock=true  → 1 etiqueta por unidad en stock (reposición completa)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Handle create product
+  const handleCreate = () => setCreateModalOpen(true)
+
+  // Barcode printing — current page / filter result
   const handlePrintLabels = (useStock: boolean) => {
-    const items: BarcodeItem[] = filteredProducts
+    const items: BarcodeItem[] = products
       .filter(p => p.barcode)
       .map(p => ({
         barcode: p.barcode!,
@@ -133,7 +142,7 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
         quantity: useStock ? Math.max(1, p.stock?.quantity ?? 1) : 1,
       }))
     if (items.length === 0) {
-      toast.error('Sin productos', 'No hay productos con código de barras para imprimir')
+      toast.error('Sin productos', 'No hay productos con código de barras en esta vista')
       return
     }
     try {
@@ -143,115 +152,67 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
           : `Etiquetas (1×SKU) — ${new Date().toLocaleDateString('es-PE')}`,
         showPrice: true,
       })
-      const total = items.reduce((s, x) => s + x.quantity, 0)
-      toast.success('PDF generado', `${items.length} SKU(s) · ${total} etiqueta(s)`)
+      const totalItems = items.reduce((s, x) => s + x.quantity, 0)
+      toast.success('PDF generado', `${items.length} SKU(s) · ${totalItems} etiqueta(s)`)
     } catch (e) {
       toast.error('Error', e instanceof Error ? e.message : 'No se pudo generar el PDF')
     }
   }
 
-  // Handle edit product
   const handleEdit = (product: Product) => {
     setEditingProduct(product)
     setDialogOpen(true)
   }
 
-  // Handle delete product (soft delete)
   const handleDelete = async (product: Product) => {
-    if (!confirm(`¿Está seguro de eliminar el producto "${product.name}"?`)) {
-      return
-    }
-
+    if (!confirm(`¿Está seguro de eliminar el producto "${product.name}"?`)) return
     try {
       const result = await deleteProduct(product.id)
-
-      if (!result.success) {
-        throw new Error(result.error as string || 'Error deleting product')
-      }
-
-      // Remove from local state
-      setProducts(products.filter((p) => p.id !== product.id))
-
+      if (!result.success) throw new Error(result.error as string || 'Error deleting product')
+      setProducts(prev => prev.filter(p => p.id !== product.id))
+      setTotal(t => t - 1)
       toast.success('Producto eliminado', `El producto "${product.name}" ha sido eliminado correctamente.`)
-
-      // Refresh the page data
       router.refresh()
     } catch (error) {
-      console.error('Error deleting product:', error)
       toast.error('Error', error instanceof Error ? error.message : 'Error al eliminar el producto')
     }
   }
 
-  // Handle form success (edit)
   const handleFormSuccess = (product?: Product) => {
     if (editingProduct && product) {
-      setProducts(products.map((p) => (p.id === product.id ? product : p)))
-      toast.success('Producto actualizado', `El producto "${product.name}" ha sido actualizado correctamente.`)
+      setProducts(prev => prev.map(p => p.id === product.id ? product : p))
+      toast.success('Producto actualizado', `"${product.name}" actualizado correctamente.`)
     }
     setDialogOpen(false)
     setEditingProduct(null)
     router.refresh()
   }
 
-  // Handle form cancel
   const handleFormCancel = () => {
     setDialogOpen(false)
     setEditingProduct(null)
   }
 
-  // Filter products by line, category, and search (INDEPENDIENTES)
-  const filteredProducts = useMemo(() => {
-    let filtered = products
-
-    // Filter by line
-    if (filterLine) {
-      filtered = filtered.filter(p => p.line_id === filterLine)
-    }
-
-    // Filter by category
-    if (filterCategory) {
-      filtered = filtered.filter(p => p.category_id === filterCategory)
-    }
-
-    // Filter by search (debounced)
-    if (debouncedSearch.trim()) {
-      const searchLower = debouncedSearch.toLowerCase()
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchLower) ||
-        p.barcode?.toLowerCase().includes(searchLower) ||
-        p.description?.toLowerCase().includes(searchLower)
-      )
-    }
-
-    return filtered
-  }, [products, filterLine, filterCategory, debouncedSearch])
-
-  // Reset to page 1 when filters change
-  useEffect(() => { setCurrentPage(1) }, [filterLine, filterCategory, debouncedSearch])
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
-  const pagedProducts = useMemo(
-    () => filteredProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [filteredProducts, currentPage]
-  )
-
   return (
     <div className="space-y-6">
-      {/* Header with title and create button */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Productos</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Gestiona el catálogo de productos (mostrando {filteredProducts.length} de {products.length})
+            {loading
+              ? 'Cargando...'
+              : `${total.toLocaleString('es-PE')} productos${filterLine || filterCategory || debouncedSearch ? ' (filtrado)' : ''} · página ${currentPage} de ${totalPages}`
+            }
           </p>
         </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
             onClick={() => handlePrintLabels(false)}
-            disabled={filteredProducts.length === 0}
+            disabled={products.length === 0 || loading}
             className="gap-2"
-            title="1 etiqueta por SKU"
+            title="1 etiqueta por SKU (página actual)"
           >
             <Printer className="h-4 w-4" />
             Etiquetas (1×SKU)
@@ -259,9 +220,9 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
           <Button
             variant="outline"
             onClick={() => handlePrintLabels(true)}
-            disabled={filteredProducts.length === 0}
+            disabled={products.length === 0 || loading}
             className="gap-2"
-            title="Una etiqueta por cada unidad en stock"
+            title="Una etiqueta por unidad en stock (página actual)"
           >
             <Printer className="h-4 w-4" />
             Etiquetas (×stock)
@@ -279,7 +240,7 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
           <SearchFilter
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Buscar por nombre, código o descripción..."
+            placeholder="Buscar por nombre o código de barras..."
           />
         </div>
 
@@ -289,9 +250,8 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
           </label>
           <select
             value={filterLine}
-            onChange={(e) => {
+            onChange={e => {
               setFilterLine(e.target.value)
-              // Reset category if it doesn't belong to the new line
               if (filterCategory) {
                 const cat = categories.find(c => c.id === filterCategory)
                 if (cat && cat.line_id !== e.target.value) setFilterCategory('')
@@ -312,7 +272,7 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
           </label>
           <select
             value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
+            onChange={e => setFilterCategory(e.target.value)}
             className="w-full h-9 px-3 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={!filterLine}
             title={!filterLine ? 'Elige una línea primero' : ''}
@@ -327,23 +287,33 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
         </div>
       </div>
 
-      {/* Products Table — paginada (100 por página, total {filteredProducts.length}) */}
-      <ProductsTable
-        products={pagedProducts}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
+      {/* Loading overlay */}
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Cargando productos...
+        </div>
+      )}
+
+      {/* Products Table */}
+      <div className={loading ? 'opacity-50 pointer-events-none' : ''}>
+        <ProductsTable
+          products={products}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
           <p className="text-xs text-muted-foreground">
-            Página {currentPage} de {totalPages} · {filteredProducts.length} productos
-            (mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredProducts.length)})
+            Página {currentPage} de {totalPages} · {total.toLocaleString('es-PE')} productos
+            · mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, total)}
           </p>
           <div className="flex items-center gap-1">
             <Button variant="outline" size="sm" className="h-7 w-7 p-0"
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || loading}
               onClick={() => setCurrentPage(p => p - 1)}>
               <ChevronLeft className="h-3 w-3" />
             </Button>
@@ -361,13 +331,14 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
                   <Button key={p}
                     variant={currentPage === p ? 'default' : 'outline'}
                     size="sm" className="h-7 min-w-[28px] px-2 text-xs"
+                    disabled={loading}
                     onClick={() => setCurrentPage(p as number)}>
                     {p}
                   </Button>
                 )
               )}
             <Button variant="outline" size="sm" className="h-7 w-7 p-0"
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || loading}
               onClick={() => setCurrentPage(p => p + 1)}>
               <ChevronRight className="h-3 w-3" />
             </Button>
@@ -379,10 +350,14 @@ export function ProductsManager({ initialProducts, lines: initialLines, categori
       <ProductCreateModal
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => {
+          router.refresh()
+          // Reload current page to reflect new product
+          fetchProducts(currentPage, debouncedSearch, filterLine, filterCategory, storeId || '')
+        }}
       />
 
-      {/* Edit Dialog (keeps existing ProductForm for editing) */}
+      {/* Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

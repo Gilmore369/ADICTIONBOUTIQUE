@@ -8,9 +8,10 @@ const nextConfig: NextConfig = {
     // TODO: Generate proper database types from Supabase
     ignoreBuildErrors: true,
   },
-  // Externalize canvas for jsPDF on the server (works with both Turbopack and webpack)
+  // Externalize canvas for jsPDF on the server
   serverExternalPackages: ['canvas'],
-  turbopack: {},
+  // turbopack: {} removed — build must use webpack (not turbopack) to avoid
+  // [turbopack]_runtime.js MODULE_NOT_FOUND errors in production
   experimental: {
     serverActions: {
       bodySizeLimit: '5mb', // Increased from default 1mb for bulk product entry with images
