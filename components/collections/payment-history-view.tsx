@@ -20,7 +20,13 @@ import {
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { ExternalLink, Search, TrendingUp, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ExternalLink, Search, TrendingUp, Calendar, ChevronLeft, ChevronRight, Loader2, Store } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatSafeDate } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
@@ -36,8 +42,23 @@ interface Payment {
   created_at: string
   client_id: string
   user_id: string
+  store?: string | null   // 'Tienda Mujeres' | 'Tienda Hombres' (del RPC v3)
   clients?: { name: string; dni: string | null } | null
   users?: { name: string; stores: string[] } | null
+}
+
+/**
+ * Determina la tienda de un pago.
+ * Prioriza el campo `store` del RPC; si no existe (RPC viejo), lo deriva
+ * de las notas ("BoutiqueV" → Hombres, resto → Mujeres).
+ */
+function getPaymentStore(p: Payment): 'HOMBRES' | 'MUJERES' {
+  const s = (p.store || '').toLowerCase()
+  if (s.includes('hombres')) return 'HOMBRES'
+  if (s.includes('mujeres')) return 'MUJERES'
+  // Fallback: derivar de notas
+  if ((p.notes || '').toLowerCase().includes('boutiquev')) return 'HOMBRES'
+  return 'MUJERES'
 }
 
 const ITEMS_PER_PAGE = 50
@@ -111,6 +132,7 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
   const [period, setPeriod] = useState<Period>(initialPeriod)
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [detailPayment, setDetailPayment] = useState<Payment | null>(null)
 
   // Custom date range state
   const [customFrom, setCustomFrom] = useState(thisMonthStart)
@@ -275,6 +297,7 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
               <TableRow>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Cliente</TableHead>
+                <TableHead>Tienda</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
                 <TableHead>Registrado por</TableHead>
                 <TableHead>Notas</TableHead>
@@ -284,7 +307,7 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
                     Cargando cobros…
                   </TableCell>
@@ -292,12 +315,14 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
               )}
               {!isLoading && pagedPayments.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No hay cobros en este período
                   </TableCell>
                 </TableRow>
               )}
-              {pagedPayments.map(p => (
+              {pagedPayments.map(p => {
+                const store = getPaymentStore(p)
+                return (
                 <TableRow key={p.id}>
                   <TableCell className="whitespace-nowrap text-sm">
                     {formatSafeDate(p.payment_date)}
@@ -308,14 +333,39 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
                       <p className="text-xs text-muted-foreground">{p.clients.dni}</p>
                     )}
                   </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'gap-1 text-xs font-medium whitespace-nowrap',
+                        store === 'HOMBRES'
+                          ? 'border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
+                          : 'border-pink-300 bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300'
+                      )}
+                    >
+                      <Store className="h-3 w-3" />
+                      {store === 'HOMBRES' ? 'Hombres' : 'Mujeres'}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right font-semibold text-teal-700">
                     {formatCurrency(Number(p.amount))}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {p.users?.name ?? '—'}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
-                    {p.notes || '—'}
+                  <TableCell className="text-sm max-w-[180px]">
+                    {p.notes ? (
+                      <button
+                        type="button"
+                        onClick={() => setDetailPayment(p)}
+                        className="text-left text-muted-foreground hover:text-foreground truncate block w-full underline-offset-2 hover:underline"
+                        title="Ver nota completa"
+                      >
+                        {p.notes}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {p.receipt_url ? (
@@ -346,7 +396,8 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                )
+              })}
             </TableBody>
           </Table>
         </div>
@@ -406,6 +457,77 @@ export function PaymentHistoryView({ initialPeriod = '1M' }: Props) {
           )}
         </div>
       </Card>
+
+      {/* ── Modal de detalle del pago ── */}
+      <Dialog open={!!detailPayment} onOpenChange={(o) => !o && setDetailPayment(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detalle del cobro</DialogTitle>
+          </DialogHeader>
+          {detailPayment && (() => {
+            const store = getPaymentStore(detailPayment)
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Fecha</p>
+                    <p className="font-medium">{formatSafeDate(detailPayment.payment_date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Monto</p>
+                    <p className="font-semibold text-teal-700">{formatCurrency(Number(detailPayment.amount))}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Cliente</p>
+                    <p className="font-medium">{detailPayment.clients?.name ?? '—'}</p>
+                    {detailPayment.clients?.dni && (
+                      <p className="text-xs text-muted-foreground">DNI: {detailPayment.clients.dni}</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tienda</p>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'gap-1 text-xs font-medium',
+                        store === 'HOMBRES'
+                          ? 'border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
+                          : 'border-pink-300 bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300'
+                      )}
+                    >
+                      <Store className="h-3 w-3" />
+                      {store === 'HOMBRES' ? 'Tienda Hombres' : 'Tienda Mujeres'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Registrado por</p>
+                    <p className="font-medium">{detailPayment.users?.name ?? '—'}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Nota completa</p>
+                  <div className="rounded-lg border bg-muted/40 p-3 text-sm whitespace-pre-wrap break-words max-h-60 overflow-y-auto">
+                    {detailPayment.notes || 'Sin nota'}
+                  </div>
+                </div>
+
+                {detailPayment.receipt_url && (
+                  <a
+                    href={detailPayment.receipt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver comprobante
+                  </a>
+                )}
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
