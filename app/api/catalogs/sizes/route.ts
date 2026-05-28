@@ -30,14 +30,13 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Query sizes for category with LIMIT
+    // Sizes de la categoría (sin límite artificial — son pocas por categoría)
     const { data, error } = await supabase
       .from('sizes')
       .select('id, name, category_id')
       .eq('category_id', categoryId)
       .eq('active', true)
       .order('name')
-      .limit(50)
 
     if (error) {
       return NextResponse.json(

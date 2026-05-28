@@ -16,12 +16,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Sin límite — hay ~200 categorías y el modal de producto las filtra por
+    // línea en cliente. Con .limit(50) se cortaban alfabéticamente y muchas
+    // categorías no aparecían al crear producto.
     const { data, error} = await supabase
       .from('categories')
       .select('id, name, line_id')
       .eq('active', true)
       .order('name')
-      .limit(50)
     
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
