@@ -1000,6 +1000,7 @@ export function SuppliersManager({ initialSuppliers }: SuppliersManagerProps) {
       <CatalogTable
         data={pagedSuppliers}
         columns={columns}
+        searchable={false}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRestore={handleRestore}

@@ -10,7 +10,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { CatalogTable, CatalogTableColumn } from './catalog-table'
 import { CatalogFormDialog } from './catalog-form-dialog'
@@ -61,6 +62,7 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
   const [lineFilter, setLineFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [showInactive, setShowInactive] = useState(false)
+  const [nameSearch, setNameSearch] = useState('')
 
   // Filter by store when store changes
   useEffect(() => {
@@ -122,8 +124,14 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
       result = result.filter(s => s.category_id === categoryFilter)
     }
 
+    // Búsqueda por nombre de talla
+    const q = nameSearch.trim().toLowerCase()
+    if (q) {
+      result = result.filter(s => (s.name || '').toLowerCase().includes(q))
+    }
+
     return result
-  }, [sizes, categoryFilter, lineFilter, categories, showInactive])
+  }, [sizes, categoryFilter, lineFilter, categories, showInactive, nameSearch])
 
   // Conteo de inactivas para mostrar badge en el toggle
   const inactiveCount = useMemo(() => sizes.filter(s => s.active === false).length, [sizes])
@@ -137,6 +145,9 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
     () => filteredSizes.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [filteredSizes, currentPage]
   )
+
+  // Reset a página 1 al buscar/filtrar
+  useEffect(() => { setCurrentPage(1) }, [nameSearch, lineFilter, categoryFilter, showInactive])
 
   const columns: CatalogTableColumn<Size>[] = [
     { key: 'name', label: 'Nombre' },
@@ -218,7 +229,30 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap items-end">
+        <div className="flex-1 min-w-[220px]">
+          <label className="text-xs font-medium text-foreground/80 mb-1 block">
+            Buscar talla
+          </label>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+            <Input
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
+              placeholder="Buscar por nombre de talla… (S, M, 38, 6 1/2)"
+              className="pl-8 pr-8 h-9"
+            />
+            {nameSearch && (
+              <button
+                type="button"
+                onClick={() => setNameSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
         <div className="w-64">
           <label className="text-xs font-medium text-foreground/80 mb-1 block">
             Filtrar por Línea
@@ -260,6 +294,7 @@ export function SizesManager({ initialSizes, categories: initialCategories, line
       <CatalogTable
         data={pagedSizes}
         columns={columns}
+        searchable={false}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRestore={handleRestore}

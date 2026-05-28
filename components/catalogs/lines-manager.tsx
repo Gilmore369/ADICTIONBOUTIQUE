@@ -170,6 +170,7 @@ export function LinesManager({ initialLines }: LinesManagerProps) {
       <CatalogTable
         data={filteredLines}
         columns={columns}
+        searchPlaceholder="Buscar línea…"
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRestore={handleRestore}

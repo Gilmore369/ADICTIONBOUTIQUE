@@ -200,6 +200,7 @@ export function CategoriesManager({ initialCategories, lines: initialLines }: Ca
       <CatalogTable
         data={filteredCategories}
         columns={columns}
+        searchPlaceholder="Buscar categoría por nombre o línea…"
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRestore={handleRestore}

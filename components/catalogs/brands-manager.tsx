@@ -191,6 +191,7 @@ export function BrandsManager({ initialBrands, suppliers }: BrandsManagerProps) 
       <CatalogTable
         data={filteredBrands}
         columns={columns}
+        searchPlaceholder="Buscar marca…"
         onEdit={handleEdit}
         onDelete={handleDelete}
         onRestore={handleRestore}

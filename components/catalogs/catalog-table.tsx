@@ -11,6 +11,7 @@
  * - Design tokens compliance
  */
 
+import { useState, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -20,7 +21,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, RotateCcw } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Pencil, Trash2, RotateCcw, Search, X } from 'lucide-react'
 
 export interface CatalogTableColumn<T> {
   key: keyof T | string
@@ -36,6 +38,24 @@ interface CatalogTableProps<T> {
   /** Si se pasa, muestra botón "Restaurar" cuando item.active === false */
   onRestore?: (item: T) => void
   idKey?: keyof T
+  /** Buscador integrado (default true). */
+  searchable?: boolean
+  searchPlaceholder?: string
+}
+
+/** Coincidencia genérica: busca el texto en cualquier campo string/number del item
+ *  (incluye objetos anidados con .name, ej. línea de una categoría). */
+function itemMatches<T extends Record<string, any>>(item: T, q: string): boolean {
+  const ql = q.toLowerCase()
+  for (const v of Object.values(item)) {
+    if (v == null) continue
+    if (typeof v === 'string' || typeof v === 'number') {
+      if (String(v).toLowerCase().includes(ql)) return true
+    } else if (typeof v === 'object' && (v as any).name) {
+      if (String((v as any).name).toLowerCase().includes(ql)) return true
+    }
+  }
+  return false
 }
 
 export function CatalogTable<T extends Record<string, any>>({
@@ -44,11 +64,47 @@ export function CatalogTable<T extends Record<string, any>>({
   onEdit,
   onDelete,
   onRestore,
-  idKey = 'id' as keyof T
+  idKey = 'id' as keyof T,
+  searchable = true,
+  searchPlaceholder = 'Buscar…',
 }: CatalogTableProps<T>) {
   const hasActions = !!(onEdit || onDelete || onRestore)
+  const [query, setQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = query.trim()
+    if (!q) return data
+    return data.filter((item) => itemMatches(item, q))
+  }, [data, query])
+
   return (
-    <div className="rounded-lg border">
+    <div className="space-y-2">
+      {searchable && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="pl-8 pr-8 h-9"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+      {searchable && query && (
+        <p className="text-xs text-muted-foreground">
+          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} de {data.length}
+        </p>
+      )}
+      <div className="rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -61,17 +117,17 @@ export function CatalogTable<T extends Record<string, any>>({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.length === 0 ? (
+          {filtered.length === 0 ? (
             <TableRow>
               <TableCell
                 colSpan={columns.length + (hasActions ? 1 : 0)}
                 className="text-center text-muted-foreground h-24"
               >
-                No hay datos disponibles
+                {query ? `Sin resultados para "${query}"` : 'No hay datos disponibles'}
               </TableCell>
             </TableRow>
           ) : (
-            data.map((item) => {
+            filtered.map((item) => {
               const isInactive = item.active === false
               return (
               <TableRow key={String(item[idKey])} className={isInactive ? 'opacity-60' : ''}>
@@ -130,6 +186,7 @@ export function CatalogTable<T extends Record<string, any>>({
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   )
 }
