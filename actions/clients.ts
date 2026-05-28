@@ -320,6 +320,7 @@ export async function removeFromBlacklistAction(data: {
 export async function lookupClientByDni(dni: string): Promise<{
   id: string
   name: string
+  email: string | null
   phone: string | null
   address: string | null
   birthday: string | null
@@ -332,7 +333,7 @@ export async function lookupClientByDni(dni: string): Promise<{
 
     const { data } = await supabase
       .from('clients')
-      .select('id, name, phone, address, birthday')
+      .select('id, name, email, phone, address, birthday')
       .eq('dni', dni.trim())
       .eq('active', true)
       .maybeSingle()

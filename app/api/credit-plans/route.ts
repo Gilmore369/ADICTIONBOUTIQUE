@@ -82,12 +82,11 @@ export async function GET(request: NextRequest) {
       storeFilteredPlansLite = allActivePlans.filter((p: any) => {
         const src = (p.legacy_source || '').toLowerCase()
         const saleStore = (p.sale as any)?.store_id
-        if (store === 'HOMBRES') {
-          return src.includes('hombres') || src.includes('boutiquev') || saleStore === 'Tienda Hombres'
-        }
-        if (store === 'MUJERES') {
-          return src.includes('mujeres') || src.includes('dbadiction') || saleStore === 'Tienda Mujeres'
-        }
+        const isHombres = src.includes('hombres') || src.includes('boutiquev') || saleStore === 'Tienda Hombres'
+        if (store === 'HOMBRES') return isHombres
+        // MUJERES: todo lo que no sea explícitamente Hombres
+        // (incluye DBAdiction, Tienda Mujeres, Manual, y cualquier source sin tienda)
+        if (store === 'MUJERES') return !isHombres
         return false
       })
       storeClientIds = new Set<string>()
@@ -226,8 +225,10 @@ export async function GET(request: NextRequest) {
           if (!saleStore) {
             // No sale linked — use legacy_source to assign store
             const src: string = ((p as any).legacy_source || '').toLowerCase()
-            if (store === 'HOMBRES') return src.includes('hombres') || src.includes('boutiquev')
-            if (store === 'MUJERES') return src.includes('mujeres') || src.includes('dbadiction')
+            const isHombres = src.includes('hombres') || src.includes('boutiquev')
+            if (store === 'HOMBRES') return isHombres
+            // MUJERES: todo lo que no sea explícitamente Hombres (incluye Manual, DBAdiction, etc.)
+            if (store === 'MUJERES') return !isHombres
             return true
           }
           return saleStore === STORE_TEXT[store]

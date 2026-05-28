@@ -240,6 +240,7 @@ function ManualMode() {
         setRow(r => ({
           ...r,
           name:     found.name     || r.name,
+          email:    found.email    || r.email,
           phone:    found.phone    || r.phone,
           address:  found.address  || r.address,
           birthday: found.birthday ? found.birthday.slice(0, 10) : r.birthday,

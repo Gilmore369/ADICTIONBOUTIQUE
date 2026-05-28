@@ -25,20 +25,40 @@ interface PurchaseHistoryTableProps {
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 export function PurchaseHistoryTable({ purchases, clientName }: PurchaseHistoryTableProps) {
+  const [yearFilter, setYearFilter] = useState<number | null>(null)
   const [monthFilter, setMonthFilter] = useState<number | null>(null)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [receiptPurchase, setReceiptPurchase] = useState<Purchase | null>(null)
 
-  const filtered = useMemo(() => {
-    if (monthFilter === null) return purchases
-    return purchases.filter(p => new Date(p.date).getMonth() === monthFilter)
-  }, [purchases, monthFilter])
+  // Years that have purchases (descending)
+  const activeYears = useMemo(() => {
+    const set = new Set<number>()
+    purchases.forEach(p => set.add(new Date(p.date).getFullYear()))
+    return Array.from(set).sort((a, b) => b - a)
+  }, [purchases])
 
+  // Months active within the selected year (or all years)
   const activeMonths = useMemo(() => {
     const set = new Set<number>()
-    purchases.forEach(p => set.add(new Date(p.date).getMonth()))
+    purchases
+      .filter(p => yearFilter === null || new Date(p.date).getFullYear() === yearFilter)
+      .forEach(p => set.add(new Date(p.date).getMonth()))
     return set
-  }, [purchases])
+  }, [purchases, yearFilter])
+
+  const filtered = useMemo(() => {
+    return purchases.filter(p => {
+      const d = new Date(p.date)
+      if (yearFilter !== null && d.getFullYear() !== yearFilter) return false
+      if (monthFilter !== null && d.getMonth() !== monthFilter) return false
+      return true
+    })
+  }, [purchases, yearFilter, monthFilter])
+
+  const handleYearChange = (year: number | null) => {
+    setYearFilter(year)
+    setMonthFilter(null) // reset month when year changes
+  }
 
   const toggleRow = (id: string) => {
     setExpandedRows(prev => {
@@ -75,27 +95,54 @@ export function PurchaseHistoryTable({ purchases, clientName }: PurchaseHistoryT
           </CardTitle>
 
           {purchases.length > 0 && (
-            <div className="flex flex-wrap gap-1 pt-1">
-              <Button
-                variant={monthFilter === null ? 'default' : 'ghost'}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setMonthFilter(null)}
-              >
-                Todos
-              </Button>
-              {MONTHS.map((m, i) =>
-                activeMonths.has(i) ? (
+            <div className="space-y-1.5 pt-1">
+              {/* Año */}
+              <div className="flex flex-wrap gap-1">
+                <Button
+                  variant={yearFilter === null ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => handleYearChange(null)}
+                >
+                  Todos
+                </Button>
+                {activeYears.map(y => (
                   <Button
-                    key={i}
-                    variant={monthFilter === i ? 'default' : 'outline'}
+                    key={y}
+                    variant={yearFilter === y ? 'default' : 'outline'}
                     size="sm"
                     className="h-7 text-xs"
-                    onClick={() => setMonthFilter(monthFilter === i ? null : i)}
+                    onClick={() => handleYearChange(yearFilter === y ? null : y)}
                   >
-                    {m}
+                    {y}
                   </Button>
-                ) : null
+                ))}
+              </div>
+              {/* Mes (solo si hay año seleccionado o varios meses con compras) */}
+              {activeMonths.size > 1 && (
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    variant={monthFilter === null ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-6 text-[11px] px-2"
+                    onClick={() => setMonthFilter(null)}
+                  >
+                    Todos los meses
+                  </Button>
+                  {MONTHS.map((m, i) =>
+                    activeMonths.has(i) ? (
+                      <Button
+                        key={i}
+                        variant={monthFilter === i ? 'secondary' : 'outline'}
+                        size="sm"
+                        className="h-6 text-[11px] px-2"
+                        onClick={() => setMonthFilter(monthFilter === i ? null : i)}
+                      >
+                        {m}
+                      </Button>
+                    ) : null
+                  )}
+                </div>
               )}
             </div>
           )}
