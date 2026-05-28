@@ -163,7 +163,13 @@ function adjustedItemGrossRevenue(item: any, saleItemSubtotals: Map<string, numb
   const saleItemsSubtotal = saleItemSubtotals.get(item?.sale_id) || itemSubtotal
 
   if (itemSubtotal <= 0 || saleTotal <= 0 || saleItemsSubtotal <= 0) return itemSubtotal
-  return money(itemSubtotal * (saleTotal / saleItemsSubtotal))
+  // El ajuste solo debe DISTRIBUIR DESCUENTOS (ratio <= 1), nunca inflar.
+  // En ventas legacy migradas, sale.total puede ser MAYOR que la suma de sus
+  // sale_items (no todos los items se importaron). Sin clamp, cada item se
+  // inflaba (ej: item de S/289 en venta total S/1870 con items=S/488 → S/1107).
+  // Clamp a 1.0 → usamos el subtotal real del item (S/289), margen realista.
+  const ratio = Math.min(1, saleTotal / saleItemsSubtotal)
+  return money(itemSubtotal * ratio)
 }
 
 const STORE_KEY_MAP: Record<string, string> = {
