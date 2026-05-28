@@ -7,6 +7,7 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { BlacklistManagementView } from '@/components/clients/blacklist-management-view'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 import { redirect } from 'next/navigation'
 
 export const metadata = {
@@ -58,15 +59,21 @@ export default async function BlacklistPage() {
     console.error('Error fetching blacklisted clients:', error)
   }
 
-  // Fetch all clients (not blacklisted) for adding to blacklist
+  // Fetch ALL clients (not blacklisted) for adding to blacklist + conteo real.
+  // fetchAllRows pagina para superar el cap de 1000 filas de Supabase
+  // (antes "Clientes activos" mostraba 1000 en vez de los ~6,283 reales).
   // Use neq instead of eq(active, true) para incluir registros con active=null
-  const { data: allClients, error: allError } = await supabase
-    .from('clients')
-    .select('id, dni, name, phone, credit_used, blacklisted')
-    .neq('active', false)
-    .order('name')
-
-  if (allError) {
+  let allClients: any[] = []
+  try {
+    allClients = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from('clients')
+        .select('id, dni, name, phone, credit_used, blacklisted')
+        .neq('active', false)
+        .order('name')
+        .range(from, to)
+    )
+  } catch (allError) {
     console.error('Error fetching all clients:', allError)
   }
 
