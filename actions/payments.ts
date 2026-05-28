@@ -102,6 +102,29 @@ export async function processPayment(formData: FormData): Promise<ActionResponse
 
   const { client_id, amount, payment_date, receipt_url: validatedReceiptUrl, notes: validatedNotes } = validated.data
 
+  // 2c. CAJA GUARD — no se puede cobrar sin un turno de caja ABIERTO para la tienda.
+  // Sin esto, el pago queda fuera de todo cuadre y se pierde la trazabilidad del turno.
+  // Si no se indicó tienda (admin con 'ALL'), no se puede atar a una caja → se exige tienda.
+  if (!storeFilter) {
+    return {
+      success: false,
+      error: 'Selecciona una tienda específica (Mujeres u Hombres) para registrar el cobro en su caja.',
+    }
+  }
+  {
+    const { data: openShift } = await supabase
+      .from('cash_shifts')
+      .select('id')
+      .eq('store_id', storeFilter)
+      .eq('status', 'OPEN')
+      .limit(1)
+      .maybeSingle()
+    if (!openShift) {
+      // Código especial que el frontend detecta para ofrecer abrir caja.
+      return { success: false, error: `CAJA_CERRADA::${storeFilter}` }
+    }
+  }
+
   // 2b. IDEMPOTENCY GUARD — if the client provided a key and we already have
   // a payment row with it, short-circuit. Prevents double-clicks / network
   // retries from cobrar dos veces la misma cuota. The column is added by

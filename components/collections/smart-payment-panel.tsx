@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { processPayment } from '@/actions/payments'
+import { openCashShift, getOpenCashShift } from '@/actions/cash'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils/currency'
@@ -109,6 +110,13 @@ export function SmartPaymentPanel() {
   // Submit
   const [submitting, setSubmitting] = useState(false)
 
+  // Caja (cash shift) gating
+  const [openShift, setOpenShift] = useState<{ id: string; opener_name?: string | null } | null>(null)
+  const [shiftChecked, setShiftChecked] = useState(false)
+  const [cajaModalStore, setCajaModalStore] = useState<string | null>(null) // 'Tienda Mujeres' etc.
+  const [openingAmount, setOpeningAmount] = useState('')
+  const [openingCaja, setOpeningCaja] = useState(false)
+
   // ── Store filtering ──────────────────────────────────────────────────────
   // Filter installments to only those matching the selected store
   const activeStoreText = selectedStore !== 'ALL' ? STORE_TEXT[selectedStore] : null
@@ -119,6 +127,19 @@ export function SmartPaymentPanel() {
     ? installments.some(i => i.store_id && i.store_id !== activeStoreText)
     : false
   const canRegisterPayment = !activeStoreText || visibleInstallments.length > 0
+
+  // ── Caja: chequear turno abierto al cambiar tienda ────────────────────────
+  useEffect(() => {
+    let cancelled = false
+    setShiftChecked(false)
+    if (!activeStoreText) { setOpenShift(null); setShiftChecked(true); return }
+    getOpenCashShift(activeStoreText).then(shift => {
+      if (cancelled) return
+      setOpenShift(shift ? { id: shift.id, opener_name: shift.opener_name } : null)
+      setShiftChecked(true)
+    })
+    return () => { cancelled = true }
+  }, [activeStoreText])
 
   // ── Client search with debounce ──────────────────────────────────────────
   useEffect(() => {
@@ -204,6 +225,65 @@ export function SmartPaymentPanel() {
     finally { setUploadingReceipt(false) }
   }
 
+  // ── Core: ejecuta el pago. Devuelve 'CAJA_CERRADA' si falta abrir caja. ────
+  const doSubmitPayment = async (): Promise<'ok' | 'caja_cerrada' | 'error'> => {
+    if (!selectedClient) return 'error'
+    const amt = parseFloat(amount)
+    if (!amt || amt <= 0) return 'error'
+
+    let receiptUrl: string | null = null
+    if (receiptFile) receiptUrl = await uploadReceipt()
+
+    const formData = new FormData()
+    formData.append('client_id', selectedClient.id)
+    formData.append('amount', String(amt))
+    formData.append('payment_date', paymentDate)
+    if (activeStoreText) formData.append('store_id', activeStoreText)
+    formData.append('idempotency_key', crypto.randomUUID())
+    formData.append('payment_method', paymentMethod)
+    if (receiptUrl) formData.append('receipt_url', receiptUrl)
+    const notesText = [`[${paymentMethod}]`, notes.trim() || null].filter(Boolean).join(' | ')
+    formData.append('notes', notesText)
+
+    const result = await processPayment(formData)
+
+    if (!result.success) {
+      const errStr = typeof result.error === 'string' ? result.error : ''
+      // Caja cerrada → señal para abrir el modal (no es un error real)
+      if (errStr.startsWith('CAJA_CERRADA::')) {
+        setCajaModalStore(errStr.split('::')[1] || activeStoreText)
+        return 'caja_cerrada'
+      }
+      toast.error(errStr || 'Error al procesar el pago')
+      return 'error'
+    }
+
+    // Auto-register action if checked
+    if (autoAction) {
+      await fetch('/api/collections/actions', {
+        method: 'POST',
+        body: (() => {
+          const fd = new FormData()
+          fd.append('client_id', selectedClient.id)
+          fd.append('client_name', selectedClient.name)
+          fd.append('action_type', 'LLAMADA')
+          fd.append('result', 'PAGO_REALIZADO')
+          fd.append('notes', `Pago de S/${amt.toFixed(2)} registrado vía ${paymentMethod}`)
+          return fd
+        })()
+      }).catch(() => {})
+    }
+
+    toast.success(`Pago registrado — S/${result.data?.amount_applied?.toFixed(2) ?? amt.toFixed(2)} aplicado a ${result.data?.installments_updated ?? '?'} cuota(s)`)
+    clearClient()
+    setAmount('')
+    setNotes('')
+    setReceiptFile(null)
+    setReceiptPreview(null)
+    setSimulation(null)
+    return 'ok'
+  }
+
   // ── Submit ──────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -217,55 +297,38 @@ export function SmartPaymentPanel() {
 
     setSubmitting(true)
     try {
-      let receiptUrl: string | null = null
-      if (receiptFile) receiptUrl = await uploadReceipt()
-
-      const formData = new FormData()
-      formData.append('client_id', selectedClient.id)
-      formData.append('amount', String(amt))
-      formData.append('payment_date', paymentDate)
-      if (activeStoreText) formData.append('store_id', activeStoreText)
-      // Idempotency: dedupes double-click / network retry on the server side.
-      formData.append('idempotency_key', crypto.randomUUID())
-      formData.append('payment_method', paymentMethod)
-      if (receiptUrl) formData.append('receipt_url', receiptUrl)
-      const notesText = [
-        `[${paymentMethod}]`,
-        notes.trim() || null
-      ].filter(Boolean).join(' | ')
-      formData.append('notes', notesText)
-
-      const result = await processPayment(formData)
-      if (!result.success) {
-        throw new Error(typeof result.error === 'string' ? result.error : 'Error al procesar el pago')
-      }
-
-      // Auto-register action if checked
-      if (autoAction) {
-        await fetch('/api/collections/actions', {
-          method: 'POST',
-          body: (() => {
-            const fd = new FormData()
-            fd.append('client_id', selectedClient.id)
-            fd.append('client_name', selectedClient.name)
-            fd.append('action_type', 'LLAMADA')
-            fd.append('result', 'PAGO_REALIZADO')
-            fd.append('notes', `Pago de S/${amt.toFixed(2)} registrado vía ${paymentMethod}`)
-            return fd
-          })()
-        }).catch(() => {})
-      }
-
-      toast.success(`Pago registrado — S/${result.data?.amount_applied?.toFixed(2) ?? amt.toFixed(2)} aplicado a ${result.data?.installments_updated ?? '?'} cuota(s)`)
-      clearClient()
-      setAmount('')
-      setNotes('')
-      setReceiptFile(null)
-      setReceiptPreview(null)
-      setSimulation(null)
+      await doSubmitPayment()
     } catch (err: any) {
       toast.error(err.message || 'Error al registrar el pago')
     } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Abrir caja desde el modal y reintentar el pago ────────────────────────
+  const handleOpenCajaAndPay = async () => {
+    if (!cajaModalStore) return
+    const opening = parseFloat(openingAmount)
+    if (isNaN(opening) || opening < 0) { toast.error('Ingresa un monto de apertura válido'); return }
+    setOpeningCaja(true)
+    try {
+      const res = await openCashShift(cajaModalStore, opening)
+      if (!res.success) {
+        toast.error(res.error || 'No se pudo abrir la caja')
+        return
+      }
+      setOpenShift({ id: (res as any).shift?.id, opener_name: null })
+      toast.success(`Caja abierta para ${cajaModalStore}`)
+      // Cerrar modal y reintentar el pago
+      setCajaModalStore(null)
+      setOpeningAmount('')
+      setSubmitting(true)
+      const r = await doSubmitPayment()
+      if (r === 'error') toast.error('No se pudo registrar el pago tras abrir la caja')
+    } catch (err: any) {
+      toast.error(err.message || 'Error al abrir la caja')
+    } finally {
+      setOpeningCaja(false)
       setSubmitting(false)
     }
   }
@@ -278,6 +341,25 @@ export function SmartPaymentPanel() {
       <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-5">
         <div className="bg-card rounded-xl border border-border shadow-sm p-5">
           <h2 className="text-base font-semibold text-foreground mb-4">Registrar Pago</h2>
+
+          {/* Estado de caja */}
+          {activeStoreText && shiftChecked && (
+            openShift ? (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Caja abierta — {activeStoreText}{openShift.opener_name ? ` · ${openShift.opener_name}` : ''}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCajaModalStore(activeStoreText)}
+                className="mb-4 w-full flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors"
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Caja cerrada — {activeStoreText}. Haz clic para abrirla antes de cobrar.
+              </button>
+            )
+          )}
 
           {/* Client search */}
           <div className="space-y-2 mb-4">
@@ -581,6 +663,71 @@ export function SmartPaymentPanel() {
           )}
         </div>
       </div>
+
+      {/* ── Modal: Caja cerrada ──────────────────────────────────────────── */}
+      {cajaModalStore && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !openingCaja && setCajaModalStore(null)}
+        >
+          <div
+            className="bg-card rounded-xl border border-border shadow-xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center flex-shrink-0">
+                <Store className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">No hay caja abierta</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Para registrar cobros en <strong>{cajaModalStore}</strong> primero debes abrir
+                  la caja. Así el pago queda registrado en el turno y se mantiene la trazabilidad.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-5">
+              <label className="text-sm font-medium text-foreground/85">Monto de apertura (S/)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={openingAmount}
+                onChange={e => setOpeningAmount(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+                disabled={openingCaja}
+              />
+              <p className="text-xs text-muted-foreground">
+                Monto de efectivo con el que inicia la caja. Si no manejas efectivo inicial, ingresa 0.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setCajaModalStore(null); setOpeningAmount('') }}
+                disabled={openingCaja}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleOpenCajaAndPay}
+                disabled={openingCaja || openingAmount === ''}
+              >
+                {openingCaja ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Abriendo...</>
+                ) : (
+                  <>Abrir caja y registrar pago</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

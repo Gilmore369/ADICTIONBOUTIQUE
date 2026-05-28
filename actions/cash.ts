@@ -206,6 +206,49 @@ export async function getClosedShiftBreakdown(
 }
 
 /**
+ * Get the currently OPEN cash shift for a store (or null).
+ * Used to gate payment registration: no se puede cobrar sin caja abierta.
+ */
+export async function getOpenCashShift(storeId: string): Promise<{
+  id: string
+  store_id: string
+  user_id: string
+  opened_at: string
+  opening_amount: number
+  opener_name?: string | null
+} | null> {
+  if (!storeId) return null
+  try {
+    const supabase = await createServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data } = await supabase
+      .from('cash_shifts')
+      .select('id, store_id, user_id, opened_at, opening_amount, users(name)')
+      .eq('store_id', storeId)
+      .eq('status', 'OPEN')
+      .order('opened_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!data) return null
+    return {
+      id: (data as any).id,
+      store_id: (data as any).store_id,
+      user_id: (data as any).user_id,
+      opened_at: (data as any).opened_at,
+      opening_amount: Number((data as any).opening_amount) || 0,
+      opener_name: Array.isArray((data as any).users)
+        ? (data as any).users[0]?.name
+        : (data as any).users?.name ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
  * Open a new cash shift
  */
 export async function openCashShift(storeId: string, openingAmount: number) {
