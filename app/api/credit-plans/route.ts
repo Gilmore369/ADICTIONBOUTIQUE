@@ -116,16 +116,62 @@ export async function GET(request: NextRequest) {
       return q
     })
 
-    // ── Pre-fetch last_payment_date por cliente (RPC SQL, 1 round-trip)
-    // Solo cuando se necesita: filtro por antigüedad O sort por last_payment_asc
+    // ── Pre-fetch last_payment_date por cliente
+    // El RPC get_clients_last_payment_date acepta p_client_ids (tras migración 20260528000005).
+    // Si la función ya fue actualizada, pasa solo los IDs relevantes para evitar el
+    // límite de 1000 filas de PostgREST. Si aún tiene la firma sin parámetro, usa
+    // fallback: second-pass queries directas a la tabla payments para los IDs faltantes.
     let lastPaymentByClient: Map<string, string> = new Map()
     const needsLastPayment = ageFilter !== 'ALL' || sort === 'last_payment_asc'
     if (needsLastPayment) {
-      const { data: lpRows } = await supabase.rpc('get_clients_last_payment_date')
-      if (Array.isArray(lpRows)) {
-        for (const r of lpRows) {
-          if ((r as any).client_id && (r as any).last_payment) {
-            lastPaymentByClient.set((r as any).client_id, (r as any).last_payment)
+      const relevantIds = Array.from(allActivePlanClients) as string[]
+
+      // ── Intento 1: RPC con p_client_ids (migración 20260528000005) ─────────
+      try {
+        const { data: lpRows, error: rpcErr } = await supabase.rpc('get_clients_last_payment_date', {
+          p_client_ids: relevantIds.length > 0 ? relevantIds : null,
+        })
+        if (!rpcErr && Array.isArray(lpRows)) {
+          for (const r of lpRows) {
+            if ((r as any).client_id && (r as any).last_payment) {
+              lastPaymentByClient.set((r as any).client_id, (r as any).last_payment)
+            }
+          }
+        } else {
+          // RPC no acepta p_client_ids todavía — intentamos sin parámetro
+          const { data: lpRows2 } = await supabase.rpc('get_clients_last_payment_date')
+          if (Array.isArray(lpRows2)) {
+            for (const r of lpRows2) {
+              if ((r as any).client_id && (r as any).last_payment) {
+                lastPaymentByClient.set((r as any).client_id, (r as any).last_payment)
+              }
+            }
+          }
+        }
+      } catch {
+        // Silently continue; fallback covers the gap
+      }
+
+      // ── Fallback: direct payments query para IDs no cubiertos por el RPC ──
+      // El RPC sin parámetro devuelve máx 1000 filas (límite PostgREST).
+      // Hacemos queries directas en chunks de 50 para los IDs faltantes.
+      const missingIds = relevantIds.filter(id => !lastPaymentByClient.has(id))
+      if (missingIds.length > 0) {
+        const CHUNK = 50
+        for (let i = 0; i < missingIds.length; i += CHUNK) {
+          const chunk = missingIds.slice(i, i + CHUNK)
+          const { data: pData } = await supabase
+            .from('payments')
+            .select('client_id, payment_date')
+            .in('client_id', chunk)
+            .order('payment_date', { ascending: false })
+            .limit(500) // ~10 pagos por cliente en el chunk
+          if (pData) {
+            for (const r of pData) {
+              if (r.client_id && r.payment_date && !lastPaymentByClient.has(r.client_id)) {
+                lastPaymentByClient.set(r.client_id, r.payment_date)
+              }
+            }
           }
         }
       }
