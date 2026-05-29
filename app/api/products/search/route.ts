@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
 
-    // Get query parameter
-    const query = searchParams.get('q') || ''
+    // Get query parameter (trim para evitar que espacios finales corten coincidencias)
+    const query = (searchParams.get('q') || '').trim()
     
     // Get warehouse parameter (default Tienda Mujeres)
     const warehouse = searchParams.get('warehouse') || 'Tienda Mujeres'
@@ -86,10 +86,17 @@ export async function GET(request: NextRequest) {
     // strict=false (default) → todos los productos con stock en cualquier almacén (admin)
     const strict = searchParams.get('strict') === 'true'
 
-    const { data: stockAll } = await supabase
-      .from('stock')
-      .select('product_id, warehouse_id, quantity')
-      .gt('quantity', 0)
+    // ⚠️ ANTES traía TODO el stock (.gt('quantity',0)) sin paginar → cap 1000 de
+    //    8,617 filas → muchos productos quedaban "sin stock" y no aparecían en POS.
+    //    Ahora trae el stock SOLO de los productos encontrados (≤50) — sin cap.
+    const productIds = (products || []).map(p => p.id)
+    const { data: stockAll } = productIds.length > 0
+      ? await supabase
+          .from('stock')
+          .select('product_id, warehouse_id, quantity')
+          .in('product_id', productIds)
+          .gt('quantity', 0)
+      : { data: [] as any[] }
 
     // Build product_id → { total, warehouseQty } map
     const stockMap = new Map<string, { total: number; warehouseQty: number }>()
