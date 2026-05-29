@@ -112,22 +112,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // strict: solo productos con stock en el warehouse exacto
-    // no strict (admin): todos los productos con stock en cualquier almacén
-    const data = (products || [])
-      .filter(product => {
-        const entry = stockMap.get(product.id)
-        if (!entry) return false
-        return strict ? entry.warehouseQty > 0 : entry.total > 0
-      })
-      .map(product => {
-        const entry = stockMap.get(product.id)!
-        return {
-          ...product,
-          stock: { quantity: strict ? entry.warehouseQty : entry.total }
-        }
-      })
-    
+    // Devolvemos TODOS los productos que coinciden, incluidos los de stock 0
+    // (el frontend los muestra en rojo). strict define qué cantidad reportar:
+    //   strict → stock del warehouse seleccionado; no strict → stock total.
+    const data = (products || []).map(product => {
+      const entry = stockMap.get(product.id)
+      const quantity = entry ? (strict ? entry.warehouseQty : entry.total) : 0
+      return { ...product, stock: { quantity } }
+    })
+
     return NextResponse.json({ data })
   } catch (error) {
     console.error('Unexpected error in product search:', error)

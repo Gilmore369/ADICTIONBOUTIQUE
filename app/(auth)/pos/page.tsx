@@ -224,9 +224,13 @@ export default function POSPage() {
       const { data } = await response.json()
 
       if (data && data.length > 0) {
-        handleProductSelect(data[0])
+        const prod = data[0]
+        if ((prod.stock?.quantity ?? 0) <= 0) {
+          toast.warning('Producto sin stock', `${prod.name} no tiene stock en ${warehouse} — verifica antes de vender`)
+        }
+        handleProductSelect(prod)
       } else {
-        toast.error('Producto no encontrado', `No se encontró stock en tienda ${warehouse}`)
+        toast.error('Producto no encontrado', `No existe un producto con ese código`)
       }
     } catch (error) {
       console.error('Error scanning barcode:', error)
