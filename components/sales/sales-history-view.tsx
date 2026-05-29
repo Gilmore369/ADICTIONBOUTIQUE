@@ -159,15 +159,23 @@ export function SalesHistoryView({ initialSales, lockedStore, initialPeriod = 'A
     }
   }
 
-  // Handler para anular venta
+  // Handler para anular venta — pide el motivo (requerido por el server, mín. 3 chars)
   const handleVoidSale = async (sale: Sale) => {
-    if (!confirm(`¿Anular la venta ${sale.sale_number}? Esta acción no se puede deshacer.`)) return
+    const reason = window.prompt(
+      `Anular venta ${sale.sale_number}\n\nEsto repone el stock, cancela el plan de crédito y restaura el crédito del cliente. No se puede deshacer.\n\nIndica el motivo de la anulación:`,
+      ''
+    )
+    if (reason === null) return // canceló el prompt
+    if (reason.trim().length < 3) {
+      toast.error('Motivo requerido', 'Debes indicar el motivo de la anulación (mín. 3 caracteres)')
+      return
+    }
     setVoidingId(sale.id)
     try {
-      const result = await voidSale(sale.id)
+      const result = await voidSale(sale.id, reason.trim())
       if (result.success) {
         setSales(prev => prev.map(s => s.id === sale.id ? { ...s, voided: true } : s))
-        toast.success('Venta anulada', `${sale.sale_number} marcada como anulada`)
+        toast.success('Venta anulada', `${sale.sale_number}: stock y crédito repuestos`)
       } else {
         toast.error('Error al anular', typeof result.error === 'string' ? result.error : 'Error desconocido')
       }
