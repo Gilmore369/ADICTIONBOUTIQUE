@@ -3,63 +3,51 @@
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@/lib/supabase/server'
 import { logCashShiftOpened, logCashShiftClosed } from '@/lib/utils/audit'
+import { fetchAllRows } from '@/lib/supabase/paginate'
 
-async function getPaymentPlanIdsForStore(supabase: Awaited<ReturnType<typeof createServerClient>>, storeId: string) {
-  const { data: storeSales } = await supabase
-    .from('sales')
-    .select('id')
-    .eq('store_id', storeId)
-
-  const saleIds = (storeSales || []).map((sale: { id: string }) => sale.id)
-  const { data: salePlans } = saleIds.length > 0
-    ? await supabase
-      .from('credit_plans')
-      .select('id')
-      .in('sale_id', saleIds)
-    : { data: [] }
-
-  const { data: legacyPlans } = await supabase
-    .from('credit_plans')
-    .select('id')
-    .eq('imported_from_legacy', true)
-    .eq('status', 'ACTIVE')
-
-  return [...new Set([
-    ...(salePlans || []).map((plan: { id: string }) => plan.id),
-    ...(legacyPlans || []).map((plan: { id: string }) => plan.id),
-  ])]
+/**
+ * Deriva la tienda de un pago:
+ *  1) legacy_source del pago (backfilled): BoutiqueV→Hombres, DBAdiction→Mujeres
+ *  2) notas con "BoutiqueV" → Hombres
+ *  3) plan vinculado: legacy_source O sale.store_id
+ *  4) default → Tienda Mujeres
+ */
+function derivePaymentStore(payment: any): string {
+  const psrc = (payment?.legacy_source || '').toLowerCase()
+  if (psrc.includes('boutiquev') || psrc.includes('hombres')) return 'Tienda Hombres'
+  if (psrc.includes('dbadiction') || psrc.includes('mujeres')) return 'Tienda Mujeres'
+  if ((payment?.notes || '').toLowerCase().includes('boutiquev')) return 'Tienda Hombres'
+  const plan = payment?.credit_plans
+  const src = (plan?.legacy_source || '').toLowerCase()
+  const saleStore = (plan?.sale as any)?.store_id
+  const isHombres = src.includes('hombres') || src.includes('boutiquev') || saleStore === 'Tienda Hombres'
+  return isHombres ? 'Tienda Hombres' : 'Tienda Mujeres'
 }
 
+/**
+ * Cobros (pagos de crédito) registrados en la ventana del turno, filtrados por
+ * la tienda DEL PAGO (no por un set de plan_ids — eso fallaba con miles de IDs
+ * y con el cálculo de tienda roto). Trae los pagos de la ventana y filtra en JS.
+ */
 async function getCollectionPaymentsForStoreWindow(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
   storeId: string,
   startAt: string,
   endAt: string,
-  includeClient = false,
+  _includeClient = false,
 ) {
-  const planIds = await getPaymentPlanIdsForStore(supabase, storeId)
-  if (planIds.length === 0) return []
-
-  const selectFields = includeClient
-    ? 'id, amount, notes, created_at, clients(name)'
-    : 'id, amount'
-
-  // IMPORTANTE: excluir pagos importados del sistema anterior (imported_from_legacy=true).
-  // Esos son pagos históricos que el cliente YA hizo en el otro sistema antes de
-  // la migración. NO son ingresos reales del turno actual aunque se hayan creado
-  // (su `created_at`) dentro de la ventana del turno (cuando se ejecutó el import).
-  // El cobrador que registre un NUEVO pago a una deuda legacy (después de migrarla)
-  // sí entra a caja porque ese pago no tiene imported_from_legacy=true.
-  const { data } = await supabase
-    .from('payments')
-    .select(selectFields)
-    .in('plan_id', planIds)
-    .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
-    .gte('created_at', startAt)
-    .lte('created_at', endAt)
-    .order('created_at', { ascending: false })
-
-  return data || []
+  const rows = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from('payments')
+      .select('id, amount, notes, created_at, plan_id, legacy_source, credit_plans(legacy_source, sale:sales(store_id)), clients(name)')
+      // Excluir solo pagos marcados como importados (histórico migrado).
+      .or('imported_from_legacy.is.null,imported_from_legacy.eq.false')
+      .gte('created_at', startAt)
+      .lte('created_at', endAt)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+  )
+  return (rows || []).filter((p: any) => derivePaymentStore(p) === storeId)
 }
 
 /**
