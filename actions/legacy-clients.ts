@@ -593,6 +593,125 @@ export async function reactivateDuplicateClient(input: {
   }
 }
 
+// ── 6) Fusionar duplicados en un solo cliente ───────────────────────────────────
+/**
+ * Une uno o más registros duplicados (secondaryIds) dentro de un registro
+ * principal (primaryId). NO modifica planes ni ventas: solo re-apunta el dueño
+ * (client_id) de todas las tablas relacionadas, de modo que el cliente único
+ * conserva las compras y deudas de AMBAS tiendas. La deuda sigue separada por
+ * tienda porque cada plan/venta mantiene su legacy_source / store_id.
+ *
+ * Los registros secundarios quedan desactivados y marcados como fusionados
+ * (no se borran físicamente → reversible re-apuntando de vuelta si hiciera falta).
+ */
+export async function mergeDuplicateClients(input: {
+  primaryId: string
+  secondaryIds: string[]
+}): Promise<{ success: boolean; error?: string; moved?: Record<string, number> }> {
+  let userId: string
+  try {
+    ({ userId } = await requireAdmin())
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Unauthorized' }
+  }
+
+  const primaryId = input.primaryId
+  const secondaryIds = (input.secondaryIds || []).filter(id => id && id !== primaryId)
+  if (!primaryId) return { success: false, error: 'Falta el cliente principal' }
+  if (secondaryIds.length === 0) return { success: false, error: 'No hay registros para unir' }
+
+  try {
+    const service = createServiceClient()
+
+    // Verificar que todos existen
+    const { data: involved } = await service
+      .from('clients')
+      .select('id,name,dni,credit_limit')
+      .in('id', [primaryId, ...secondaryIds])
+    if (!involved || involved.length !== secondaryIds.length + 1) {
+      return { success: false, error: 'Alguno de los registros ya no existe' }
+    }
+    const primary = involved.find(c => c.id === primaryId)!
+    const secondaries = involved.filter(c => c.id !== primaryId)
+
+    // Tablas que referencian clients(id) por columna client_id → re-apuntar al principal
+    const REPOINT_TABLES = [
+      'credit_plans', 'sales', 'payments', 'returns',
+      'collection_actions', 'client_action_logs', 'client_visits',
+    ]
+
+    const moved: Record<string, number> = {}
+    for (const table of REPOINT_TABLES) {
+      // contar lo que se moverá (para el reporte/auditoría)
+      const { count } = await service
+        .from(table)
+        .select('*', { count: 'exact', head: true })
+        .in('client_id', secondaryIds)
+
+      const { error } = await service
+        .from(table)
+        .update({ client_id: primaryId })
+        .in('client_id', secondaryIds)
+      if (error) {
+        return { success: false, error: `Error moviendo ${table}: ${error.message}`, moved }
+      }
+      moved[table] = count ?? 0
+    }
+
+    // client_ratings tiene 1 fila por cliente (único) → borrar las de los duplicados
+    // (el rating es recalculable; el principal conserva el suyo)
+    await service.from('client_ratings').delete().in('client_id', secondaryIds)
+
+    // Unificar límite de crédito: tomar el mayor
+    const maxLimit = Math.max(
+      Number(primary.credit_limit) || 0,
+      ...secondaries.map(s => Number(s.credit_limit) || 0),
+    )
+    if (maxLimit > (Number(primary.credit_limit) || 0)) {
+      await service.from('clients').update({ credit_limit: maxLimit }).eq('id', primaryId)
+    }
+
+    // Desactivar y marcar los secundarios como fusionados (último paso → reintentable)
+    for (const sec of secondaries) {
+      await service
+        .from('clients')
+        .update({
+          active: false,
+          deactivation_reason: 'OTRO',
+          deactivated_at: new Date().toISOString(),
+          deactivated_by: userId,
+          legacy_notes: `[FUSIONADO en ${primary.name} · DNI ${primary.dni} · id ${primaryId}]`,
+        })
+        .eq('id', sec.id)
+      // recalcular su crédito (debería quedar en 0 al haber movido sus planes)
+      await service.rpc('recalculate_client_credit_used', { p_client_id: sec.id }).then(
+        () => {}, () => {},
+      )
+    }
+
+    // Recalcular crédito del principal (ahora suma ambas tiendas)
+    const { error: recalcErr } = await service.rpc('recalculate_client_credit_used', { p_client_id: primaryId })
+    if (recalcErr) {
+      console.warn('[merge] recalc principal falló:', recalcErr.message)
+    }
+
+    const totalPlans = moved['credit_plans'] || 0
+    const totalSales = moved['sales'] || 0
+    const dupNames = secondaries.map(s => `${s.name} (DNI ${s.dni})`).join(', ')
+    await safeAudit(
+      primaryId,
+      `[FUSIÓN] Absorbió ${secondaries.length} duplicado(s): ${dupNames}. Movidos: ${totalPlans} plan(es), ${totalSales} venta(s).`,
+      userId,
+    )
+
+    revalidatePaths(primaryId)
+    secondaries.forEach(s => revalidatePath(`/clients/${s.id}`))
+    return { success: true, moved }
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Error al unir los registros' }
+  }
+}
+
 // ── Utilidades internas ─────────────────────────────────────────────────────────
 async function safeAudit(clientId: string, description: string, userId: string) {
   try {

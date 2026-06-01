@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
   Loader2, Search, Users, AlertTriangle, RefreshCw, Pencil, UserX, UserCheck, ExternalLink,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, GitMerge,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -29,6 +29,7 @@ import {
   type LegacyClientRecord,
 } from '@/actions/legacy-clients'
 import { EditLegacyClientDialog } from './edit-legacy-client-dialog'
+import { MergeClientsDialog } from './merge-clients-dialog'
 
 export function LegacyClientsView() {
   const [loading, setLoading] = useState(true)
@@ -37,6 +38,7 @@ export function LegacyClientsView() {
   const [search, setSearch] = useState('')
   const [onlyDebt, setOnlyDebt] = useState(true)
   const [editing, setEditing] = useState<string | null>(null)
+  const [merging, setMerging] = useState<DuplicateGroup | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const PER_PAGE = 30
@@ -156,13 +158,23 @@ export function LegacyClientsView() {
           <div className="space-y-3">
             {pageGroups.map(group => (
               <Card key={group.key} className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">{group.display_name}</h3>
-                  {group.has_debt && (
-                    <Badge variant="outline" className="text-rose-600 border-rose-200">
-                      Deuda total {formatCurrency(group.total_debt)}
-                    </Badge>
-                  )}
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <h3 className="font-semibold truncate">{group.display_name}</h3>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {group.has_debt && (
+                      <Badge variant="outline" className="text-rose-600 border-rose-200">
+                        Deuda total {formatCurrency(group.total_debt)}
+                      </Badge>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-7 px-2.5 text-xs"
+                      onClick={() => setMerging(group)}
+                    >
+                      <GitMerge className="h-3.5 w-3.5 mr-1" /> Unir
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {group.records.map(rec => (
@@ -184,6 +196,15 @@ export function LegacyClientsView() {
             <Pagination page={safePage} totalPages={totalPages} onChange={setPage} />
           )}
         </>
+      )}
+
+      {merging && (
+        <MergeClientsDialog
+          records={merging.records}
+          open={!!merging}
+          onOpenChange={(o) => { if (!o) setMerging(null) }}
+          onMerged={load}
+        />
       )}
 
       {editing && (
