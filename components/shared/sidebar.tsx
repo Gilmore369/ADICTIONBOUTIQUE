@@ -139,6 +139,7 @@ const groups: NavGroup[] = [
     adminOnly: true,
     items: [
       { title: 'Usuarios', href: '/admin/users', icon: UserCog, adminOnly: true },
+      { title: 'Clientes Duplicados (Legacy)', href: '/admin/legacy-clients', icon: Users, adminOnly: true },
       { title: 'Logs/Auditoría', href: '/admin/logs', icon: ScrollText, adminOnly: true },
       { title: 'Configuración', href: '/settings', icon: Settings, adminOnly: true },
     ],

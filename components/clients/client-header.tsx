@@ -9,14 +9,15 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ClientRating } from '@/lib/types/crm'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Phone, MapPin, Mail, Calendar, UserX } from 'lucide-react'
+import { User, Phone, MapPin, Mail, Calendar, UserX, DatabaseZap } from 'lucide-react'
 import { DeactivateClientDialog } from './deactivate-client-dialog'
 import { EditClientDialog } from './edit-client-dialog'
+import { EditLegacyClientDialog } from '@/components/admin/edit-legacy-client-dialog'
 
 interface ClientHeaderProps {
   client: any
@@ -27,6 +28,18 @@ interface ClientHeaderProps {
 export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [legacyDialogOpen, setLegacyDialogOpen] = useState(false)
+  const [localAdmin, setLocalAdmin] = useState(false)
+
+  // El detalle de cliente no recibe userRole, así que detectamos admin desde
+  // localStorage (igual que el sidebar) para mostrar el botón de datos legacy.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('user_roles') || '[]'
+      const roles: string[] = JSON.parse(raw).map((r: string) => r.toLowerCase())
+      setLocalAdmin(roles.includes('admin'))
+    } catch {}
+  }, [])
   
   // Get rating color based on category
   const getRatingColor = (category: string) => {
@@ -44,7 +57,7 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
     }
   }
 
-  const isAdmin = userRole === 'admin'
+  const isAdmin = userRole === 'admin' || localAdmin
   const canDeactivate = isAdmin && client.active
 
   return (
@@ -88,7 +101,20 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
                     </svg>
                     Editar
                   </Button>
-                  
+
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLegacyDialogOpen(true)}
+                      className="gap-2"
+                      title="Corregir datos migrados (deuda, DNI, nombre)"
+                    >
+                      <DatabaseZap className="h-4 w-4" />
+                      Datos Legacy
+                    </Button>
+                  )}
+
                   {canDeactivate && (
                     <Button
                       variant="destructive"
@@ -230,6 +256,16 @@ export function ClientHeader({ client, rating, userRole }: ClientHeaderProps) {
           client={client}
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
+        />
+      )}
+
+      {/* Edit Legacy Data Dialog */}
+      {legacyDialogOpen && (
+        <EditLegacyClientDialog
+          clientId={client.id}
+          open={legacyDialogOpen}
+          onOpenChange={setLegacyDialogOpen}
+          onSaved={() => window.location.reload()}
         />
       )}
 
