@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
   Loader2, Search, Users, AlertTriangle, RefreshCw, Pencil, UserX, UserCheck, ExternalLink,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -37,6 +38,8 @@ export function LegacyClientsView() {
   const [onlyDebt, setOnlyDebt] = useState(true)
   const [editing, setEditing] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 30
 
   async function load() {
     setLoading(true)
@@ -61,6 +64,16 @@ export function LegacyClientsView() {
         || g.records.some(r => r.name.toLowerCase().includes(q) || (r.dni || '').toLowerCase().includes(q))
     })
   }, [groups, search, onlyDebt])
+
+  // Reset a la página 1 cuando cambian filtros/búsqueda o se recargan los datos
+  useEffect(() => { setPage(1) }, [search, onlyDebt, groups])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const safePage = Math.min(page, totalPages)
+  const pageGroups = useMemo(
+    () => filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE),
+    [filtered, safePage],
+  )
 
   async function handleDeactivate(rec: LegacyClientRecord) {
     if (rec.credit_used > 1) {
@@ -133,32 +146,44 @@ export function LegacyClientsView() {
           No hay duplicados que coincidan con el filtro.
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map(group => (
-            <Card key={group.key} className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold">{group.display_name}</h3>
-                {group.has_debt && (
-                  <Badge variant="outline" className="text-rose-600 border-rose-200">
-                    Deuda total {formatCurrency(group.total_debt)}
-                  </Badge>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {group.records.map(rec => (
-                  <RecordCard
-                    key={rec.id}
-                    rec={rec}
-                    busy={busyId === rec.id}
-                    onEdit={() => setEditing(rec.id)}
-                    onDeactivate={() => handleDeactivate(rec)}
-                    onReactivate={() => handleReactivate(rec)}
-                  />
-                ))}
-              </div>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              Mostrando {(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, filtered.length)} de {filtered.length}
+            </span>
+            {totalPages > 1 && <span>Página {safePage} de {totalPages}</span>}
+          </div>
+          <div className="space-y-3">
+            {pageGroups.map(group => (
+              <Card key={group.key} className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">{group.display_name}</h3>
+                  {group.has_debt && (
+                    <Badge variant="outline" className="text-rose-600 border-rose-200">
+                      Deuda total {formatCurrency(group.total_debt)}
+                    </Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {group.records.map(rec => (
+                    <RecordCard
+                      key={rec.id}
+                      rec={rec}
+                      busy={busyId === rec.id}
+                      onEdit={() => setEditing(rec.id)}
+                      onDeactivate={() => handleDeactivate(rec)}
+                      onReactivate={() => handleReactivate(rec)}
+                    />
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <Pagination page={safePage} totalPages={totalPages} onChange={setPage} />
+          )}
+        </>
       )}
 
       {editing && (
@@ -231,6 +256,50 @@ function RecordCard({ rec, busy, onEdit, onDeactivate, onReactivate }: {
           </Button>
         )}
       </div>
+    </div>
+  )
+}
+
+function Pagination({ page, totalPages, onChange }: {
+  page: number; totalPages: number; onChange: (p: number) => void
+}) {
+  // Ventana de páginas alrededor de la actual
+  const pages: number[] = []
+  const start = Math.max(1, page - 2)
+  const end = Math.min(totalPages, start + 4)
+  for (let p = Math.max(1, end - 4); p <= end; p++) pages.push(p)
+
+  return (
+    <div className="flex items-center justify-center gap-1 pt-2">
+      <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      {pages[0] > 1 && (
+        <>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onChange(1)}>1</Button>
+          {pages[0] > 2 && <span className="px-1 text-muted-foreground">…</span>}
+        </>
+      )}
+      {pages.map(p => (
+        <Button
+          key={p}
+          variant={p === page ? 'default' : 'ghost'}
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => onChange(p)}
+        >
+          {p}
+        </Button>
+      ))}
+      {pages[pages.length - 1] < totalPages && (
+        <>
+          {pages[pages.length - 1] < totalPages - 1 && <span className="px-1 text-muted-foreground">…</span>}
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onChange(totalPages)}>{totalPages}</Button>
+        </>
+      )}
+      <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
+        <ChevronRight className="h-4 w-4" />
+      </Button>
     </div>
   )
 }
