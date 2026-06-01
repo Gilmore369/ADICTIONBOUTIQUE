@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
     const page    = Math.max(1, parseInt(params.get('page') || '1'))
     const perPage = Math.min(200, Math.max(10, parseInt(params.get('per_page') || '50')))
     const search  = params.get('search')?.trim() || ''
+    // Sanitizado para usar dentro de PostgREST .or() (los caracteres ,()* rompen la gramática)
+    const safeSearch = search.replace(/[,()*]/g, ' ').replace(/\s+/g, ' ').trim()
     const period  = params.get('period') || 'ALL'
     const customFrom = params.get('from') || ''
     const customTo   = params.get('to')   || ''
@@ -110,13 +112,32 @@ export async function GET(request: NextRequest) {
 
     const { from: fromDate, to: toDate } = resolvePeriodRange(period, customFrom, customTo)
 
+    // Resolver clientes que coinciden con la búsqueda (nombre o DNI) para que el
+    // historial de ventas también se pueda buscar por cliente, no solo por ticket.
+    let matchedClientIds: string[] = []
+    if (safeSearch) {
+      const { data: matchedClients } = await supabase
+        .from('clients')
+        .select('id')
+        .or(`name.ilike.%${safeSearch}%,dni.ilike.%${safeSearch}%`)
+        .limit(400)
+      matchedClientIds = (matchedClients || []).map((c: any) => c.id)
+    }
+
     // ── Helper to apply filters to any query ──────────────────────────────────
     const applyFilters = <T extends any>(q: T): T => {
       let r: any = q
       if (storeFilter) r = r.eq('store_id', storeFilter)
       if (fromDate) r = r.gte('created_at', fromDate.toISOString())
       if (toDate)   r = r.lt('created_at',  toDate.toISOString())
-      if (search)   r = r.ilike('sale_number', `%${search}%`)
+      if (safeSearch) {
+        if (matchedClientIds.length > 0) {
+          // ticket OR cualquier venta de los clientes que coinciden con el texto
+          r = r.or(`sale_number.ilike.%${safeSearch}%,client_id.in.(${matchedClientIds.join(',')})`)
+        } else {
+          r = r.ilike('sale_number', `%${safeSearch}%`)
+        }
+      }
       return r as T
     }
 
@@ -135,12 +156,18 @@ export async function GET(request: NextRequest) {
     // ── 2. Aggregated stats over the FULL filtered range ─────────────────────
     // Preferimos un RPC SQL que suma server-side en 1 round-trip.
     // Fallback: fetchAllRows si el RPC aún no está aplicado en Supabase.
-    const statsRpcPromise = supabase.rpc('get_sales_stats', {
-      p_store_id:  storeFilter,
-      p_from_date: fromDate ? fromDate.toISOString() : null,
-      p_to_date:   toDate   ? toDate.toISOString()   : null,
-      p_search:    search,
-    })
+    // El RPC solo filtra por sale_number; si la búsqueda involucra clientes,
+    // lo omitimos y calculamos stats con el método paginado (que sí aplica el
+    // filtro por client_id vía applyFilters).
+    const useStatsRpc = !safeSearch
+    const statsRpcPromise = useStatsRpc
+      ? supabase.rpc('get_sales_stats', {
+          p_store_id:  storeFilter,
+          p_from_date: fromDate ? fromDate.toISOString() : null,
+          p_to_date:   toDate   ? toDate.toISOString()   : null,
+          p_search:    search,
+        })
+      : Promise.resolve({ data: null, error: null } as any)
 
     const [pageRes, statsRpcRes] = await Promise.all([pageQ, statsRpcPromise])
 
