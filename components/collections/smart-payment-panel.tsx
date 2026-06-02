@@ -22,7 +22,7 @@ import { useStore } from '@/contexts/store-context'
 import {
   Search, Loader2, AlertTriangle, CheckCircle2, Clock,
   Upload, X, ChevronDown, DollarSign, CreditCard, Smartphone,
-  ArrowRight, Users, RefreshCw, Store,
+  ArrowRight, Users, RefreshCw, Store, Landmark,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,9 +72,9 @@ function StatusBadge({ status, days, isOverdue }: { status: string; days?: numbe
 
 const PAYMENT_METHODS = [
   { value: 'EFECTIVO', label: 'Efectivo', icon: DollarSign },
-  { value: 'YAPE', label: 'Yape', icon: Smartphone },
-  { value: 'PLIN', label: 'Plin', icon: Smartphone },
-  { value: 'TRANSFERENCIA', label: 'Transferencia', icon: CreditCard },
+  { value: 'YAPE_PLIN', label: 'Yape - Plin', icon: Smartphone },
+  { value: 'TARJETA', label: 'Tarjeta (POS)', icon: CreditCard },
+  { value: 'TRANSFERENCIA', label: 'Transferencia', icon: Landmark },
 ]
 
 // ─── Main Component ─────────────────────────────────────────────────────────

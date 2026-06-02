@@ -81,8 +81,8 @@ function fmtDateTime(iso: string): string {
   } catch { return iso }
 }
 const METHOD_LABEL: Record<string, string> = {
-  EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin',
-  TRANSFERENCIA: 'Transferencia', TARJETA: 'Tarjeta',
+  EFECTIVO: 'Efectivo', YAPE: 'Yape', PLIN: 'Plin', YAPE_PLIN: 'Yape - Plin',
+  TRANSFERENCIA: 'Transferencia', TARJETA: 'Tarjeta (POS)',
   BCP: 'BCP', INTERBANK: 'Interbank', BBVA: 'BBVA', OTRO: 'Otro',
 }
 function statusLabel(s: string) {
