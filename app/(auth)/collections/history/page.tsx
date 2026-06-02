@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
 import { PaymentHistoryView } from '@/components/collections/payment-history-view'
 
 export const metadata = {
-  title: 'Historial de Cobros | Adiction Boutique',
+  title: 'Historial de Pagos | Adiction Boutique',
 }
 
 export default async function PaymentHistoryPage({
@@ -38,7 +38,7 @@ export default async function PaymentHistoryPage({
   return (
     <div className="p-6 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Historial de Cobros</h1>
+        <h1 className="text-2xl font-bold">Historial de Pagos</h1>
         <p className="text-sm text-muted-foreground">Pagos registrados por período</p>
       </div>
       <PaymentHistoryView

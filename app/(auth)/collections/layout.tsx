@@ -16,9 +16,9 @@ export default function CollectionsLayout({ children }: CollectionsLayoutProps) 
     <div className="space-y-6">
       {/* Section header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Cobranzas</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Pagos</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Gestión inteligente de cobros y seguimiento de deuda
+          Registro de pagos y seguimiento de deuda
         </p>
       </div>
 
