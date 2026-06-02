@@ -121,10 +121,23 @@ export async function fetchClientProfile(
 
   const client = clientResult.data as any
   const purchases = (purchasesResult.data || []) as any[]
-  // Filter credit plans by store client-side: always include legacy plans (sale_id=null)
+  // Filter credit plans by store client-side.
   const allCreditPlans = (creditPlansResult.data || []) as any[]
+  const planStoreFromLegacy = (src: string | null | undefined): string | null => {
+    if (!src) return null
+    if (/boutiquev|hombres/i.test(src)) return 'Tienda Hombres'
+    if (/dbadiction|mujeres/i.test(src)) return 'Tienda Mujeres'
+    return null
+  }
   const creditPlans = storeFilter
-    ? allCreditPlans.filter((p: any) => !p.sale_id || p.sales?.store_id === storeFilter)
+    ? allCreditPlans.filter((p: any) => {
+        // Plan ligado a venta → usar la tienda de la venta
+        if (p.sale_id) return p.sales?.store_id === storeFilter
+        // Plan legacy (sin venta) → derivar tienda por legacy_source.
+        // Si no se puede determinar, incluirlo para no perderlo.
+        const planStore = planStoreFromLegacy(p.legacy_source)
+        return planStore ? planStore === storeFilter : true
+      })
     : allCreditPlans
 
   // Fetch installments for the resolved plan IDs (already store-filtered via credit_plans)

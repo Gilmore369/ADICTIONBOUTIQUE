@@ -19,6 +19,7 @@ import { ClientProfileView } from '@/components/clients/client-profile-view'
 import { Skeleton } from '@/components/shared/loading-skeleton'
 import { createServerClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { cookies } from 'next/headers'
 
 interface ClientProfilePageProps {
   params: {
@@ -61,6 +62,13 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
       if (stores.length === 1) {
         const code = (stores[0] ?? '').toUpperCase()
         storeFilter = STORE_KEY_MAP[code] ?? stores[0]
+      } else {
+        // Multi-store (admin): respetar el selector global de tienda (cookie)
+        const cookieStore = await cookies()
+        const selected = cookieStore.get('selected-store')?.value
+        if (selected && selected.toUpperCase() !== 'ALL') {
+          storeFilter = STORE_KEY_MAP[selected.toUpperCase()] ?? null
+        }
       }
     }
   } catch {

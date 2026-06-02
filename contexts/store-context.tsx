@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 
 export type StoreFilter = 'ALL' | 'MUJERES' | 'HOMBRES'
 
@@ -22,6 +23,7 @@ interface StoreProviderProps {
 }
 
 export function StoreProvider({ children, userStores }: StoreProviderProps) {
+  const router = useRouter()
   // Calcular tiendas permitidas basándose en el perfil
   const allowedStores: StoreFilter[] = (() => {
     if (!userStores || userStores.length === 0) return ['ALL', 'MUJERES', 'HOMBRES']
@@ -69,6 +71,9 @@ export function StoreProvider({ children, userStores }: StoreProviderProps) {
     if (!allowedStores.includes(store)) return
     setSelectedStoreState(store)
     persistStore(store)
+    // Refrescar server components (perfil de cliente, dashboards SSR, etc.) que
+    // leen la cookie selected-store, para que filtren por la tienda elegida.
+    try { router.refresh() } catch { /* ignore */ }
   }
 
   // Obtener el store_id UUID desde la API
