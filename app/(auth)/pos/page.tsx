@@ -44,9 +44,16 @@ import { createSale } from '@/actions/sales'
 import { openCashShift } from '@/actions/cash'
 import { toast } from '@/lib/toast'
 import { createBrowserClient } from '@/lib/supabase/client'
-import { Loader2 } from 'lucide-react'
+import { Loader2, DollarSign, Smartphone, CreditCard, Landmark } from 'lucide-react'
 
 type SaleType = 'CONTADO' | 'CREDITO'
+
+const POS_PAYMENT_METHODS = [
+  { value: 'EFECTIVO', label: 'Efectivo', icon: DollarSign },
+  { value: 'YAPE_PLIN', label: 'Yape - Plin', icon: Smartphone },
+  { value: 'TARJETA', label: 'Tarjeta', icon: CreditCard },
+  { value: 'TRANSFERENCIA', label: 'Transferencia', icon: Landmark },
+]
 
 interface Client {
   id: string
@@ -78,6 +85,9 @@ export default function POSPage() {
   const [processing, setProcessing] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptData, setReceiptData] = useState<any>(null)
+
+  // Payment method (CONTADO)
+  const [posPaymentMethod, setPosPaymentMethod] = useState<string>('EFECTIVO')
 
   // Cash payment calculator
   const [cashReceived, setCashReceived] = useState<string>('')
@@ -251,7 +261,7 @@ export default function POSPage() {
   const canCompleteSale = () => {
     if (cart.items.length === 0) return false
     if (shiftOpen === false) return false   // no open cash shift
-    if (saleType === 'CONTADO' && cashReceived !== '' && cashReceivedNum < cart.total) return false
+    if (saleType === 'CONTADO' && posPaymentMethod === 'EFECTIVO' && cashReceived !== '' && cashReceivedNum < cart.total) return false
     if (saleType === 'CREDITO') {
       if (!selectedClient) return false
       if (installments < 1 || installments > 6) return false
@@ -273,6 +283,7 @@ export default function POSPage() {
       formData.append('store_id', warehouse)
       formData.append('sale_type', saleType)
       formData.append('discount', cart.discount.toString())
+      if (saleType === 'CONTADO') formData.append('payment_method', posPaymentMethod)
       
       // client_id: required for CREDITO, optional for CONTADO
       if (selectedClient) {
@@ -314,6 +325,7 @@ export default function POSPage() {
           discount: cart.discount,
           total: cart.total,
           paymentType: saleType,
+          paymentMethod: saleType === 'CONTADO' ? posPaymentMethod : undefined,
           clientName: selectedClient?.name,
           installments: saleType === 'CREDITO' ? installments : undefined,
           installmentAmount: installmentAmount,
@@ -336,6 +348,7 @@ export default function POSPage() {
         setInstallments(1)
         setSaleType('CONTADO')
         setCashReceived('')
+        setPosPaymentMethod('EFECTIVO')
         try { localStorage.removeItem(POS_SESSION_KEY) } catch { /* ignore */ }
       } else {
         // Caja cerrada → abrir modal inline en vez de error plano
@@ -548,8 +561,47 @@ export default function POSPage() {
             onUpdateDiscount={updateDiscount}
           />
 
-          {/* Cash calculator — only for CONTADO with items */}
+          {/* Payment method selector — CONTADO con items */}
           {saleType === 'CONTADO' && cart.total > 0 && (
+            <Card className="p-4">
+              <h3 className="text-sm font-semibold mb-3">Método de pago</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {POS_PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPosPaymentMethod(value)}
+                    className={[
+                      'flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border text-xs font-medium transition-all text-center leading-tight',
+                      posPaymentMethod === value
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700'
+                        : 'border-border text-muted-foreground hover:border-gray-300 hover:bg-gray-50',
+                    ].join(' ')}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Confirmación para métodos no-efectivo */}
+          {saleType === 'CONTADO' && cart.total > 0 && posPaymentMethod !== 'EFECTIVO' && (
+            <Card className="p-4 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-blue-700 dark:text-blue-300">
+                  Total a cobrar ({POS_PAYMENT_METHODS.find(m => m.value === posPaymentMethod)?.label}):
+                </span>
+                <span className="font-bold text-foreground text-base">
+                  {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(cart.total)}
+                </span>
+              </div>
+            </Card>
+          )}
+
+          {/* Cash calculator — solo CONTADO + Efectivo */}
+          {saleType === 'CONTADO' && cart.total > 0 && posPaymentMethod === 'EFECTIVO' && (
             <Card className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
               <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 mb-3 flex items-center gap-1.5">
                 💵 Efectivo

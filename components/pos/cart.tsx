@@ -49,53 +49,56 @@ export function Cart({
           {items.map((item) => (
             <div
               key={item.product_id}
-              className="flex items-center gap-2 p-2 border rounded-lg"
+              className="p-2.5 border rounded-lg"
             >
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">
-                  {item.product_name}
+              {/* Fila 1: nombre (ancho completo) + eliminar */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-sm leading-snug line-clamp-2 break-words">
+                    {item.product_name}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatCurrency(item.unit_price)} c/u
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatCurrency(item.unit_price)}
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-1">
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                  onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
+                  variant="ghost"
+                  className="h-7 w-7 p-0 shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => onRemoveItem(item.product_id)}
+                  title="Quitar"
                 >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                
-                <span className="w-8 text-center text-sm font-medium">
-                  {item.quantity}
-                </span>
-                
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 w-8 p-0"
-                  onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
-                >
-                  <Plus className="h-3 w-3" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-              
-              <div className="text-sm font-semibold w-20 text-right">
-                {formatCurrency(item.subtotal)}
+
+              {/* Fila 2: cantidad + subtotal */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
+                  >
+                    <Minus className="h-3 w-3" />
+                  </Button>
+                  <span className="w-9 text-center text-sm font-medium">
+                    {item.quantity}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 w-8 p-0"
+                    onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="text-sm font-semibold">
+                  {formatCurrency(item.subtotal)}
+                </div>
               </div>
-              
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={() => onRemoveItem(item.product_id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
             </div>
           ))}
         </div>

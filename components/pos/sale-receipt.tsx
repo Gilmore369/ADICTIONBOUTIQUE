@@ -35,6 +35,7 @@ interface SaleReceiptProps {
   discount: number
   total: number
   paymentType: 'CONTADO' | 'CREDITO'
+  paymentMethod?: string
   clientName?: string
   clientEmail?: string
   installments?: number
@@ -61,6 +62,7 @@ export function SaleReceipt({
   discount,
   total,
   paymentType,
+  paymentMethod,
   clientName,
   clientEmail,
   installments,
@@ -465,9 +467,11 @@ export function SaleReceipt({
           {/* Forma de pago */}
           <div className="mt-4 pt-4 border-t border-dashed text-center">
             <p className="text-sm font-semibold">
-              F. PAGO: {paymentType === 'CONTADO' ? 'EFECTIVO' : 'CRÉDITO'}
+              F. PAGO: {paymentType === 'CONTADO'
+                ? ({ EFECTIVO: 'EFECTIVO', YAPE_PLIN: 'YAPE - PLIN', TARJETA: 'TARJETA', TRANSFERENCIA: 'TRANSFERENCIA' }[(paymentMethod || 'EFECTIVO').toUpperCase()] ?? (paymentMethod || 'EFECTIVO'))
+                : 'CRÉDITO'}
             </p>
-            {paymentType === 'CONTADO' && (
+            {paymentType === 'CONTADO' && (paymentMethod || 'EFECTIVO').toUpperCase() === 'EFECTIVO' && (
               <>
                 <p className="text-sm">RECIBIDO: {formatCurrency(cashReceived ?? total, false)}</p>
                 <p className="text-sm">VUELTO: {formatCurrency(changeAmount ?? 0, false)}</p>
